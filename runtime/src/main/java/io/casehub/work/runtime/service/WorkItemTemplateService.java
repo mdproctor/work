@@ -12,6 +12,7 @@ import jakarta.transaction.Transactional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jboss.logging.Logger;
 import io.casehub.work.runtime.model.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
@@ -30,6 +31,7 @@ import io.casehub.work.runtime.multiinstance.MultiInstanceSpawnService;
 @ApplicationScoped
 public class WorkItemTemplateService {
 
+    private static final Logger LOG = Logger.getLogger(WorkItemTemplateService.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Inject
@@ -94,12 +96,47 @@ public class WorkItemTemplateService {
             final String assigneeIdOverride,
             final String createdBy,
             final String callerRef) {
+        return instantiate(template, titleOverride, assigneeIdOverride, createdBy, callerRef, null);
+    }
+
+    /**
+     * Instantiate a {@link WorkItemTemplate} into a new PENDING {@link WorkItem},
+     * optionally overriding the payload with engine-provided context data.
+     *
+     * <p>
+     * For multi-instance templates, {@code payloadOverride} is not forwarded to
+     * {@code MultiInstanceSpawnService} in this release — the template's
+     * {@link WorkItemTemplate#defaultPayload} is used for each child instance.
+     *
+     * @param template the template to instantiate; must not be null
+     * @param titleOverride optional title; defaults to template name
+     * @param assigneeIdOverride optional direct assignee; overrides candidateGroups routing
+     * @param createdBy the actor (user or system) triggering instantiation
+     * @param callerRef opaque routing key for engine adapters; null for human-initiated creation
+     * @param payloadOverride if non-null and non-blank, used as the WorkItem payload instead of
+     *                        {@link WorkItemTemplate#defaultPayload}; enables engine adapters to
+     *                        inject case context ({@code inputMapping} output) into the task
+     * @return the newly created PENDING WorkItem with all template defaults applied
+     */
+    @Transactional
+    public WorkItem instantiate(
+            final WorkItemTemplate template,
+            final String titleOverride,
+            final String assigneeIdOverride,
+            final String createdBy,
+            final String callerRef,
+            final String payloadOverride) {
 
         if (template.instanceCount != null) {
+            if (payloadOverride != null && !payloadOverride.isBlank()) {
+                // payloadOverride is not forwarded to multi-instance spawning in this release
+                LOG.warnf("payloadOverride ignored for multi-instance template '%s' (casehubio/work#175)", template.id);
+            }
             return multiInstanceSpawnService.get().createGroup(template, titleOverride, createdBy, callerRef);
         }
 
-        final WorkItemCreateRequest request = toCreateRequest(template, titleOverride, assigneeIdOverride, createdBy, callerRef);
+        final WorkItemCreateRequest request =
+            toCreateRequest(template, titleOverride, assigneeIdOverride, createdBy, callerRef, payloadOverride);
         WorkItem workItem = workItemService.create(request);
 
         // Apply template labels as MANUAL — the filter engine may add INFERRED on top
@@ -128,7 +165,7 @@ public class WorkItemTemplateService {
             final String titleOverride,
             final String assigneeIdOverride,
             final String createdBy) {
-        return toCreateRequest(template, titleOverride, assigneeIdOverride, createdBy, null);
+        return toCreateRequest(template, titleOverride, assigneeIdOverride, createdBy, null, null);
     }
 
     /**
@@ -150,10 +187,39 @@ public class WorkItemTemplateService {
             final String assigneeIdOverride,
             final String createdBy,
             final String callerRef) {
+        return toCreateRequest(template, titleOverride, assigneeIdOverride, createdBy, callerRef, null);
+    }
+
+    /**
+     * Convert a template and optional overrides into a {@link WorkItemCreateRequest}.
+     *
+     * <p>
+     * Static for unit testability — no CDI or JPA dependency.
+     *
+     * @param template the template providing defaults
+     * @param titleOverride if non-null and non-blank, used as the title; otherwise template name
+     * @param assigneeIdOverride if non-null, set as the direct assignee
+     * @param createdBy the actor triggering the instantiation
+     * @param callerRef opaque routing key set by engine adapters (null for human-initiated creation)
+     * @param payloadOverride if non-null and non-blank, used as the payload instead of
+     *                        {@link WorkItemTemplate#defaultPayload}; null falls back to template default
+     * @return the create request ready for {@link WorkItemService#create}
+     */
+    public static WorkItemCreateRequest toCreateRequest(
+            final WorkItemTemplate template,
+            final String titleOverride,
+            final String assigneeIdOverride,
+            final String createdBy,
+            final String callerRef,
+            final String payloadOverride) {
 
         final String title = (titleOverride != null && !titleOverride.isBlank())
                 ? titleOverride
                 : template.name;
+
+        final String payload = (payloadOverride != null && !payloadOverride.isBlank())
+                ? payloadOverride
+                : template.defaultPayload;
 
         return new WorkItemCreateRequest(
                 title,
@@ -166,7 +232,7 @@ public class WorkItemTemplateService {
                 template.candidateUsers,
                 template.requiredCapabilities,
                 createdBy,
-                template.defaultPayload,
+                payload,
                 null, // claimDeadline — use config default unless template overrides
                 null, // expiresAt — use config default unless template overrides
                 null, // followUpDate
@@ -219,5 +285,45 @@ public class WorkItemTemplateService {
     @Transactional
     public Optional<WorkItemTemplate> findById(final UUID templateId) {
         return Optional.ofNullable(WorkItemTemplate.findById(templateId));
+    }
+
+    /**
+     * Find a template by exact name.
+     *
+     * @param name the template name to look up
+     * @return the matching template, or empty if none found
+     * @throws IllegalStateException if more than one template shares this name — a
+     *         configuration error; the operator must deduplicate before the ref is usable.
+     *         A DB-level UNIQUE constraint is the correct long-term enforcement
+     *         (tracked as casehubio/work#174).
+     */
+    @Transactional
+    public Optional<WorkItemTemplate> findByName(final String name) {
+        final List<WorkItemTemplate> matches = WorkItemTemplate.find("name", name).list();
+        if (matches.size() > 1) {
+            throw new IllegalStateException(
+                "Ambiguous template name '" + name + "': " + matches.size() + " templates found");
+        }
+        return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
+    }
+
+    /**
+     * Resolve a template by UUID string or name.
+     *
+     * <p>If {@code templateRef} parses as a UUID, resolution is by ID. Otherwise resolution
+     * is by name via {@link #findByName}.
+     *
+     * @param templateRef a UUID string or a template name
+     * @return the matching template, or empty if not found
+     * @throws IllegalStateException if name resolution finds multiple matches
+     */
+    public Optional<WorkItemTemplate> findByRef(final String templateRef) {
+        final UUID id;
+        try {
+            id = UUID.fromString(templateRef);
+        } catch (IllegalArgumentException e) {
+            return findByName(templateRef);
+        }
+        return findById(id);
     }
 }
