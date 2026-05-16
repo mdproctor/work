@@ -141,6 +141,53 @@ class WorkItemTemplateServiceTest {
         assertThat(labels.get(0).appliedBy).isEqualTo("template");
     }
 
+    // ── toCreateRequest: payloadOverride ─────────────────────────────────────
+
+    @Test
+    void toCreateRequest_payloadOverride_nonNull_usesOverride() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"type\":\"default\"}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "{\"type\":\"override\"}");
+        assertThat(req.payload()).isEqualTo("{\"type\":\"override\"}");
+    }
+
+    @Test
+    void toCreateRequest_payloadOverride_null_usesTemplateDefault() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"type\":\"default\"}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, null);
+        assertThat(req.payload()).isEqualTo("{\"type\":\"default\"}");
+    }
+
+    @Test
+    void toCreateRequest_payloadOverride_blank_usesTemplateDefault() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"type\":\"default\"}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "   ");
+        assertThat(req.payload()).isEqualTo("{\"type\":\"default\"}");
+    }
+
+    @Test
+    void toCreateRequest_payloadOverride_noTemplateDefault_usesOverride() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = null;
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "{\"case\":\"42\"}");
+        assertThat(req.payload()).isEqualTo("{\"case\":\"42\"}");
+    }
+
+    @Test
+    void toCreateRequest_payloadOverride_neitherSet_payloadIsNull() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = null;
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, null);
+        assertThat(req.payload()).isNull();
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private WorkItemTemplate template(final String name) {
