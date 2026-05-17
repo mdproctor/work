@@ -13,7 +13,9 @@ import jakarta.transaction.Transactional;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jboss.logging.Logger;
+import io.casehub.work.api.Outcome;
 import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.runtime.model.OutcomeCodecs;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemLabel;
@@ -240,7 +242,34 @@ public class WorkItemTemplateService {
                 null, // confidenceScore — template-spawned items have no AI confidence
                 callerRef,
                 template.defaultClaimBusinessHours, // business hours claim deadline from template
-                template.defaultExpiryBusinessHours); // business hours expiry from template
+                template.defaultExpiryBusinessHours, // business hours expiry from template
+                template.id,
+                parseOutcomeNames(template.outcomes));
+    }
+
+    /** @see OutcomeCodecs#parseOutcomeNames */
+    public static List<String> parseOutcomeNames(final String outcomesJson) {
+        return OutcomeCodecs.parseOutcomeNames(outcomesJson);
+    }
+
+    /** @see OutcomeCodecs#encodeOutcomes */
+    public static String encodeOutcomes(final List<Outcome> outcomes) {
+        return OutcomeCodecs.encodeOutcomes(outcomes);
+    }
+
+    /** @see OutcomeCodecs#encodePermittedOutcomes */
+    public static String encodePermittedOutcomes(final List<String> names) {
+        return OutcomeCodecs.encodePermittedOutcomes(names);
+    }
+
+    /** @see OutcomeCodecs#decodePermittedOutcomes */
+    public static List<String> decodePermittedOutcomes(final String permittedOutcomesJson) {
+        return OutcomeCodecs.decodePermittedOutcomes(permittedOutcomesJson);
+    }
+
+    /** @see OutcomeCodecs#decodeOutcomes */
+    public static List<Outcome> decodeOutcomes(final String outcomesJson) {
+        return OutcomeCodecs.decodeOutcomes(outcomesJson);
     }
 
     /**

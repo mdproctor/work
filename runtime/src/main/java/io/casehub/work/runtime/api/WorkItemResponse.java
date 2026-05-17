@@ -52,5 +52,21 @@ public record WorkItemResponse(
          * concurrent modifications — if the version you received differs from what another
          * client received, a modification occurred between your reads.
          */
-        Long version) {
+        Long version,
+        /**
+         * UUID of the WorkItemTemplate this item was instantiated from.
+         * Null for items created directly. Use GET /workitem-templates/{templateId}
+         * to resolve outcome display names.
+         */
+        UUID templateId,
+        /**
+         * The named outcome recorded at completion. Null until COMPLETED.
+         * Validated against permittedOutcomes at completion time.
+         */
+        String outcome,
+        /**
+         * Permitted outcome names snapshotted from the template at instantiation.
+         * Null means no constraint — any outcome (or none) is accepted.
+         */
+        List<String> permittedOutcomes) {
 }

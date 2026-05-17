@@ -246,7 +246,7 @@ class WorkItemServiceTest {
                 "Test item", "Do something", null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null);
     }
 
     // -------------------------------------------------------------------------
@@ -297,7 +297,7 @@ class WorkItemServiceTest {
                 "Explicit expiry", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, null, null,
-                "system", null, null, explicit, null, null, null, null, null, null);
+                "system", null, null, explicit, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
         assertThat(wi.expiresAt).isEqualTo(explicit);
     }
@@ -308,7 +308,7 @@ class WorkItemServiceTest {
                 "Group item", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, "team-a,team-b", null, null,
-                "system", null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
         assertThat(wi.candidateGroups).isEqualTo("team-a,team-b");
     }
@@ -380,7 +380,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        wi = service.complete(wi.id, "alice", "Done");
+        wi = service.complete(wi.id, "alice", "Done", null);
         assertThat(wi.status).isEqualTo(WorkItemStatus.COMPLETED);
     }
 
@@ -389,7 +389,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        wi = service.complete(wi.id, "alice", "Resolved successfully");
+        wi = service.complete(wi.id, "alice", "Resolved successfully", null);
         assertThat(wi.completedAt).isNotNull();
         assertThat(wi.resolution).isEqualTo("Resolved successfully");
     }
@@ -399,7 +399,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "Done");
+        service.complete(wi.id, "alice", "Done", null);
         List<AuditEntry> trail = auditStore.findByWorkItemId(wi.id);
         assertThat(trail.get(trail.size() - 1).event).isEqualTo("COMPLETED");
     }
@@ -681,7 +681,7 @@ class WorkItemServiceTest {
     @Test
     void complete_pendingItem_throwsIllegalStateException() {
         WorkItem wi = service.create(basicRequest());
-        assertThatThrownBy(() -> service.complete(wi.id, "alice", "done"))
+        assertThatThrownBy(() -> service.complete(wi.id, "alice", "done", null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -690,8 +690,8 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
-        assertThatThrownBy(() -> service.complete(wi.id, "alice", "done again"))
+        service.complete(wi.id, "alice", "done", null);
+        assertThatThrownBy(() -> service.complete(wi.id, "alice", "done again", null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -722,7 +722,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
+        service.complete(wi.id, "alice", "done", null);
         assertThatThrownBy(() -> service.suspend(wi.id, "alice", "wait"))
                 .isInstanceOf(IllegalStateException.class);
     }
@@ -756,7 +756,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
+        service.complete(wi.id, "alice", "done", null);
 
         List<AuditEntry> trail = auditStore.findByWorkItemId(wi.id);
         assertThat(trail).hasSize(4);
@@ -797,7 +797,7 @@ class WorkItemServiceTest {
                 "Group task", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, "team-a,team-b", null, null,
-                "system", null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
 
         List<WorkItem> inbox = repo.scan(WorkItemQuery.inbox(null, List.of("team-a"), null));
@@ -810,7 +810,7 @@ class WorkItemServiceTest {
                 "Candidate task", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, "bob", null,
-                "system", null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
 
         List<WorkItem> inbox = repo.scan(WorkItemQuery.inbox("bob", null, null));
@@ -822,7 +822,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
+        service.complete(wi.id, "alice", "done", null);
 
         List<WorkItem> inbox = repo.scan(
                 WorkItemQuery.inbox("alice", null, null).toBuilder().status(WorkItemStatus.PENDING).build());
@@ -896,7 +896,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
+        service.complete(wi.id, "alice", "done", null);
         assertThatThrownBy(() -> service.cancel(wi.id, "admin", "reason"))
                 .isInstanceOf(IllegalStateException.class);
     }
@@ -920,7 +920,7 @@ class WorkItemServiceTest {
         var request = new WorkItemCreateRequest(
                 "title", null, null, null, null, null, null, null, null, "alice",
                 null, null, null, null,
-                List.of(new WorkItemLabelResponse("legal", LabelPersistence.INFERRED, null)), null, null, null, null);
+                List.of(new WorkItemLabelResponse("legal", LabelPersistence.INFERRED, null)), null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -932,7 +932,7 @@ class WorkItemServiceTest {
         var request = new WorkItemCreateRequest(
                 "title", null, null, null, null, null, null, null, null, "alice",
                 null, null, null, null,
-                List.of(new WorkItemLabelResponse("legal", LabelPersistence.MANUAL, "alice")), null, null, null, null);
+                List.of(new WorkItemLabelResponse("legal", LabelPersistence.MANUAL, "alice")), null, null, null, null, null, null);
 
         var result = service.create(request);
 
@@ -949,7 +949,7 @@ class WorkItemServiceTest {
     void addLabel_addsManualLabelToWorkItem() {
         var created = service.create(new WorkItemCreateRequest(
                 "label-add-test", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null, null, null, null));
 
         var updated = service.addLabel(created.id, "legal/contracts", "alice");
 
@@ -965,7 +965,7 @@ class WorkItemServiceTest {
                 "label-remove-test", null, null, null, null, null, null, null, null, "alice",
                 null, null, null, null,
                 List.of(new WorkItemLabelResponse("legal/contracts", LabelPersistence.MANUAL, "alice")), null, null, null,
-                null));
+                null, null, null));
 
         var updated = service.removeLabel(created.id, "legal/contracts");
 
@@ -976,7 +976,7 @@ class WorkItemServiceTest {
     void removeLabel_nonExistentLabel_throwsLabelNotFoundException() {
         var created = service.create(new WorkItemCreateRequest(
                 "remove-nonexistent", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.removeLabel(created.id, "nonexistent/label"))
                 .isInstanceOf(LabelNotFoundException.class)

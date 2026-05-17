@@ -218,7 +218,15 @@ public class WorkItemResource {
                 }
             }
         }
-        return Response.ok(WorkItemMapper.toResponse(workItemService.complete(id, actor, resolution))).build();
+        final String outcome = body != null ? body.outcome() : null;
+        try {
+            return Response.ok(WorkItemMapper.toResponse(
+                    workItemService.complete(id, actor, resolution, outcome))).build();
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
     }
 
     @PUT

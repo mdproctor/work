@@ -53,11 +53,11 @@ class MultiInstanceCoordinatorTest {
 
         inTx(() -> workItemService.claim(childIds.get(0), "alice"));
         inTx(() -> workItemService.start(childIds.get(0), "alice"));
-        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved", null));
 
         inTx(() -> workItemService.claim(childIds.get(1), "bob"));
         inTx(() -> workItemService.start(childIds.get(1), "bob"));
-        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved", null));
 
         Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             WorkItem parent = inTx(() -> WorkItem.findById(parentId));
@@ -103,11 +103,11 @@ class MultiInstanceCoordinatorTest {
 
         inTx(() -> workItemService.claim(childIds.get(0), "alice"));
         inTx(() -> workItemService.start(childIds.get(0), "alice"));
-        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved", null));
 
         inTx(() -> workItemService.claim(childIds.get(1), "bob"));
         inTx(() -> workItemService.start(childIds.get(1), "bob"));
-        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved", null));
 
         Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             long cancelled = inTx(() -> WorkItem.count(
@@ -134,11 +134,11 @@ class MultiInstanceCoordinatorTest {
 
         inTx(() -> workItemService.claim(childIds.get(0), "alice"));
         inTx(() -> workItemService.start(childIds.get(0), "alice"));
-        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved", null));
 
         inTx(() -> workItemService.claim(childIds.get(1), "bob"));
         inTx(() -> workItemService.start(childIds.get(1), "bob"));
-        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved", null));
 
         Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             WorkItem parent = inTx(() -> WorkItem.findById(parentId));
@@ -158,7 +158,7 @@ class MultiInstanceCoordinatorTest {
         for (UUID childId : childIds) {
             inTx(() -> workItemService.claim(childId, "alice"));
             inTx(() -> workItemService.start(childId, "alice"));
-            inTx(() -> workItemService.complete(childId, "alice", "approved"));
+            inTx(() -> workItemService.complete(childId, "alice", "approved", null));
         }
 
         Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
