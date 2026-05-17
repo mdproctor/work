@@ -100,6 +100,29 @@ class WorkItemEventPayloadTest {
         assertThat(payload.type()).endsWith("rejected");
     }
 
+    @Test
+    void payload_roundTrip_preservesOutcome() {
+        final WorkItem wi = workItem(UUID.randomUUID());
+        wi.outcome = "approved";
+        final WorkItemLifecycleEvent event = WorkItemLifecycleEvent.of("COMPLETED", wi, "alice", null);
+
+        final WorkItemEventPayload payload = WorkItemEventPayload.from(event);
+        final WorkItemLifecycleEvent reconstructed = payload.toEvent();
+
+        assertThat(payload.outcome()).isEqualTo("approved");
+        assertThat(reconstructed.outcome()).isEqualTo("approved");
+    }
+
+    @Test
+    void payload_roundTrip_nullOutcomePreserved() {
+        final WorkItemLifecycleEvent event = sampleEvent("COMPLETED");
+        // outcome is null (no outcome on workItem)
+
+        final WorkItemEventPayload payload = WorkItemEventPayload.from(event);
+        assertThat(payload.outcome()).isNull();
+        assertThat(payload.toEvent().outcome()).isNull();
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private WorkItemLifecycleEvent sampleEvent(final String name) {

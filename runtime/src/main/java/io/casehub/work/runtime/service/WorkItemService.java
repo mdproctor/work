@@ -3,6 +3,7 @@ package io.casehub.work.runtime.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -78,6 +79,8 @@ public class WorkItemService {
         item.confidenceScore = request.confidenceScore();
         item.callerRef = request.callerRef();
         item.followUpDate = request.followUpDate();
+        item.templateId = request.templateId();
+        item.permittedOutcomes = WorkItemTemplateService.encodePermittedOutcomes(request.permittedOutcomes());
 
         final Instant now = Instant.now();
         item.createdAt = now;
@@ -224,14 +227,17 @@ public class WorkItemService {
     }
 
     @Transactional
-    public WorkItem complete(final UUID id, final String actorId, final String resolution) {
+    public WorkItem complete(final UUID id, final String actorId, final String resolution,
+            final String outcome) {
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot complete WorkItem in status: " + item.status);
         }
+        validateOutcome(item, outcome);
         item.status = WorkItemStatus.COMPLETED;
         item.completedAt = Instant.now();
         item.resolution = resolution;
+        item.outcome = outcome;
         final WorkItem saved = workItemStore.put(item);
         audit(saved.id, "COMPLETED", actorId, null);
         if (lifecycleEvent != null) {
@@ -266,19 +272,22 @@ public class WorkItemService {
      * @param id the WorkItem UUID
      * @param actorId who completed it
      * @param resolution the resolution payload
+     * @param outcome the named outcome (validated against permittedOutcomes if set)
      * @param rationale the actor's stated basis for the decision (GDPR Art. 22 compliance)
      * @param planRef the policy/procedure version that governed this decision
      */
     @Transactional
     public WorkItem complete(final UUID id, final String actorId, final String resolution,
-            final String rationale, final String planRef) {
+            final String outcome, final String rationale, final String planRef) {
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot complete WorkItem in status: " + item.status);
         }
+        validateOutcome(item, outcome);
         item.status = WorkItemStatus.COMPLETED;
         item.completedAt = Instant.now();
         item.resolution = resolution;
+        item.outcome = outcome;
         final WorkItem saved = workItemStore.put(item);
         audit(saved.id, "COMPLETED", actorId, null);
         if (lifecycleEvent != null) {
@@ -288,6 +297,35 @@ public class WorkItemService {
             lifecycleEvent.fireAsync(evt);
         }
         return saved;
+    }
+
+    /**
+     * Validate the outcome name against the WorkItem's permitted outcomes list.
+     * No-op when the WorkItem has no permitted outcomes (unconstrained).
+     * Throws {@link IllegalArgumentException} when the outcome is absent or not in the list.
+     */
+    private void validateOutcome(final WorkItem item, final String outcome) {
+        if (item.permittedOutcomes == null) {
+            return; // no constraint — any outcome (or none) is accepted
+        }
+        if (outcome == null || outcome.isBlank()) {
+            throw new IllegalArgumentException(
+                    "outcome is required — this WorkItem was created from a template that declares named outcomes");
+        }
+        if (outcome.length() > 255) {
+            throw new IllegalArgumentException(
+                    "outcome exceeds maximum length of 255 characters");
+        }
+        final List<String> permitted = WorkItemTemplateService.decodePermittedOutcomes(item.permittedOutcomes);
+        if (permitted == null) {
+            // permittedOutcomes is non-null but failed to decode — data integrity error, not a caller error
+            throw new IllegalStateException(
+                    "permittedOutcomes on WorkItem " + item.id + " is non-null but failed to decode — data integrity error");
+        }
+        if (!permitted.contains(outcome)) {
+            throw new IllegalArgumentException(
+                    "outcome '" + outcome + "' is not permitted; allowed values: " + permitted);
+        }
     }
 
     /**
@@ -487,7 +525,8 @@ public class WorkItemService {
                 title, source.description, source.category, source.formKey,
                 source.priority, null, source.candidateGroups, source.candidateUsers,
                 source.requiredCapabilities, createdBy, source.payload,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null,
+                null, null); // no template provenance for clones
 
         WorkItem clone = create(req);
 

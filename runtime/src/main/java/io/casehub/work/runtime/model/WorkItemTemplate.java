@@ -129,6 +129,16 @@ public class WorkItemTemplate extends PanacheEntityBase {
     public String labelPaths;
 
     /**
+     * JSON array of named outcome definitions for this template.
+     * Example: {@code [{"name":"approved","displayName":"Approved"},{"name":"rejected","displayName":"Rejected"}]}
+     * Null means this template imposes no outcome constraint. When non-null,
+     * {@code WorkItemService.complete()} requires the caller to supply one of the declared names.
+     * Name strings are snapshotted onto {@link WorkItem#permittedOutcomes} at instantiation time.
+     */
+    @Column(name = "outcomes", columnDefinition = "TEXT")
+    public String outcomes;
+
+    /**
      * Number of parallel instances to spawn when this template is instantiated.
      * Null means standard (non-multi-instance) instantiation.
      */

@@ -5,6 +5,7 @@ import java.util.List;
 import io.casehub.work.runtime.model.AuditEntry;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
+import io.casehub.work.runtime.model.OutcomeCodecs;
 import io.casehub.work.runtime.model.WorkItemLabel;
 
 public final class WorkItemMapper {
@@ -23,7 +24,9 @@ public final class WorkItemMapper {
                 wi.createdAt, wi.updatedAt, wi.assignedAt, wi.startedAt,
                 wi.completedAt, wi.suspendedAt,
                 wi.labels == null ? List.of() : wi.labels.stream().map(WorkItemMapper::toLabelResponse).toList(),
-                wi.confidenceScore, wi.callerRef, wi.version);
+                wi.confidenceScore, wi.callerRef, wi.version,
+                wi.templateId, wi.outcome,
+                OutcomeCodecs.decodePermittedOutcomes(wi.permittedOutcomes));
     }
 
     public static AuditEntryResponse toAuditResponse(final AuditEntry e) {
@@ -45,7 +48,8 @@ public final class WorkItemMapper {
                 wi.claimDeadline, wi.expiresAt, wi.followUpDate,
                 wi.createdAt, wi.updatedAt, wi.assignedAt, wi.startedAt,
                 wi.completedAt, wi.suspendedAt,
-                labelResponses, auditResponses, wi.confidenceScore, wi.callerRef, wi.version);
+                labelResponses, auditResponses, wi.confidenceScore, wi.callerRef, wi.version,
+                wi.templateId, wi.outcome);
     }
 
     public static WorkItemCreateRequest toServiceRequest(final CreateWorkItemRequest req) {
@@ -55,7 +59,8 @@ public final class WorkItemMapper {
                 req.candidateUsers(), req.requiredCapabilities(), req.createdBy(),
                 req.payload(), req.claimDeadline(), req.expiresAt(), req.followUpDate(),
                 req.labels(), req.confidenceScore(), req.callerRef(),
-                req.claimDeadlineBusinessHours(), req.expiresAtBusinessHours());
+                req.claimDeadlineBusinessHours(), req.expiresAtBusinessHours(),
+                null, null); // templateId and permittedOutcomes — not set for direct creation
     }
 
     static WorkItemLabelResponse toLabelResponse(final WorkItemLabel label) {

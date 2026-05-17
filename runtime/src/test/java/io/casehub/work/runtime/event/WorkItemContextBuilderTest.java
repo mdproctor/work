@@ -9,6 +9,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemPriority;
 import io.casehub.work.runtime.model.WorkItemStatus;
@@ -37,6 +39,29 @@ class WorkItemContextBuilderTest {
         wi.id = UUID.randomUUID();
         final Map<String, Object> map = WorkItemContextBuilder.toMap(wi);
         assertThat(map.keySet()).containsAll(expected);
+    }
+
+    @Test
+    void toMap_containsOutcomeValue() {
+        final WorkItem wi = new WorkItem();
+        wi.id = UUID.randomUUID();
+        wi.outcome = "approved";
+        final Map<String, Object> map = WorkItemContextBuilder.toMap(wi);
+        assertThat(map.get("outcome")).isEqualTo("approved");
+    }
+
+    @Test
+    void toMap_permittedOutcomes_decodedToList_notRawJson() {
+        // Verifies that permittedOutcomes is a List<String> for JEXL collection semantics,
+        // not the raw JSON string (which would break .contains() in filter expressions).
+        final WorkItem wi = new WorkItem();
+        wi.id = UUID.randomUUID();
+        wi.permittedOutcomes = "[\"approved\",\"rejected\"]";
+        final Map<String, Object> map = WorkItemContextBuilder.toMap(wi);
+        assertThat(map.get("permittedOutcomes")).isInstanceOf(List.class);
+        @SuppressWarnings("unchecked")
+        final List<String> names = (List<String>) map.get("permittedOutcomes");
+        assertThat(names).containsExactly("approved", "rejected");
     }
 
     @Test

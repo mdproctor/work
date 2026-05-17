@@ -267,6 +267,35 @@ public class WorkItem extends PanacheEntityBase {
     public UUID parentId;
 
     // -------------------------------------------------------------------------
+    // Named outcomes (Refs #169)
+    // -------------------------------------------------------------------------
+
+    /**
+     * UUID of the WorkItemTemplate this item was instantiated from.
+     * Null for items created directly (not via template). Used for provenance and
+     * as a lookup key for outcome display names via the template endpoint.
+     */
+    @Column(name = "template_id")
+    public UUID templateId;
+
+    /**
+     * JSON array of permitted outcome names snapshotted from the template at instantiation.
+     * Example: {@code ["approved","rejected","needs-revision"]}
+     * Null means no constraint — any outcome (or none) is accepted at completion.
+     * Set by {@code WorkItemTemplateService.instantiate()}; never modified after creation.
+     */
+    @Column(name = "permitted_outcomes", columnDefinition = "TEXT")
+    public String permittedOutcomes;
+
+    /**
+     * The outcome name recorded when this item reached {@link WorkItemStatus#COMPLETED}.
+     * Null until the item is completed. Validated against {@link #permittedOutcomes}
+     * when that field is non-null.
+     */
+    @Column(name = "outcome", length = 255)
+    public String outcome;
+
+    // -------------------------------------------------------------------------
     // JPA lifecycle callbacks
     // -------------------------------------------------------------------------
 

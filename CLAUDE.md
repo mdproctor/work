@@ -180,7 +180,8 @@ casehub-work/
 │       ├── SpawnRequest.java              — record: parentId, idempotencyKey, children
 │       ├── ChildSpec.java                 — record: templateId, callerRef, overrides
 │       ├── SpawnResult.java               — record: groupId, children, created
-│       └── SpawnedChild.java              — record: workItemId, callerRef
+│       ├── SpawnedChild.java              — record: workItemId, callerRef
+│       └── Outcome.java                   — record: name (machine key), displayName (human label); Tier 1 pure Java
 ├── casehub-work-core/                     — Jandex library module (groupId io.casehub)
 │   └── src/main/java/io/casehub/work/core/
 │       ├── strategy/
@@ -217,7 +218,8 @@ casehub-work/
 │       │   ├── WorkItemStatus.java        — enum: PENDING|ASSIGNED|IN_PROGRESS|...
 │       │   ├── WorkItemPriority.java      — enum: LOW|MEDIUM|HIGH|URGENT
 │       │   ├── WorkItemSpawnGroup.java    — spawn batch tracking (idempotency + membership)
-│       │   └── AuditEntry.java            — PanacheEntity (append-only audit log)
+│       │   ├── AuditEntry.java            — PanacheEntity (append-only audit log)
+│       │   └── OutcomeCodecs.java         — pure-static JSON encode/decode for WorkItemTemplate.outcomes and WorkItem.permittedOutcomes; no CDI, safe from any layer
 │       ├── repository/
 │       │   ├── WorkItemStore.java         — SPI: put, get, scan(WorkItemQuery), scanAll
 │       │   ├── WorkItemQuery.java         — query value object: inbox(), expired(), claimExpired(), byLabelPattern(), all()
@@ -462,6 +464,8 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 - `callerRef` in multi-instance groups is stored on the **parent** WorkItem only; children have null. `MultiInstanceGroupPolicy.buildGroupEvent()` reads `parent.callerRef` and echoes it in `WorkItemGroupLifecycleEvent` for engine routing. Do not propagate callerRef to children — `WorkItemLifecycleAdapter` in the engine would attempt a PlanItem transition for each child completion (N transitions instead of one).
 - `IssueLinkStore` is the SPI for `WorkItemIssueLink` persistence — inject it via CDI rather than calling `WorkItemIssueLink` Panache static methods directly. `JpaIssueLinkStore` is the default `@ApplicationScoped` implementation. `InMemoryIssueLinkStore` in `casehub-work-testing` is the `@Alternative @Priority(1)` for tests. The testing module depends on `casehub-work-issue-tracker` at compile scope to host this class.
 - Mocking `Instance<T>` in Mockito: use `thenAnswer(inv -> List.of(bean).stream())` not `thenReturn(List.of(bean).stream())`. Streams are single-use — `thenReturn` caches and returns the same exhausted stream on every call after the first. Any service that calls `providerFor()` or `availableTypes()` twice in one test (e.g. `onLifecycleEvent` with multiple links) will silently get zero results on the second call. Same applies to `iterator()`.
+- Named outcomes on `WorkItemTemplate` (#169): `WorkItemTemplate.outcomes` stores `[{"name":"approved","displayName":"Approved"}]` as JSON TEXT; `WorkItem.permittedOutcomes` stores `["approved","rejected"]` as JSON TEXT (name strings only, snapshotted at instantiation). `WorkItemService.complete()` requires a valid outcome when `permittedOutcomes` is non-null. `OutcomeCodecs` (model package) is the shared JSON utility — import that, not `WorkItemTemplateService`, from the mapping layer. `WorkItemContextBuilder.toMap()` decodes `permittedOutcomes` to `List<String>` so JEXL filter rules can use `.contains()` correctly.
+- Multi-column `ALTER TABLE ... ADD COLUMN x, ADD COLUMN y` is not supported in H2 even in `MODE=PostgreSQL` — split into separate `ALTER TABLE` statements per column.
 
 ---
 
