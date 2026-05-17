@@ -104,7 +104,7 @@ public class CreditDecisionScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));
@@ -177,7 +177,7 @@ public class CreditDecisionScenario {
         workItemService.complete(
                 wi.id,
                 ACTOR_BOB,
-                "{\"decision\": \"APPROVED\", \"conditions\": \"Income verified; standard terms apply\"}",
+                "{\"decision\": \"APPROVED\", \"conditions\": \"Income verified; standard terms apply\"}", null,
                 "Income verified against payslips",
                 "credit-policy-v2.1");
         steps.add(new StepLog(9, description9, wi.id));

@@ -43,6 +43,9 @@ public class WorkItemService {
     EntityManager em;
 
     @Inject
+    FormSchemaValidationService schemaValidator;
+
+    @Inject
     Event<WorkItemLifecycleEvent> lifecycleEvent;
 
     @Inject
@@ -81,6 +84,8 @@ public class WorkItemService {
         item.followUpDate = request.followUpDate();
         item.templateId = request.templateId();
         item.permittedOutcomes = WorkItemTemplateService.encodePermittedOutcomes(request.permittedOutcomes());
+        item.inputDataSchema = request.inputDataSchema();
+        item.outputDataSchema = request.outputDataSchema();
 
         final Instant now = Instant.now();
         item.createdAt = now;
@@ -116,6 +121,13 @@ public class WorkItemService {
                             "INFERRED labels cannot be submitted at creation time — they are managed by the filter engine");
                 }
                 item.labels.add(new WorkItemLabel(labelReq.path(), labelReq.persistence(), labelReq.appliedBy()));
+            }
+        }
+
+        if (item.inputDataSchema != null) {
+            final List<String> violations = schemaValidator.validate(item.inputDataSchema, item.payload);
+            if (!violations.isEmpty()) {
+                throw new IllegalArgumentException("payload violates inputDataSchema: " + violations);
             }
         }
 
@@ -186,6 +198,7 @@ public class WorkItemService {
     /**
      * Complete a WorkItem from a system actor, accepting any non-terminal status.
      * Used by the multi-instance coordinator when group policy triggers parent completion.
+     * Schema validation (inputDataSchema/outputDataSchema) is intentionally bypassed for system completions.
      */
     @Transactional
     public WorkItem completeFromSystem(final UUID id, final String actorId, final String resolution) {
@@ -234,6 +247,12 @@ public class WorkItemService {
             throw new IllegalStateException("Cannot complete WorkItem in status: " + item.status);
         }
         validateOutcome(item, outcome);
+        if (item.outputDataSchema != null) {
+            final List<String> violations = schemaValidator.validate(item.outputDataSchema, resolution);
+            if (!violations.isEmpty()) {
+                throw new IllegalArgumentException("resolution violates outputDataSchema: " + violations);
+            }
+        }
         item.status = WorkItemStatus.COMPLETED;
         item.completedAt = Instant.now();
         item.resolution = resolution;
@@ -284,6 +303,12 @@ public class WorkItemService {
             throw new IllegalStateException("Cannot complete WorkItem in status: " + item.status);
         }
         validateOutcome(item, outcome);
+        if (item.outputDataSchema != null) {
+            final List<String> violations = schemaValidator.validate(item.outputDataSchema, resolution);
+            if (!violations.isEmpty()) {
+                throw new IllegalArgumentException("resolution violates outputDataSchema: " + violations);
+            }
+        }
         item.status = WorkItemStatus.COMPLETED;
         item.completedAt = Instant.now();
         item.resolution = resolution;
@@ -526,7 +551,8 @@ public class WorkItemService {
                 source.priority, null, source.candidateGroups, source.candidateUsers,
                 source.requiredCapabilities, createdBy, source.payload,
                 null, null, null, null, null, null, null, null,
-                null, null); // no template provenance for clones
+                null, null, // no template provenance for clones
+                null, null); // no schema constraints for clones
 
         WorkItem clone = create(req);
 

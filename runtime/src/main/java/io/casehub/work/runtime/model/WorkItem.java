@@ -295,6 +295,22 @@ public class WorkItem extends PanacheEntityBase {
     @Column(name = "outcome", length = 255)
     public String outcome;
 
+    /**
+     * JSON Schema (draft-07) for {@link #payload}, snapshotted from the template at
+     * instantiation. Null for WorkItems created without a template or from a template
+     * that declares no input schema. Validated by {@code WorkItemService.create()}.
+     */
+    @Column(name = "input_data_schema", columnDefinition = "TEXT")
+    public String inputDataSchema;
+
+    /**
+     * JSON Schema (draft-07) for {@link #resolution}, snapshotted from the template at
+     * instantiation. Null means no output constraint. Validated by
+     * {@code WorkItemService.complete()}.
+     */
+    @Column(name = "output_data_schema", columnDefinition = "TEXT")
+    public String outputDataSchema;
+
     // -------------------------------------------------------------------------
     // JPA lifecycle callbacks
     // -------------------------------------------------------------------------

@@ -90,7 +90,7 @@ public class ExpenseApprovalScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));
@@ -113,7 +113,7 @@ public class ExpenseApprovalScenario {
         workItemService.complete(
                 wi.id,
                 ACTOR_ASSIGNEE,
-                "{\"approved\": true, \"amount\": 450.00, \"comment\": \"Within policy limits\"}",
+                "{\"approved\": true, \"amount\": 450.00, \"comment\": \"Within policy limits\"}", null,
                 "Expense is within the team policy limit of £500 per person per quarter",
                 "EXPENSE-POLICY-v2.1");
         steps.add(new StepLog(4, description4, wi.id));

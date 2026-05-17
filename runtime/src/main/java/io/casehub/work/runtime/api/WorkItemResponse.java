@@ -68,5 +68,15 @@ public record WorkItemResponse(
          * Permitted outcome names snapshotted from the template at instantiation.
          * Null means no constraint — any outcome (or none) is accepted.
          */
-        List<String> permittedOutcomes) {
+        List<String> permittedOutcomes,
+        /**
+         * JSON Schema for payload; snapshotted from template at instantiation.
+         * Null if no template or no schema.
+         */
+        String inputDataSchema,
+        /**
+         * JSON Schema for resolution; snapshotted from template at instantiation.
+         * Null if unconstrained.
+         */
+        String outputDataSchema) {
 }

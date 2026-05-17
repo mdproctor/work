@@ -99,7 +99,7 @@ public class LabellingScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));
@@ -128,7 +128,7 @@ public class LabellingScenario {
         LOG.infof("[SCENARIO] Step %d/%d: %s", 5, total, description5);
         workItemService.claim(wi.id, ACTOR_LEAD);
         workItemService.start(wi.id, ACTOR_LEAD);
-        workItemService.complete(wi.id, ACTOR_LEAD, "{\"resolved\": true, \"resolution\": \"Password reset issued\"}");
+        workItemService.complete(wi.id, ACTOR_LEAD, "{\"resolved\": true, \"resolution\": \"Password reset issued\"}", null);
         steps.add(new StepLog(5, description5, wi.id));
 
         // Capture labels before removing the VIP label
