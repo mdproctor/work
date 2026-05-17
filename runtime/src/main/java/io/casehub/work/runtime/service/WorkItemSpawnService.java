@@ -25,6 +25,7 @@ import io.casehub.work.runtime.model.WorkItemSpawnGroup;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.repository.AuditEntryStore;
 import io.casehub.work.runtime.repository.WorkItemStore;
+import io.casehub.work.runtime.service.WorkItemTemplateService;
 
 /**
  * Implements {@link SpawnPort} for the WorkItem domain.
@@ -134,7 +135,9 @@ public class WorkItemSpawnService implements SpawnPort {
                     null, // confidenceScore
                     spec.callerRef(),
                     template.defaultClaimBusinessHours,
-                    template.defaultExpiryBusinessHours);
+                    template.defaultExpiryBusinessHours,
+                    template.id,
+                    WorkItemTemplateService.parseOutcomeNames(template.outcomes));
 
             final WorkItem child = workItemService.create(createRequest);
 

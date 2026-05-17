@@ -47,7 +47,7 @@ class WorkItemSmokeTest {
                 "Test item", "Do something", null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null);
     }
 
     // -------------------------------------------------------------------------
@@ -65,7 +65,7 @@ class WorkItemSmokeTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        wi = service.complete(wi.id, "alice", "All done");
+        wi = service.complete(wi.id, "alice", "All done", null);
 
         assertThat(wi.status).isEqualTo(WorkItemStatus.COMPLETED);
         assertThat(wi.resolution).isEqualTo("All done");
@@ -124,7 +124,7 @@ class WorkItemSmokeTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
+        service.complete(wi.id, "alice", "done", null);
 
         List<AuditEntry> trail = auditStore.findByWorkItemId(wi.id);
         assertThat(trail).hasSize(4);
@@ -133,7 +133,7 @@ class WorkItemSmokeTest {
     @Test
     void invalidTransitionThrows() {
         WorkItem wi = service.create(basicRequest());
-        assertThatThrownBy(() -> service.complete(wi.id, "alice", "done"))
+        assertThatThrownBy(() -> service.complete(wi.id, "alice", "done", null))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -150,7 +150,7 @@ class WorkItemSmokeTest {
                 "Test item", "Do something", null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
         assertThat(wi.expiresAt).isNotNull();
     }
@@ -203,7 +203,7 @@ class WorkItemSmokeTest {
         WorkItemCreateRequest req = new WorkItemCreateRequest(
                 "Test", null, null, null, WorkItemPriority.MEDIUM,
                 null, null, null, null, "system", null,
-                deadline, null, null, null, null, null, null, null);
+                deadline, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
         assertThat(wi.claimDeadline).isNotNull();
         // verify it round-trips through JPA

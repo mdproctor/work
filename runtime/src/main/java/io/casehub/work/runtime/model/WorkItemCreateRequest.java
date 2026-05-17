@@ -2,6 +2,7 @@ package io.casehub.work.runtime.model;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import io.casehub.work.runtime.api.WorkItemLabelResponse;
 
@@ -31,6 +32,8 @@ import io.casehub.work.runtime.api.WorkItemLabelResponse;
  *        via {@code BusinessCalendar} at create time. Takes precedence over {@code claimDeadline} when set.
  * @param expiresAtBusinessHours Completion deadline expressed in business hours; resolved to absolute {@code expiresAt}
  *        via {@code BusinessCalendar} at create time. Takes precedence over {@code expiresAt} when set.
+ * @param templateId UUID of the WorkItemTemplate this item was instantiated from; null for direct creation.
+ * @param permittedOutcomes Outcome name strings snapshotted from the template; null means no outcome constraint.
  */
 public record WorkItemCreateRequest(
         String title,
@@ -51,5 +54,7 @@ public record WorkItemCreateRequest(
         Double confidenceScore,
         String callerRef,
         Integer claimDeadlineBusinessHours,
-        Integer expiresAtBusinessHours) {
+        Integer expiresAtBusinessHours,
+        UUID templateId,
+        List<String> permittedOutcomes) {
 }

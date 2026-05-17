@@ -16,6 +16,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import io.casehub.work.api.Outcome;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemTemplateService;
 import io.casehub.work.runtime.service.WorkItemTemplateValidationService;
@@ -61,6 +62,7 @@ public class WorkItemTemplateResource {
      * @param assignmentStrategy CDI bean name of InstanceAssignmentStrategy; null defaults to "pool"
      * @param onThresholdReached action on remaining children when M-of-N threshold met: KEEP (default, no side effects), SUSPEND (pause active children), CANCEL (opt-in only, cancels all remaining). Null or omitted means KEEP.
      * @param allowSameAssignee when true, same person can claim multiple instances in group
+     * @param outcomes optional list of named outcome definitions; null means no outcome constraint
      * @param createdBy who created this template (required)
      */
     public record CreateTemplateRequest(
@@ -83,6 +85,7 @@ public class WorkItemTemplateResource {
             String assignmentStrategy,
             String onThresholdReached,
             Boolean allowSameAssignee,
+            List<Outcome> outcomes,
             String createdBy) {
     }
 
@@ -136,6 +139,7 @@ public class WorkItemTemplateResource {
         t.assignmentStrategy = request.assignmentStrategy();
         t.onThresholdReached = request.onThresholdReached();
         t.allowSameAssignee = request.allowSameAssignee();
+        t.outcomes = WorkItemTemplateService.encodeOutcomes(request.outcomes());
         t.createdBy = request.createdBy();
         WorkItemTemplateValidationService.validate(t);
         t.persist();
@@ -239,6 +243,7 @@ public class WorkItemTemplateResource {
         m.put("assignmentStrategy", t.assignmentStrategy);
         m.put("onThresholdReached", t.onThresholdReached);
         m.put("allowSameAssignee", t.allowSameAssignee);
+        m.put("outcomes", WorkItemTemplateService.decodeOutcomes(t.outcomes));
         m.put("createdBy", t.createdBy);
         m.put("createdAt", t.createdAt);
         return m;

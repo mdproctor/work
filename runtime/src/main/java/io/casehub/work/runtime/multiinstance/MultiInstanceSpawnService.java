@@ -22,6 +22,7 @@ import io.casehub.work.runtime.model.WorkItemRelationType;
 import io.casehub.work.runtime.model.WorkItemSpawnGroup;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemService;
+import io.casehub.work.runtime.service.WorkItemTemplateService;
 
 /**
  * Creates a multi-instance group: a parent WorkItem + N child instances + a
@@ -147,7 +148,9 @@ public class MultiInstanceSpawnService {
                 null, // confidenceScore
                 callerRef,
                 null, // defaultClaimBusinessHours — coordinator has no deadline
-                isCoordinator ? null : template.defaultExpiryBusinessHours);
+                isCoordinator ? null : template.defaultExpiryBusinessHours,
+                template.id,
+                WorkItemTemplateService.parseOutcomeNames(template.outcomes));
     }
 
     private WorkItemCreateRequest buildChildRequest(final WorkItemTemplate template,
@@ -171,7 +174,9 @@ public class MultiInstanceSpawnService {
                 null, // confidenceScore
                 null, // callerRef
                 template.defaultClaimBusinessHours,
-                template.defaultExpiryBusinessHours);
+                template.defaultExpiryBusinessHours,
+                template.id,
+                WorkItemTemplateService.parseOutcomeNames(template.outcomes));
     }
 
     /**

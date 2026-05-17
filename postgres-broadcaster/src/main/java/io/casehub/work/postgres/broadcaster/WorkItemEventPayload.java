@@ -27,19 +27,21 @@ public record WorkItemEventPayload(
         @JsonProperty("actor") String actor,
         @JsonProperty("detail") String detail,
         @JsonProperty("rationale") String rationale,
-        @JsonProperty("planRef") String planRef) {
+        @JsonProperty("planRef") String planRef,
+        @JsonProperty("outcome") String outcome) {
 
     /** Convert from a live lifecycle event for publishing to the PostgreSQL channel. */
     static WorkItemEventPayload from(final WorkItemLifecycleEvent event) {
         return new WorkItemEventPayload(
                 event.type(), event.sourceUri(), event.subject(),
                 event.workItemId(), event.status(), event.occurredAt(),
-                event.actor(), event.detail(), event.rationale(), event.planRef());
+                event.actor(), event.detail(), event.rationale(), event.planRef(),
+                event.outcome());
     }
 
     /** Reconstruct a lifecycle event from a received wire payload. */
     WorkItemLifecycleEvent toEvent() {
         return WorkItemLifecycleEvent.fromWire(type, source, subject,
-                workItemId, status, occurredAt, actor, detail, rationale, planRef);
+                workItemId, status, occurredAt, actor, detail, rationale, planRef, outcome);
     }
 }

@@ -60,7 +60,7 @@ class WorkItemGroupLifecycleEventTest {
 
         inTx(() -> workItemService.claim(children.get(0), "a"));
         inTx(() -> workItemService.start(children.get(0), "a"));
-        inTx(() -> workItemService.complete(children.get(0), "a", "ok"));
+        inTx(() -> workItemService.complete(children.get(0), "a", "ok", null));
 
         // Filter by this test's parentId — immune to events leaking from other tests
         // via @ObservesAsync threads that arrive after @BeforeEach clear().
@@ -96,7 +96,7 @@ class WorkItemGroupLifecycleEventTest {
         for (final UUID c : children.subList(0, 2)) {
             inTx(() -> workItemService.claim(c, "a"));
             inTx(() -> workItemService.start(c, "a"));
-            inTx(() -> workItemService.complete(c, "a", "ok"));
+            inTx(() -> workItemService.complete(c, "a", "ok", null));
         }
 
         // Wait until COMPLETED appears AND stays at exactly 1 for a stability window.
@@ -130,11 +130,11 @@ class WorkItemGroupLifecycleEventTest {
 
         inTx(() -> workItemService.claim(childIds.get(0), "alice"));
         inTx(() -> workItemService.start(childIds.get(0), "alice"));
-        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(0), "alice", "approved", null));
 
         inTx(() -> workItemService.claim(childIds.get(1), "bob"));
         inTx(() -> workItemService.start(childIds.get(1), "bob"));
-        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved"));
+        inTx(() -> workItemService.complete(childIds.get(1), "bob", "approved", null));
 
         // Stability window guards the count — same pattern as completedEventFiresExactlyOnceAtThreshold.
         Awaitility.await()

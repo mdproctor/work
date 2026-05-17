@@ -65,7 +65,7 @@ class WorkItemEventTest {
     private WorkItemCreateRequest basicRequest() {
         return new WorkItemCreateRequest(
                 "Test", null, null, null, WorkItemPriority.MEDIUM,
-                null, null, null, null, "system", null, null, null, null, null, null, null, null, null);
+                null, null, null, null, "system", null, null, null, null, null, null, null, null, null, null, null);
     }
 
     // -------------------------------------------------------------------------
@@ -114,7 +114,7 @@ class WorkItemEventTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
+        service.complete(wi.id, "alice", "done", null);
 
         List<WorkItemLifecycleEvent> events = observer.getEvents();
         WorkItemLifecycleEvent last = events.get(events.size() - 1);
@@ -203,7 +203,7 @@ class WorkItemEventTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "done");
+        service.complete(wi.id, "alice", "done", null);
 
         List<WorkItemLifecycleEvent> events = observer.getEvents();
         assertThat(events).hasSize(4);
@@ -219,7 +219,7 @@ class WorkItemEventTest {
         // At this point: 1 CREATED event
 
         // Attempt an invalid transition — PENDING cannot be completed directly
-        Throwable thrown = catchThrowable(() -> service.complete(wi.id, "alice", "done"));
+        Throwable thrown = catchThrowable(() -> service.complete(wi.id, "alice", "done", null));
         assertThat(thrown).isInstanceOf(IllegalStateException.class);
 
         // No additional event should have been fired
