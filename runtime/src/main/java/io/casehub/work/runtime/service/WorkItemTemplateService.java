@@ -244,7 +244,9 @@ public class WorkItemTemplateService {
                 template.defaultClaimBusinessHours, // business hours claim deadline from template
                 template.defaultExpiryBusinessHours, // business hours expiry from template
                 template.id,
-                parseOutcomeNames(template.outcomes));
+                parseOutcomeNames(template.outcomes),
+                template.inputDataSchema,
+                template.outputDataSchema);
     }
 
     /** @see OutcomeCodecs#parseOutcomeNames */

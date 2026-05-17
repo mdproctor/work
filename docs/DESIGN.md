@@ -18,7 +18,7 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | **6 — Ledger module** | ✅ Complete | `casehub-work-ledger` — command/event model, hash chain, attestation, EigenTrust; optional, zero core impact |
 | **7 — Label-based queues** | ✅ Complete | `casehub-work-queues` — label model (MANUAL/INFERRED), vocabulary (GLOBAL→PERSONAL scopes), filter engine (JEXL/JQ/Lambda, multi-pass propagation, cascade delete via FilterChain), QueueView named queries, soft assignment |
 | **8 — Native image** | ✅ Complete | GraalVM 25 native build, `@QuarkusIntegrationTest` suite, 0.084s startup |
-| **9 — Form Schema** | ✅ Complete | Epic #98: `WorkItemFormSchema` entity + CRUD API (#107 ✅), payload/resolution validation (#108 ✅) |
+| **9 — Form Schema** | ✅ Complete | Epic #98: `WorkItemFormSchema` entity + CRUD API (#107 ✅), payload/resolution validation (#108 ✅). **Superseded by #170** — `WorkItemFormSchema` deleted; schemas now live on `WorkItemTemplate`. |
 | **10 — Audit History Query API** | ✅ Complete | Epic #99: `GET /audit` cross-WorkItem query with actorId/event/date/category filters + pagination (#109 ✅), SLA breach report (#110 ✅), actor performance summary (#111 ✅). V12 indexes. |
 | **11 — Confidence-Gated Routing** | ✅ Complete | Epic #100: `confidenceScore` on WorkItem + V13 (#112 ✅), `FilterAction` SPI + JEXL engine + permanent/dynamic registry (#113 ✅), `casehub-work-ai` `LowConfidenceFilterProducer` (#114 ✅) |
 | **12 — WorkerSelectionStrategy** | ✅ Complete | Epics #100/#102: `casehub-work-api` shared SPI module (#115 ✅), `WorkItemAssignmentService` + `LeastLoadedStrategy` + `ClaimFirstStrategy` + `NoOpWorkerRegistry` (#116 ✅) |
@@ -35,6 +35,8 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | **— ProvenanceLink** | ⏸ Blocked | Typed PROV-O causal graph — awaiting CaseHub + Qhorus integrations (#39) |
 | **20 — Queue Broadcaster** | ✅ Complete | Epic #92/#155: `casehub-work-queues-postgres-broadcaster` — `PostgresWorkItemQueueEventBroadcaster` (`@Alternative @Priority(1)`) via PostgreSQL LISTEN/NOTIFY (`casehub_work_queue_events` channel). `WorkItemQueueEvent` plain record — no wire DTO needed. AFTER_SUCCESS observer. 13 tests (7 unit + 6 `@QuarkusTest` + Testcontainer). No Flyway migrations. |
 | **21 — Named Outcomes** | ✅ Complete | Issue #169: `Outcome` record in `casehub-work-api` (pure Java, OHT-aligned). `WorkItemTemplate.outcomes` declares typed result classifications. `WorkItem.templateId` + `permittedOutcomes` (snapshotted at instantiation) + `outcome` (recorded at completion). `WorkItemService.complete()` validates strictly against the permitted list. `WorkItemLifecycleEvent.outcome` carried for engine routing. `OutcomeCodecs` utility in model package. V22 migration. |
+| **22 — Schema-Validated Output** | ✅ Complete | Epic #170: `WorkItemTemplate.inputDataSchema` + `outputDataSchema` (JSON Schema draft-07 TEXT). Both snapshotted onto `WorkItem` at instantiation. `WorkItemService.create()` validates payload; `WorkItemService.complete()` validates resolution. `FormSchemaValidationService` moved from resource to service layer. `WorkItemFormSchema` entity and `/workitem-form-schemas` CRUD API deleted — template is now the single type-level schema definition. V23/V24 add columns; V25 drops `work_item_form_schema`. `CreateTemplateRequest` accepts schemas as `JsonNode`. |
+| **23 — Conflict-of-Interest Exclusions** | ✅ Complete | Epic #171: `ExclusionPolicy` SPI in `casehub-work-api` (consistent with `EscalationPolicy`, `ClaimSlaPolicy`, `WorkerSelectionStrategy`). `CommaSeparatedExclusionPolicy` `@DefaultBean` covers OHT initiator-exclusion use case. Enforcement across all 5 assignment paths. `SelectionContext` carries `excludedUsers` so external strategies can honour exclusions. `clone()` inherits `excludedUsers`. V26+V27 migrations. |
 
 ---
 
@@ -43,6 +45,8 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | Version | Module | Description |
 |---|---|---|
 | V1–V22 | runtime | Sequential — initial schema through named outcomes |
+| V23–V25 | runtime | Template data schemas (inputDataSchema, outputDataSchema), WorkItem snapshot columns, drop work_item_form_schema table (Epic #170) |
+| V26–V27 | runtime | excluded_users TEXT on work_item_template and work_item (Epic #171) |
 | V14 | casehub-work-ai | Worker skill profile (fills deliberate gap in runtime sequence) |
 | V2000–V2002 | casehub-work-queues / casehub-work-ledger | Queue membership tracker, ledger supplement |
 | V3000 | casehub-work-notifications | Notification rules |
@@ -79,7 +83,7 @@ Three tiers:
 |---|---|
 | casehub-work-api | 37 |
 | casehub-work-core | 38 |
-| runtime | 685 |
+| runtime | 663 |
 | work-flow | 32 |
 | casehub-work-ledger | 75 |
 | casehub-work-queues | 82 |

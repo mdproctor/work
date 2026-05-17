@@ -16,7 +16,7 @@ import io.restassured.response.Response;
 class FormSchemaScenarioTest {
 
     @Test
-    void run_formSchema_registersSchemaAndDrivesWorkItemLifecycle() {
+    void run_formSchema_enforceOutputDataSchemaOnTemplate() {
         final Response response = given()
                 .contentType(ContentType.JSON)
                 .when()
@@ -28,23 +28,21 @@ class FormSchemaScenarioTest {
         // Scenario identity
         assertThat(response.jsonPath().getString("scenario")).isEqualTo("form-schema");
 
-        // Steps logged (6 steps: register, list, get by id, create WorkItem, complete, delete)
+        // Steps logged (8 steps)
         final List<Map<String, Object>> steps = response.jsonPath().getList("steps");
-        assertThat(steps).hasSize(6);
-        assertThat(steps.get(0).get("description").toString()).containsIgnoringCase("registers");
-        assertThat(steps.get(5).get("description").toString()).containsIgnoringCase("delete");
+        assertThat(steps).hasSize(8);
 
-        // Schema ID and name present
-        assertThat(response.jsonPath().getString("schemaId")).isNotNull();
-        assertThat(response.jsonPath().getString("schemaName")).isEqualTo("Contract Review Form");
+        // Template ID and name present
+        assertThat(response.jsonPath().getString("templateId")).isNotNull();
+        assertThat(response.jsonPath().getString("templateName")).isEqualTo("Contract Review Form");
 
-        // WorkItem was created
+        // First WorkItem was created and completed
         assertThat(response.jsonPath().getString("workItemId")).isNotNull();
 
-        // Schema was deleted after the scenario ran
-        assertThat(response.jsonPath().getBoolean("schemaDeletedAfterRun")).isTrue();
+        // Invalid resolution was correctly rejected
+        assertThat(response.jsonPath().getBoolean("invalidRejected")).isTrue();
 
-        // Audit trail: at least CREATED, STARTED, COMPLETED
+        // Audit trail for the successfully completed WorkItem: at least CREATED, STARTED, COMPLETED
         final List<Map<String, Object>> audit = response.jsonPath().getList("auditTrail");
         assertThat(audit).isNotEmpty();
         assertThat(audit.stream().anyMatch(e -> "CREATED".equals(e.get("event")))).isTrue();

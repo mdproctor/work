@@ -16,27 +16,27 @@ import io.casehub.work.examples.StepLog;
 import io.casehub.work.runtime.api.AuditEntryResponse;
 import io.casehub.work.runtime.model.AuditEntry;
 import io.casehub.work.runtime.model.WorkItem;
-import io.casehub.work.runtime.model.WorkItemCreateRequest;
-import io.casehub.work.runtime.model.WorkItemFormSchema;
-import io.casehub.work.runtime.model.WorkItemPriority;
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.repository.AuditEntryStore;
 import io.casehub.work.runtime.service.WorkItemService;
+import io.casehub.work.runtime.service.WorkItemTemplateService;
 
 /**
- * Scenario 7 — Form Schema: register, retrieve, and delete a JSON Schema for WorkItems.
+ * Scenario 7 — Output Schema Validation: register a template with an outputDataSchema,
+ * instantiate WorkItems from it, and verify that valid resolutions succeed while
+ * invalid ones are rejected.
  *
  * <p>
- * A legal team registers a JSON Schema defining what information must appear in the payload
- * (contract type, parties, value) and what the resolution must contain (approved/rejected
- * decision, reviewer notes). This allows UI forms to be auto-generated without inspecting
- * source code.
+ * A legal team registers a WorkItemTemplate with a JSON Schema on the resolution field
+ * (outputDataSchema). A correctly structured resolution is accepted; an invalid one
+ * is rejected with an {@code IllegalArgumentException}.
  *
  * <p>
- * Steps: register schema → list by category → get by id → create conforming WorkItem →
- * complete with conforming resolution → delete schema.
+ * Steps: create template → instantiate → claim → start → complete with valid resolution →
+ * instantiate second → claim → start → attempt invalid resolution → verify rejection.
  *
  * <p>
- * Actors: {@code legal-admin} (schema creator), {@code legal-reviewer} (WorkItem completer).
+ * Actors: {@code legal-admin} (template creator), {@code legal-reviewer} (WorkItem completer).
  *
  * <p>
  * Endpoint: {@code POST /examples/formschema/run}
@@ -51,28 +51,16 @@ public class FormSchemaScenario {
     private static final String ACTOR_ADMIN = "legal-admin";
     private static final String ACTOR_REVIEWER = "legal-reviewer";
     private static final String CATEGORY = "contract-review";
-    private static final String SCHEMA_NAME = "Contract Review Form";
+    private static final String TEMPLATE_NAME = "Contract Review Form";
 
-    private static final String PAYLOAD_SCHEMA = """
+    private static final String OUTPUT_DATA_SCHEMA = """
             {
               "type": "object",
-              "required": ["contractType", "parties", "contractValue"],
+              "required": ["decision"],
               "properties": {
-                "contractType": { "type": "string" },
-                "parties": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
-                "contractValue": { "type": "number", "minimum": 0 }
-              }
-            }
-            """;
-
-    private static final String RESOLUTION_SCHEMA = """
-            {
-              "type": "object",
-              "required": ["decision", "reviewerNotes"],
-              "properties": {
-                "decision": { "type": "string", "enum": ["APPROVED", "REJECTED"] },
-                "reviewerNotes": { "type": "string" }
-              }
+                "decision": { "type": "string" }
+              },
+              "additionalProperties": false
             }
             """;
 
@@ -80,105 +68,101 @@ public class FormSchemaScenario {
     WorkItemService workItemService;
 
     @Inject
+    WorkItemTemplateService templateService;
+
+    @Inject
     AuditEntryStore auditStore;
 
     /**
-     * Run the form schema scenario end to end and return the outcome.
+     * Run the output schema validation scenario end to end and return the outcome.
      *
-     * @return scenario response confirming schema registration, WorkItem completion, and schema deletion
+     * @return scenario response confirming schema enforcement and rejection of invalid resolutions
      */
     @POST
     @Path("/run")
     @Transactional
     public FormSchemaResponse run() {
         final List<StepLog> steps = new ArrayList<>();
-        final int total = 6;
+        final int total = 8;
 
-        // Step 1: register the form schema
-        final String description1 = "legal-admin registers a JSON Schema for contract-review WorkItems";
+        // Step 1: create a WorkItemTemplate with outputDataSchema
+        final String description1 = "legal-admin creates a WorkItemTemplate with outputDataSchema requiring 'decision' field";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
-        final WorkItemFormSchema schema = new WorkItemFormSchema();
-        schema.name = SCHEMA_NAME;
-        schema.category = CATEGORY;
-        schema.payloadSchema = PAYLOAD_SCHEMA;
-        schema.resolutionSchema = RESOLUTION_SCHEMA;
-        schema.schemaVersion = "1.0";
-        schema.createdBy = ACTOR_ADMIN;
-        schema.persist();
+        final WorkItemTemplate template = new WorkItemTemplate();
+        template.name = TEMPLATE_NAME;
+        template.description = "Contract review requiring a structured resolution";
+        template.category = CATEGORY;
+        template.candidateGroups = ACTOR_REVIEWER;
+        template.outputDataSchema = OUTPUT_DATA_SCHEMA;
+        template.createdBy = ACTOR_ADMIN;
+        template.persist();
         steps.add(new StepLog(1, description1, null));
 
-        // Step 2: list schemas by category and verify ours is there
-        final String description2 = "List schemas by category=contract-review — verify schema present";
+        // Step 2: instantiate the template → first WorkItem
+        final String description2 = "Instantiate template → first WorkItem for valid-resolution path";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 2, total, description2);
-        final List<WorkItemFormSchema> byCategory = WorkItemFormSchema.findByCategory(CATEGORY);
-        if (byCategory.stream().noneMatch(s -> SCHEMA_NAME.equals(s.name))) {
-            throw new IllegalStateException("Schema not found in category listing after persist");
-        }
-        steps.add(new StepLog(2, description2 + " — found " + byCategory.size() + " schema(s)", null));
+        final WorkItem wi1 = templateService.instantiate(template, "Review Services Agreement: TechCorp Ltd",
+                null, ACTOR_ADMIN);
+        steps.add(new StepLog(2, description2, wi1.id));
 
-        // Step 3: retrieve schema by id
-        final String description3 = "Retrieve schema by id — confirm name and version";
+        // Step 3: legal-reviewer claims and starts the first WorkItem
+        final String description3 = "legal-reviewer claims and starts the first WorkItem";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 3, total, description3);
-        final WorkItemFormSchema found = WorkItemFormSchema.findById(schema.id);
-        if (found == null || !SCHEMA_NAME.equals(found.name)) {
-            throw new IllegalStateException("Schema not found by id: " + schema.id);
-        }
-        steps.add(new StepLog(3, description3 + " — schema v" + found.schemaVersion + " confirmed", null));
+        workItemService.claim(wi1.id, ACTOR_REVIEWER);
+        workItemService.start(wi1.id, ACTOR_REVIEWER);
+        steps.add(new StepLog(3, description3, wi1.id));
 
-        // Step 4: create a WorkItem with a conforming payload
-        final String description4 = "Create a contract-review WorkItem with a conforming payload";
+        // Step 4: complete with a valid resolution — succeeds
+        final String description4 = "legal-reviewer completes with valid resolution {\"decision\":\"approved\"} — succeeds";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 4, total, description4);
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Review Services Agreement: TechCorp Ltd",
-                "Annual SaaS services agreement requiring legal sign-off",
-                CATEGORY,
-                null,
-                WorkItemPriority.HIGH,
-                ACTOR_REVIEWER,
-                null,
-                null,
-                null,
-                ACTOR_ADMIN,
-                "{\"contractType\": \"SaaS Services Agreement\", \"parties\": [\"Acme Corp\", \"TechCorp Ltd\"], \"contractValue\": 48000}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null);
-        final WorkItem wi = workItemService.create(request);
-        steps.add(new StepLog(4, description4, wi.id));
+        workItemService.complete(wi1.id, ACTOR_REVIEWER, "{\"decision\": \"approved\"}", null);
+        steps.add(new StepLog(4, description4, wi1.id));
 
-        // Step 5: legal-reviewer claims, starts, and completes the WorkItem with a conforming resolution
-        final String description5 = "legal-reviewer claims, starts, and completes the WorkItem with a conforming resolution";
+        // Step 5: instantiate the template again → second WorkItem for the invalid-resolution path
+        final String description5 = "Instantiate template → second WorkItem for invalid-resolution path";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 5, total, description5);
-        workItemService.claim(wi.id, ACTOR_REVIEWER);
-        workItemService.start(wi.id, ACTOR_REVIEWER);
-        workItemService.complete(
-                wi.id,
-                ACTOR_REVIEWER,
-                "{\"decision\": \"APPROVED\", \"reviewerNotes\": \"Standard terms; no amendments required. IP clauses reviewed.\"}");
-        steps.add(new StepLog(5, description5, wi.id));
+        final WorkItem wi2 = templateService.instantiate(template, "Review SaaS Agreement: Acme Corp",
+                null, ACTOR_ADMIN);
+        steps.add(new StepLog(5, description5, wi2.id));
 
-        // Step 6: delete the schema (cleanup after scenario)
-        final String description6 = "Delete the form schema (scenario cleanup)";
+        // Step 6: claim and start the second WorkItem
+        final String description6 = "legal-reviewer claims and starts the second WorkItem";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 6, total, description6);
-        final boolean deleted = WorkItemFormSchema.deleteById(schema.id);
-        steps.add(new StepLog(6, description6 + " — deleted=" + deleted, null));
+        workItemService.claim(wi2.id, ACTOR_REVIEWER);
+        workItemService.start(wi2.id, ACTOR_REVIEWER);
+        steps.add(new StepLog(6, description6, wi2.id));
 
-        // Collect audit trail
-        final List<AuditEntry> auditEntries = auditStore.findByWorkItemId(wi.id);
+        // Step 7: attempt to complete with an invalid resolution — expect rejection
+        final String description7 = "Attempt to complete with invalid resolution {\"wrong_field\":\"value\"} — expect rejection";
+        LOG.infof("[SCENARIO] Step %d/%d: %s", 7, total, description7);
+        boolean invalidRejected = false;
+        try {
+            workItemService.complete(wi2.id, ACTOR_REVIEWER, "{\"wrong_field\": \"value\"}", null);
+        } catch (final IllegalArgumentException e) {
+            invalidRejected = true;
+            LOG.infof("[SCENARIO] Step %d/%d: invalid resolution correctly rejected — %s", 7, total, e.getMessage());
+        }
+        if (!invalidRejected) {
+            throw new IllegalStateException("Invalid resolution was not rejected — outputDataSchema enforcement failed");
+        }
+        steps.add(new StepLog(7, description7 + " — rejected=" + invalidRejected, wi2.id));
+
+        // Step 8: collect audit trail for the successfully completed WorkItem
+        final String description8 = "Collect audit trail for the successfully completed WorkItem";
+        LOG.infof("[SCENARIO] Step %d/%d: %s", 8, total, description8);
+        final List<AuditEntry> auditEntries = auditStore.findByWorkItemId(wi1.id);
         final List<AuditEntryResponse> auditTrail = auditEntries.stream()
                 .map(a -> new AuditEntryResponse(a.id, a.event, a.actor, a.detail, a.occurredAt))
                 .toList();
+        steps.add(new StepLog(8, description8 + " — " + auditEntries.size() + " entries", null));
 
         return new FormSchemaResponse(
                 SCENARIO_ID,
                 steps,
-                schema.id,
-                schema.name,
-                wi.id,
-                deleted,
+                template.id,
+                template.name,
+                wi1.id,
+                invalidRejected,
                 auditTrail);
     }
 }
