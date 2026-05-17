@@ -466,6 +466,8 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 - Mocking `Instance<T>` in Mockito: use `thenAnswer(inv -> List.of(bean).stream())` not `thenReturn(List.of(bean).stream())`. Streams are single-use — `thenReturn` caches and returns the same exhausted stream on every call after the first. Any service that calls `providerFor()` or `availableTypes()` twice in one test (e.g. `onLifecycleEvent` with multiple links) will silently get zero results on the second call. Same applies to `iterator()`.
 - Named outcomes on `WorkItemTemplate` (#169): `WorkItemTemplate.outcomes` stores `[{"name":"approved","displayName":"Approved"}]` as JSON TEXT; `WorkItem.permittedOutcomes` stores `["approved","rejected"]` as JSON TEXT (name strings only, snapshotted at instantiation). `WorkItemService.complete()` requires a valid outcome when `permittedOutcomes` is non-null. `OutcomeCodecs` (model package) is the shared JSON utility — import that, not `WorkItemTemplateService`, from the mapping layer. `WorkItemContextBuilder.toMap()` decodes `permittedOutcomes` to `List<String>` so JEXL filter rules can use `.contains()` correctly.
 - Multi-column `ALTER TABLE ... ADD COLUMN x, ADD COLUMN y` is not supported in H2 even in `MODE=PostgreSQL` — split into separate `ALTER TABLE` statements per column.
+- Schema-validated output (#170): `WorkItemTemplate.inputDataSchema` / `outputDataSchema` are JSON Schema TEXT fields (draft-07) — snapshotted onto `WorkItem.inputDataSchema` / `outputDataSchema` at instantiation, same pattern as `permittedOutcomes`. `WorkItemService.create()` validates payload; `WorkItemService.complete()` validates resolution. Null/blank data always passes (lenient). `completeFromSystem()` deliberately bypasses schema validation. `WorkItemFormSchema` entity and `/workitem-form-schemas` CRUD API are deleted — template is the sole type-level schema definition.
+- `CreateTemplateRequest.inputDataSchema` / `outputDataSchema` are typed as `JsonNode` (not `String`) — this allows callers to post a raw JSON Schema object in the request body rather than a double-encoded string. Jackson deserialises it to `JsonNode`; `JsonNode.toString()` produces compact JSON for TEXT storage. If a caller mistakenly sends a JSON string (`TextNode`) instead of an object, `toString()` produces a double-quoted value that will fail schema parsing at validation time, not at template creation time — see #183.
 
 ---
 
@@ -521,7 +523,8 @@ filtering or dropping commits that touch these paths.
 | ✅ | #100 | AI-Native Features — confidence gating, semantic routing | complete | #112–#126 all done |
 | ✅ | #102 | Workload-Aware Routing — least-loaded assignment | complete | #115, #116. RoundRobinStrategy deferred (#117). |
 | ✅ | #105 | Subprocess Spawning | complete | #127–#132 all done |
-| ✅ | #98 | Form Schema — payload/resolution JSON Schema | complete | #107 ✅, #108 ✅ |
+| ✅ | #98 | Form Schema — payload/resolution JSON Schema | complete | #107 ✅, #108 ✅ — **superseded by #170**: `WorkItemFormSchema` deleted, schemas on template |
+| ✅ | #170 | Schema-Validated Output — inputDataSchema/outputDataSchema on template | complete | Closes #170 ✅ |
 | ✅ | #99 | Audit History Query API — cross-WorkItem search | complete | #109 ✅, #110 ✅, #111 ✅ |
 | ✅ | #77,78,80,81 | Collaboration, Queue Intelligence, Storage, Platform | complete | — |
 

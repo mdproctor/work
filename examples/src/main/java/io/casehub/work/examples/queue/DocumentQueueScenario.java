@@ -122,7 +122,7 @@ public class DocumentQueueScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
         final WorkItem wi1 = workItemService.create(req1);
         steps.add(new StepLog(1, desc1, wi1.id));
 
@@ -148,7 +148,7 @@ public class DocumentQueueScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
         final WorkItem wi2 = workItemService.create(req2);
         steps.add(new StepLog(2, desc2, wi2.id));
 
@@ -174,7 +174,7 @@ public class DocumentQueueScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
         final WorkItem wi3 = workItemService.create(req3);
         steps.add(new StepLog(3, desc3, wi3.id));
 
@@ -206,7 +206,7 @@ public class DocumentQueueScenario {
 
         final String desc8 = "reviewer-bob completes WI-1 — contract approved";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 8, total, desc8);
-        workItemService.complete(wi1.id, ACTOR_BOB, "{\"decision\": \"APPROVED\", \"documentId\": \"contract-review-001\"}");
+        workItemService.complete(wi1.id, ACTOR_BOB, "{\"decision\": \"APPROVED\", \"documentId\": \"contract-review-001\"}", null);
         steps.add(new StepLog(8, desc8, wi1.id));
 
         // ----------------------------------------------------------------
@@ -225,7 +225,7 @@ public class DocumentQueueScenario {
         final String desc11 = "reviewer-bob completes WI-2 — policy approved with minor amendments";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 11, total, desc11);
         workItemService.complete(wi2.id, ACTOR_BOB,
-                "{\"decision\": \"APPROVED_WITH_AMENDMENTS\", \"documentId\": \"policy-review-007\"}");
+                "{\"decision\": \"APPROVED_WITH_AMENDMENTS\", \"documentId\": \"policy-review-007\"}", null);
         steps.add(new StepLog(11, desc11, wi2.id));
 
         // ----------------------------------------------------------------
@@ -243,7 +243,7 @@ public class DocumentQueueScenario {
 
         final String desc14 = "reviewer-alice completes WI-3 — SLA approved";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 14, total, desc14);
-        workItemService.complete(wi3.id, ACTOR_ALICE, "{\"decision\": \"APPROVED\", \"documentId\": \"sla-review-003\"}");
+        workItemService.complete(wi3.id, ACTOR_ALICE, "{\"decision\": \"APPROVED\", \"documentId\": \"sla-review-003\"}", null);
         steps.add(new StepLog(14, desc14, wi3.id));
 
         // ----------------------------------------------------------------

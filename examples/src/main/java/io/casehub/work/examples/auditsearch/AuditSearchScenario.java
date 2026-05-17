@@ -96,11 +96,11 @@ public class AuditSearchScenario {
         final String description4 = "auditor-sarah completes all three WorkItems with different resolutions";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 4, total, description4);
         workItemService.complete(wi1.id, ACTOR_SARAH,
-                "{\"approved\": true, \"reason\": \"Within budget; vendor approved\"}");
+                "{\"approved\": true, \"reason\": \"Within budget; vendor approved\"}", null);
         workItemService.complete(wi2.id, ACTOR_SARAH,
-                "{\"approved\": true, \"reason\": \"Preferred supplier; approved under standing agreement\"}");
+                "{\"approved\": true, \"reason\": \"Preferred supplier; approved under standing agreement\"}", null);
         workItemService.complete(wi3.id, ACTOR_SARAH,
-                "{\"approved\": false, \"reason\": \"Over budget threshold; escalate to CFO\"}");
+                "{\"approved\": false, \"reason\": \"Over budget threshold; escalate to CFO\"}", null);
         steps.add(new StepLog(4, description4, wi1.id));
 
         // Step 5: create and complete a fourth WorkItem by auditor-james
@@ -111,7 +111,7 @@ public class AuditSearchScenario {
         workItemService.claim(wi4.id, ACTOR_JAMES);
         workItemService.start(wi4.id, ACTOR_JAMES);
         workItemService.complete(wi4.id, ACTOR_JAMES,
-                "{\"approved\": true, \"reason\": \"Standard freight contract; approved\"}");
+                "{\"approved\": true, \"reason\": \"Standard freight contract; approved\"}", null);
         steps.add(new StepLog(5, description5, wi4.id));
 
         // Step 6: query audit by actorId=auditor-sarah
@@ -162,6 +162,6 @@ public class AuditSearchScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
     }
 }

@@ -111,7 +111,7 @@ public class NdaReviewScenario {
                 null,
                 null,
                 0.92,
-                null, null, null);
+                null, null, null, null, null, null, null);
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(2, description2, wi.id));
@@ -140,7 +140,7 @@ public class NdaReviewScenario {
         workItemService.complete(
                 wi.id,
                 ACTOR_LEGAL,
-                "{\"outcome\": \"APPROVED\", \"notes\": \"Standard NDA terms; no amendments required\"}",
+                "{\"outcome\": \"APPROVED\", \"notes\": \"Standard NDA terms; no amendments required\"}", null,
                 "NDA reviewed against IP protection checklist — all clauses compliant",
                 "LEGAL-NDA-POLICY-v3.0");
         steps.add(new StepLog(5, description5, wi.id));

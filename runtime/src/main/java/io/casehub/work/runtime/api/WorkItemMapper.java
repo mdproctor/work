@@ -26,7 +26,9 @@ public final class WorkItemMapper {
                 wi.labels == null ? List.of() : wi.labels.stream().map(WorkItemMapper::toLabelResponse).toList(),
                 wi.confidenceScore, wi.callerRef, wi.version,
                 wi.templateId, wi.outcome,
-                OutcomeCodecs.decodePermittedOutcomes(wi.permittedOutcomes));
+                OutcomeCodecs.decodePermittedOutcomes(wi.permittedOutcomes),
+                wi.inputDataSchema,
+                wi.outputDataSchema);
     }
 
     public static AuditEntryResponse toAuditResponse(final AuditEntry e) {
@@ -49,7 +51,9 @@ public final class WorkItemMapper {
                 wi.createdAt, wi.updatedAt, wi.assignedAt, wi.startedAt,
                 wi.completedAt, wi.suspendedAt,
                 labelResponses, auditResponses, wi.confidenceScore, wi.callerRef, wi.version,
-                wi.templateId, wi.outcome);
+                wi.templateId, wi.outcome,
+                wi.inputDataSchema,
+                wi.outputDataSchema);
     }
 
     public static WorkItemCreateRequest toServiceRequest(final CreateWorkItemRequest req) {
@@ -60,7 +64,8 @@ public final class WorkItemMapper {
                 req.payload(), req.claimDeadline(), req.expiresAt(), req.followUpDate(),
                 req.labels(), req.confidenceScore(), req.callerRef(),
                 req.claimDeadlineBusinessHours(), req.expiresAtBusinessHours(),
-                null, null); // templateId and permittedOutcomes — not set for direct creation
+                null, null, // templateId and permittedOutcomes — not set for direct creation
+                null, null); // inputDataSchema and outputDataSchema — not set for direct creation
     }
 
     static WorkItemLabelResponse toLabelResponse(final WorkItemLabel label) {

@@ -34,6 +34,8 @@ import io.casehub.work.runtime.api.WorkItemLabelResponse;
  *        via {@code BusinessCalendar} at create time. Takes precedence over {@code expiresAt} when set.
  * @param templateId UUID of the WorkItemTemplate this item was instantiated from; null for direct creation.
  * @param permittedOutcomes Outcome name strings snapshotted from the template; null means no outcome constraint.
+ * @param inputDataSchema JSON Schema string for payload validation; null means no constraint.
+ * @param outputDataSchema JSON Schema string for resolution validation; null means no constraint.
  */
 public record WorkItemCreateRequest(
         String title,
@@ -56,5 +58,9 @@ public record WorkItemCreateRequest(
         Integer claimDeadlineBusinessHours,
         Integer expiresAtBusinessHours,
         UUID templateId,
-        List<String> permittedOutcomes) {
+        List<String> permittedOutcomes,
+        /** JSON Schema string for payload validation; null = no constraint. */
+        String inputDataSchema,
+        /** JSON Schema string for resolution validation; null = no constraint. */
+        String outputDataSchema) {
 }
