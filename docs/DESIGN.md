@@ -35,6 +35,8 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | **— ProvenanceLink** | ⏸ Blocked | Typed PROV-O causal graph — awaiting CaseHub + Qhorus integrations (#39) |
 | **20 — Queue Broadcaster** | ✅ Complete | Epic #92/#155: `casehub-work-queues-postgres-broadcaster` — `PostgresWorkItemQueueEventBroadcaster` (`@Alternative @Priority(1)`) via PostgreSQL LISTEN/NOTIFY (`casehub_work_queue_events` channel). `WorkItemQueueEvent` plain record — no wire DTO needed. AFTER_SUCCESS observer. 13 tests (7 unit + 6 `@QuarkusTest` + Testcontainer). No Flyway migrations. |
 | **21 — Named Outcomes** | ✅ Complete | Issue #169: `Outcome` record in `casehub-work-api` (pure Java, OHT-aligned). `WorkItemTemplate.outcomes` declares typed result classifications. `WorkItem.templateId` + `permittedOutcomes` (snapshotted at instantiation) + `outcome` (recorded at completion). `WorkItemService.complete()` validates strictly against the permitted list. `WorkItemLifecycleEvent.outcome` carried for engine routing. `OutcomeCodecs` utility in model package. V22 migration. |
+| **22 — Template-level Data Schemas** | ✅ Complete | Epic #170: `WorkItemTemplate.inputDataSchema` + `outputDataSchema` (JSON Schema draft-07, TEXT). Validated at instantiation and completion via `FormSchemaValidationService`. Snapshotted onto `WorkItem` — self-governing after creation. `WorkItemFormSchema` entity, its CRUD REST resource, and all associated tests deleted. UI schema-discovery path migrated to `GET /workitem-templates/{id}`. V23+V24+V25 migrations. |
+| **23 — Conflict-of-Interest Exclusions** | ✅ Complete | Epic #171: `ExclusionPolicy` SPI in `casehub-work-api` (consistent with `EscalationPolicy`, `ClaimSlaPolicy`, `WorkerSelectionStrategy`). `CommaSeparatedExclusionPolicy` `@DefaultBean` covers OHT initiator-exclusion use case. Enforcement across all 5 assignment paths. `SelectionContext` carries `excludedUsers` so external strategies can honour exclusions. `clone()` inherits `excludedUsers`. V26+V27 migrations. |
 
 ---
 
@@ -43,6 +45,8 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | Version | Module | Description |
 |---|---|---|
 | V1–V22 | runtime | Sequential — initial schema through named outcomes |
+| V23–V25 | runtime | Template data schemas (inputDataSchema, outputDataSchema), WorkItem snapshot columns, drop work_item_form_schema table (Epic #170) |
+| V26–V27 | runtime | excluded_users TEXT on work_item_template and work_item (Epic #171) |
 | V14 | casehub-work-ai | Worker skill profile (fills deliberate gap in runtime sequence) |
 | V2000–V2002 | casehub-work-queues / casehub-work-ledger | Queue membership tracker, ledger supplement |
 | V3000 | casehub-work-notifications | Notification rules |
