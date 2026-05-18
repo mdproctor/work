@@ -139,6 +139,22 @@ public class WorkItemTemplate extends PanacheEntityBase {
     public String outcomes;
 
     /**
+     * JSON Schema (draft-07) validating {@link WorkItem#payload} at instantiation.
+     * Null means no input constraint. Snapshotted onto {@link WorkItem#inputDataSchema}
+     * at instantiation time.
+     */
+    @Column(name = "input_data_schema", columnDefinition = "TEXT")
+    public String inputDataSchema;
+
+    /**
+     * JSON Schema (draft-07) validating {@link WorkItem#resolution} at completion.
+     * Null means no output constraint. Snapshotted onto {@link WorkItem#outputDataSchema}
+     * at instantiation time.
+     */
+    @Column(name = "output_data_schema", columnDefinition = "TEXT")
+    public String outputDataSchema;
+
+    /**
      * Number of parallel instances to spawn when this template is instantiated.
      * Null means standard (non-multi-instance) instantiation.
      */

@@ -57,11 +57,11 @@ class TrustScoreJobTest {
         final WorkItemCreateRequest req = new WorkItemCreateRequest(
                 "Trust test", null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null, null, null);
         final WorkItem wi = workItemService.create(req);
         workItemService.claim(wi.id, actor);
         workItemService.start(wi.id, actor);
-        workItemService.complete(wi.id, actor, "{\"approved\":true}");
+        workItemService.complete(wi.id, actor, "{\"approved\":true}", null);
         return wi.id;
     }
 

@@ -100,7 +100,7 @@ public class LowConfidenceScenario {
                 null,
                 null,
                 0.95,
-                null, null, null);
+                null, null, null, null, null, null, null);
 
         final WorkItem highConfidenceWi = workItemService.create(highConfidenceRequest);
         steps.add(new StepLog(1, description1, highConfidenceWi.id));
@@ -126,7 +126,7 @@ public class LowConfidenceScenario {
                 null,
                 null,
                 0.45,
-                null, null, null);
+                null, null, null, null, null, null, null);
 
         final WorkItem lowConfidenceWi = workItemService.create(lowConfidenceRequest);
         steps.add(new StepLog(2, description2, lowConfidenceWi.id));
@@ -152,7 +152,7 @@ public class LowConfidenceScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null, null);
 
         final WorkItem nullConfidenceWi = workItemService.create(nullConfidenceRequest);
         steps.add(new StepLog(3, description3, nullConfidenceWi.id));
@@ -179,12 +179,12 @@ public class LowConfidenceScenario {
         workItemService.claim(highConfidenceWi.id, ACTOR_REVIEWER);
         workItemService.start(highConfidenceWi.id, ACTOR_REVIEWER);
         workItemService.complete(highConfidenceWi.id, ACTOR_REVIEWER,
-                "{\"outcome\": \"APPROVED\", \"notes\": \"Standard NDA — no amendments required\"}");
+                "{\"outcome\": \"APPROVED\", \"notes\": \"Standard NDA — no amendments required\"}", null);
 
         workItemService.claim(lowConfidenceWi.id, ACTOR_REVIEWER);
         workItemService.start(lowConfidenceWi.id, ACTOR_REVIEWER);
         workItemService.complete(lowConfidenceWi.id, ACTOR_REVIEWER,
-                "{\"outcome\": \"APPROVED_WITH_AMENDMENTS\", \"notes\": \"IP clause narrowed — extra scrutiny applied due to ai/low-confidence flag\"}");
+                "{\"outcome\": \"APPROVED_WITH_AMENDMENTS\", \"notes\": \"IP clause narrowed — extra scrutiny applied due to ai/low-confidence flag\"}", null);
 
         steps.add(new StepLog(5, description5, null));
 

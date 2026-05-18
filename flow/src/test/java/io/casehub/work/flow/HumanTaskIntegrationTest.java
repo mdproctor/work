@@ -72,7 +72,7 @@ class HumanTaskIntegrationTest {
         // Claim → start → complete (CDI event fires, listener completes the underlying future)
         service.claim(workItem.id, "alice");
         service.start(workItem.id, "alice");
-        service.complete(workItem.id, "alice", "{\"approved\":true}");
+        service.complete(workItem.id, "alice", "{\"approved\":true}", null);
 
         String resolution = result.await().atMost(Duration.ofSeconds(5));
         assertThat(resolution).isEqualTo("{\"approved\":true}");
@@ -139,11 +139,11 @@ class HumanTaskIntegrationTest {
         // Create and complete a DIFFERENT WorkItem (not registered in registry)
         WorkItemCreateRequest req = new WorkItemCreateRequest(
                 "Other item", null, null, null, WorkItemPriority.MEDIUM,
-                "frank", null, null, null, "test", null, null, null, null, null, null, null, null, null);
+                "frank", null, null, null, "test", null, null, null, null, null, null, null, null, null, null, null, null, null);
         WorkItem other = service.create(req);
         service.claim(other.id, "frank");
         service.start(other.id, "frank");
-        service.complete(other.id, "frank", "{\"other\":true}");
+        service.complete(other.id, "frank", "{\"other\":true}", null);
 
         // The bridge's Uni should still be pending
         assertThatThrownBy(() -> result.await().atMost(Duration.ofMillis(50)))
@@ -166,7 +166,7 @@ class HumanTaskIntegrationTest {
 
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        service.complete(wi.id, "alice", "{\"approved\":true}");
+        service.complete(wi.id, "alice", "{\"approved\":true}", null);
 
         String resolution = result.await().atMost(Duration.ofSeconds(5));
         assertThat(resolution).isEqualTo("{\"approved\":true}");

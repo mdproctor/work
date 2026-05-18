@@ -16,6 +16,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.work.api.Outcome;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemTemplateService;
@@ -63,6 +64,10 @@ public class WorkItemTemplateResource {
      * @param onThresholdReached action on remaining children when M-of-N threshold met: KEEP (default, no side effects), SUSPEND (pause active children), CANCEL (opt-in only, cancels all remaining). Null or omitted means KEEP.
      * @param allowSameAssignee when true, same person can claim multiple instances in group
      * @param outcomes optional list of named outcome definitions; null means no outcome constraint
+     * @param inputDataSchema JSON Schema (draft-07) for payload validation at instantiation; null = no constraint.
+     *        Accepted as a raw JSON object in the request body and serialised to a JSON string for storage.
+     * @param outputDataSchema JSON Schema (draft-07) for resolution validation at completion; null = no constraint.
+     *        Accepted as a raw JSON object in the request body and serialised to a JSON string for storage.
      * @param createdBy who created this template (required)
      */
     public record CreateTemplateRequest(
@@ -86,6 +91,16 @@ public class WorkItemTemplateResource {
             String onThresholdReached,
             Boolean allowSameAssignee,
             List<Outcome> outcomes,
+            /**
+             * JSON Schema (draft-07) for payload validation at instantiation; null = no constraint.
+             * Deserialised from a raw JSON object in the request body and serialised to a JSON string for storage.
+             */
+            JsonNode inputDataSchema,
+            /**
+             * JSON Schema (draft-07) for resolution validation at completion; null = no constraint.
+             * Deserialised from a raw JSON object in the request body and serialised to a JSON string for storage.
+             */
+            JsonNode outputDataSchema,
             String createdBy) {
     }
 
@@ -140,6 +155,8 @@ public class WorkItemTemplateResource {
         t.onThresholdReached = request.onThresholdReached();
         t.allowSameAssignee = request.allowSameAssignee();
         t.outcomes = WorkItemTemplateService.encodeOutcomes(request.outcomes());
+        t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
+        t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.createdBy = request.createdBy();
         WorkItemTemplateValidationService.validate(t);
         t.persist();
@@ -212,10 +229,15 @@ public class WorkItemTemplateResource {
         }
         return templateService.findById(id)
                 .map(t -> {
-                    final var wi = templateService.instantiate(
-                            t, request.title(), request.assigneeId(), request.createdBy());
-                    return Response.status(Response.Status.CREATED)
-                            .entity(WorkItemMapper.toResponse(wi)).build();
+                    try {
+                        final var wi = templateService.instantiate(
+                                t, request.title(), request.assigneeId(), request.createdBy());
+                        return Response.status(Response.Status.CREATED)
+                                .entity(WorkItemMapper.toResponse(wi)).build();
+                    } catch (IllegalArgumentException e) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                                .entity(Map.of("error", e.getMessage())).build();
+                    }
                 })
                 .orElseGet(() -> Response.status(Response.Status.NOT_FOUND)
                         .entity(Map.of("error", "Template not found")).build());
@@ -244,6 +266,8 @@ public class WorkItemTemplateResource {
         m.put("onThresholdReached", t.onThresholdReached);
         m.put("allowSameAssignee", t.allowSameAssignee);
         m.put("outcomes", WorkItemTemplateService.decodeOutcomes(t.outcomes));
+        m.put("inputDataSchema", t.inputDataSchema);
+        m.put("outputDataSchema", t.outputDataSchema);
         m.put("createdBy", t.createdBy);
         m.put("createdAt", t.createdAt);
         return m;

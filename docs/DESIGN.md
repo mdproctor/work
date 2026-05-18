@@ -18,7 +18,7 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | **6 — Ledger module** | ✅ Complete | `casehub-work-ledger` — command/event model, hash chain, attestation, EigenTrust; optional, zero core impact |
 | **7 — Label-based queues** | ✅ Complete | `casehub-work-queues` — label model (MANUAL/INFERRED), vocabulary (GLOBAL→PERSONAL scopes), filter engine (JEXL/JQ/Lambda, multi-pass propagation, cascade delete via FilterChain), QueueView named queries, soft assignment |
 | **8 — Native image** | ✅ Complete | GraalVM 25 native build, `@QuarkusIntegrationTest` suite, 0.084s startup |
-| **9 — Form Schema** | ✅ Complete | Epic #98: `WorkItemFormSchema` entity + CRUD API (#107 ✅), payload/resolution validation (#108 ✅) |
+| **9 — Form Schema** | ✅ Complete | Epic #98: `WorkItemFormSchema` entity + CRUD API (#107 ✅), payload/resolution validation (#108 ✅). **Superseded by #170** — `WorkItemFormSchema` deleted; schemas now live on `WorkItemTemplate`. |
 | **10 — Audit History Query API** | ✅ Complete | Epic #99: `GET /audit` cross-WorkItem query with actorId/event/date/category filters + pagination (#109 ✅), SLA breach report (#110 ✅), actor performance summary (#111 ✅). V12 indexes. |
 | **11 — Confidence-Gated Routing** | ✅ Complete | Epic #100: `confidenceScore` on WorkItem + V13 (#112 ✅), `FilterAction` SPI + JEXL engine + permanent/dynamic registry (#113 ✅), `casehub-work-ai` `LowConfidenceFilterProducer` (#114 ✅) |
 | **12 — WorkerSelectionStrategy** | ✅ Complete | Epics #100/#102: `casehub-work-api` shared SPI module (#115 ✅), `WorkItemAssignmentService` + `LeastLoadedStrategy` + `ClaimFirstStrategy` + `NoOpWorkerRegistry` (#116 ✅) |
@@ -83,7 +83,7 @@ Three tiers:
 |---|---|
 | casehub-work-api | 37 |
 | casehub-work-core | 38 |
-| runtime | 685 |
+| runtime | 663 |
 | work-flow | 32 |
 | casehub-work-ledger | 75 |
 | casehub-work-queues | 82 |
