@@ -34,6 +34,7 @@ import io.casehub.work.runtime.api.WorkItemLabelResponse;
  *        via {@code BusinessCalendar} at create time. Takes precedence over {@code expiresAt} when set.
  * @param templateId UUID of the WorkItemTemplate this item was instantiated from; null for direct creation.
  * @param permittedOutcomes Outcome name strings snapshotted from the template; null means no outcome constraint.
+ * @param excludedUsers Comma-separated user IDs excluded from claiming this WorkItem; null means no exclusion.
  */
 public record WorkItemCreateRequest(
         String title,
@@ -56,5 +57,7 @@ public record WorkItemCreateRequest(
         Integer claimDeadlineBusinessHours,
         Integer expiresAtBusinessHours,
         UUID templateId,
-        List<String> permittedOutcomes) {
+        List<String> permittedOutcomes,
+        /** Comma-separated user IDs excluded from claiming this WorkItem; null = no exclusion. */
+        String excludedUsers) {
 }

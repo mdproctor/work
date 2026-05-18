@@ -86,6 +86,8 @@ public class WorkItemTemplateResource {
             String onThresholdReached,
             Boolean allowSameAssignee,
             List<Outcome> outcomes,
+            /** Comma-separated user IDs excluded from claiming instances; null = no exclusion. */
+            String excludedUsers,
             String createdBy) {
     }
 
@@ -140,6 +142,7 @@ public class WorkItemTemplateResource {
         t.onThresholdReached = request.onThresholdReached();
         t.allowSameAssignee = request.allowSameAssignee();
         t.outcomes = WorkItemTemplateService.encodeOutcomes(request.outcomes());
+        t.excludedUsers = request.excludedUsers();
         t.createdBy = request.createdBy();
         WorkItemTemplateValidationService.validate(t);
         t.persist();
@@ -244,6 +247,7 @@ public class WorkItemTemplateResource {
         m.put("onThresholdReached", t.onThresholdReached);
         m.put("allowSameAssignee", t.allowSameAssignee);
         m.put("outcomes", WorkItemTemplateService.decodeOutcomes(t.outcomes));
+        m.put("excludedUsers", t.excludedUsers);
         m.put("createdBy", t.createdBy);
         m.put("createdAt", t.createdAt);
         return m;

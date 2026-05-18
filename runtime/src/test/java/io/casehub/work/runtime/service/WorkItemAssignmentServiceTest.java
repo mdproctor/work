@@ -44,7 +44,8 @@ class WorkItemAssignmentServiceTest {
         lenient().when(workerRegistry.resolveGroup(anyString())).thenReturn(List.of());
         lenient().when(workloadProvider.getActiveWorkCount(anyString())).thenReturn(0);
         service = new WorkItemAssignmentService(
-                new LeastLoadedStrategy(), workerRegistry, workloadProvider, workBroker);
+                new LeastLoadedStrategy(), workerRegistry, workloadProvider, workBroker,
+                (userId, excluded) -> false);
     }
 
     // ── Trigger filtering ─────────────────────────────────────────────────────
@@ -62,7 +63,8 @@ class WorkItemAssignmentServiceTest {
                 return Set.of(AssignmentTrigger.CREATED);
             }
         };
-        service = new WorkItemAssignmentService(createdOnly, workerRegistry, workloadProvider, workBroker);
+        service = new WorkItemAssignmentService(createdOnly, workerRegistry, workloadProvider, workBroker,
+                (userId, excluded) -> false);
 
         final WorkItem wi = workItem(null, null, "alice,bob");
         service.assign(wi, AssignmentTrigger.RELEASED);
@@ -174,7 +176,8 @@ class WorkItemAssignmentServiceTest {
     @Test
     void assign_setsCandidateGroups_fromNarrowDecision() {
         final WorkerSelectionStrategy narrower = (ctx, c) -> AssignmentDecision.narrowCandidates("narrowed-group", null);
-        service = new WorkItemAssignmentService(narrower, workerRegistry, workloadProvider, workBroker);
+        service = new WorkItemAssignmentService(narrower, workerRegistry, workloadProvider, workBroker,
+                (userId, excluded) -> false);
         final WorkItem wi = workItem(null, "original-group", null);
         service.assign(wi, AssignmentTrigger.CREATED);
         assertThat(wi.candidateGroups).isEqualTo("narrowed-group");
@@ -184,7 +187,8 @@ class WorkItemAssignmentServiceTest {
     @Test
     void assign_doesNotOverwrite_existingFields_onNoChange() {
         final WorkerSelectionStrategy noOp = (ctx, c) -> AssignmentDecision.noChange();
-        service = new WorkItemAssignmentService(noOp, workerRegistry, workloadProvider, workBroker);
+        service = new WorkItemAssignmentService(noOp, workerRegistry, workloadProvider, workBroker,
+                (userId, excluded) -> false);
         final WorkItem wi = workItem(null, null, "alice");
         wi.assigneeId = "pre-existing";
         service.assign(wi, AssignmentTrigger.CREATED);

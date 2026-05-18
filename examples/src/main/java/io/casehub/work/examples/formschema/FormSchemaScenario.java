@@ -145,7 +145,7 @@ public class FormSchemaScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null);
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(4, description4, wi.id));
 
@@ -155,9 +155,9 @@ public class FormSchemaScenario {
         workItemService.claim(wi.id, ACTOR_REVIEWER);
         workItemService.start(wi.id, ACTOR_REVIEWER);
         workItemService.complete(
-                wi.id,
-                ACTOR_REVIEWER,
-                "{\"decision\": \"APPROVED\", \"reviewerNotes\": \"Standard terms; no amendments required. IP clauses reviewed.\"}");
+                wi.id, 
+                ACTOR_REVIEWER, 
+                "{\"decision\": \"APPROVED\", \"reviewerNotes\": \"Standard terms; no amendments required. IP clauses reviewed.\"}", null);
         steps.add(new StepLog(5, description5, wi.id));
 
         // Step 6: delete the schema (cleanup after scenario)

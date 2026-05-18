@@ -52,5 +52,6 @@ public record WorkItemWithAuditResponse(
         /** UUID of the template this item was instantiated from; null for direct creation. */
         UUID templateId,
         /** Named outcome recorded at completion; null until COMPLETED. */
-        String outcome) {
+        String outcome,
+        String excludedUsers) {
 }

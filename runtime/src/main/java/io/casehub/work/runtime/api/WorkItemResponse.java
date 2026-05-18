@@ -68,5 +68,9 @@ public record WorkItemResponse(
          * Permitted outcome names snapshotted from the template at instantiation.
          * Null means no constraint — any outcome (or none) is accepted.
          */
-        List<String> permittedOutcomes) {
+        List<String> permittedOutcomes,
+        /**
+         * Comma-separated user IDs excluded from this WorkItem; null = unconstrained.
+         */
+        String excludedUsers) {
 }

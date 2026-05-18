@@ -9,7 +9,7 @@ class SelectionContextTest {
     @Test
     void constructor_setsAllFields() {
         final SelectionContext ctx = new SelectionContext(
-                "finance", "HIGH", "audit,legal", "finance-team", "alice,bob", null, null);
+                "finance", "HIGH", "audit,legal", "finance-team", "alice,bob", null, null, null);
         assertThat(ctx.category()).isEqualTo("finance");
         assertThat(ctx.priority()).isEqualTo("HIGH");
         assertThat(ctx.requiredCapabilities()).isEqualTo("audit,legal");
@@ -19,7 +19,7 @@ class SelectionContextTest {
 
     @Test
     void constructor_acceptsNullFields() {
-        final SelectionContext ctx = new SelectionContext(null, null, null, null, null, null, null);
+        final SelectionContext ctx = new SelectionContext(null, null, null, null, null, null, null, null);
         assertThat(ctx.category()).isNull();
         assertThat(ctx.candidateGroups()).isNull();
     }
@@ -27,15 +27,27 @@ class SelectionContextTest {
     @Test
     void record_storesNewFields() {
         final var ctx = new SelectionContext(null, null, null, null, null,
-                "Review NDA", "Please review this NDA.");
+                "Review NDA", "Please review this NDA.", null);
         assertThat(ctx.title()).isEqualTo("Review NDA");
         assertThat(ctx.description()).isEqualTo("Please review this NDA.");
     }
 
     @Test
     void record_newFieldsNullable() {
-        final var ctx = new SelectionContext(null, null, null, null, null, null, null);
+        final var ctx = new SelectionContext(null, null, null, null, null, null, null, null);
         assertThat(ctx.title()).isNull();
         assertThat(ctx.description()).isNull();
+    }
+
+    @Test
+    void record_excludedUsersStored() {
+        final var ctx = new SelectionContext(null, null, null, null, null, null, null, "dave,eve");
+        assertThat(ctx.excludedUsers()).isEqualTo("dave,eve");
+    }
+
+    @Test
+    void record_excludedUsersNullable() {
+        final var ctx = new SelectionContext(null, null, null, null, null, null, null, null);
+        assertThat(ctx.excludedUsers()).isNull();
     }
 }

@@ -295,6 +295,16 @@ public class WorkItem extends PanacheEntityBase {
     @Column(name = "outcome", length = 255)
     public String outcome;
 
+    /**
+     * Comma-separated user IDs excluded from claiming or being delegated this WorkItem.
+     * Snapshotted from {@link WorkItemTemplate#excludedUsers} at instantiation.
+     * Null means no user is excluded. Validated by {@code ExclusionPolicy} at
+     * {@code claim()}, {@code create()} (assigneeId check), and {@code delegate()}.
+     * See casehubio/work#171.
+     */
+    @Column(name = "excluded_users", columnDefinition = "TEXT")
+    public String excludedUsers;
+
     // -------------------------------------------------------------------------
     // JPA lifecycle callbacks
     // -------------------------------------------------------------------------

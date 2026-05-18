@@ -150,7 +150,8 @@ public class MultiInstanceSpawnService {
                 null, // defaultClaimBusinessHours — coordinator has no deadline
                 isCoordinator ? null : template.defaultExpiryBusinessHours,
                 template.id,
-                WorkItemTemplateService.parseOutcomeNames(template.outcomes));
+                WorkItemTemplateService.parseOutcomeNames(template.outcomes),
+                template.excludedUsers);
     }
 
     private WorkItemCreateRequest buildChildRequest(final WorkItemTemplate template,
@@ -176,7 +177,8 @@ public class MultiInstanceSpawnService {
                 template.defaultClaimBusinessHours,
                 template.defaultExpiryBusinessHours,
                 template.id,
-                WorkItemTemplateService.parseOutcomeNames(template.outcomes));
+                WorkItemTemplateService.parseOutcomeNames(template.outcomes),
+                template.excludedUsers);
     }
 
     /**

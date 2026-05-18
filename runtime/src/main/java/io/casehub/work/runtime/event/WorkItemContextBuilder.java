@@ -69,6 +69,7 @@ public final class WorkItemContextBuilder {
         map.put("templateId", workItem.templateId != null ? workItem.templateId.toString() : null);
         map.put("permittedOutcomes", OutcomeCodecs.decodePermittedOutcomes(workItem.permittedOutcomes));
         map.put("outcome", workItem.outcome);
+        map.put("excludedUsers", workItem.excludedUsers);
         return map;
     }
 }

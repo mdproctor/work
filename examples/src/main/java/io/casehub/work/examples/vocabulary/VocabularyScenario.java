@@ -127,7 +127,7 @@ public class VocabularyScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null);
 
         final WorkItem annualLeaveWi = workItemService.create(annualLeaveRequest);
 
@@ -148,7 +148,7 @@ public class VocabularyScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null);
 
         workItemService.create(sickLeaveRequest);
         steps.add(new StepLog(3, description3, annualLeaveWi.id));
@@ -158,8 +158,8 @@ public class VocabularyScenario {
         LOG.infof("[SCENARIO] Step %d/%d: %s", 4, total, description4);
         workItemService.claim(annualLeaveWi.id, ACTOR_MANAGER);
         workItemService.start(annualLeaveWi.id, ACTOR_MANAGER);
-        workItemService.complete(annualLeaveWi.id, ACTOR_MANAGER,
-                "{\"approved\": true, \"comment\": \"Sufficient leave balance; no conflicts\"}");
+        workItemService.complete(annualLeaveWi.id,  ACTOR_MANAGER, 
+                "{\"approved\": true, \"comment\": \"Sufficient leave balance; no conflicts\"}", null);
         steps.add(new StepLog(4, description4, annualLeaveWi.id));
 
         // Collect audit trail for the annual leave WorkItem

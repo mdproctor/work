@@ -137,7 +137,8 @@ public class WorkItemSpawnService implements SpawnPort {
                     template.defaultClaimBusinessHours,
                     template.defaultExpiryBusinessHours,
                     template.id,
-                    WorkItemTemplateService.parseOutcomeNames(template.outcomes));
+                    WorkItemTemplateService.parseOutcomeNames(template.outcomes),
+                    template.excludedUsers);
 
             final WorkItem child = workItemService.create(createRequest);
 

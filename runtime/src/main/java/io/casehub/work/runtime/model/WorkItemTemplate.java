@@ -139,6 +139,15 @@ public class WorkItemTemplate extends PanacheEntityBase {
     public String outcomes;
 
     /**
+     * Comma-separated user IDs excluded from claiming WorkItems instantiated from this template.
+     * Consistent with {@link #candidateUsers}. Snapshotted onto
+     * {@link WorkItem#excludedUsers} at instantiation time.
+     * See casehubio/work#171.
+     */
+    @Column(name = "excluded_users", columnDefinition = "TEXT")
+    public String excludedUsers;
+
+    /**
      * Number of parallel instances to spawn when this template is instantiated.
      * Null means standard (non-multi-instance) instantiation.
      */

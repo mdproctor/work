@@ -104,7 +104,7 @@ public class CreditDecisionScenario {
                 null,
                 null,
                 null,
-                null, null, null);
+                null, null, null, null, null, null);
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));
@@ -175,10 +175,10 @@ public class CreditDecisionScenario {
         final String description9 = "supervisor-bob completes with approval decision and policy reference";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 9, total, description9);
         workItemService.complete(
-                wi.id,
-                ACTOR_BOB,
-                "{\"decision\": \"APPROVED\", \"conditions\": \"Income verified; standard terms apply\"}",
-                "Income verified against payslips",
+                wi.id, 
+                ACTOR_BOB, 
+                "{\"decision\": \"APPROVED\", \"conditions\": \"Income verified; standard terms apply\"}",  null, 
+                "Income verified against payslips", 
                 "credit-policy-v2.1");
         steps.add(new StepLog(9, description9, wi.id));
 
