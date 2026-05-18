@@ -90,6 +90,7 @@ public class WorkItemService {
         item.permittedOutcomes = WorkItemTemplateService.encodePermittedOutcomes(request.permittedOutcomes());
         item.inputDataSchema = request.inputDataSchema();
         item.outputDataSchema = request.outputDataSchema();
+        item.excludedUsers = request.excludedUsers();
 
         final Instant now = Instant.now();
         item.createdAt = now;
@@ -135,6 +136,10 @@ public class WorkItemService {
             }
         }
 
+        if (request.assigneeId() != null && exclusionPolicy.isExcluded(request.assigneeId(), item.excludedUsers)) {
+            throw new IllegalArgumentException(
+                    "assigneeId '" + request.assigneeId() + "' is excluded from this WorkItem");
+        }
         assignmentService.assign(item, AssignmentTrigger.CREATED);
         final WorkItem saved = workItemStore.put(item);
         audit(saved.id, "CREATED", request.createdBy(), null);
@@ -564,7 +569,8 @@ public class WorkItemService {
                 source.requiredCapabilities, createdBy, source.payload,
                 null, null, null, null, null, null, null, null,
                 null, null, // no template provenance for clones
-                null, null); // no schema constraints for clones
+                null, null, // no schema constraints for clones
+                null); // excludedUsers
 
         WorkItem clone = create(req);
 

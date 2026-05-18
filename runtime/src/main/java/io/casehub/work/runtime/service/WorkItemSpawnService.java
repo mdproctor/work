@@ -139,7 +139,8 @@ public class WorkItemSpawnService implements SpawnPort {
                     template.id,
                     WorkItemTemplateService.parseOutcomeNames(template.outcomes),
                     template.inputDataSchema,
-                    template.outputDataSchema);
+                    template.outputDataSchema,
+                    null); // excludedUsers
 
             final WorkItem child = workItemService.create(createRequest);
 

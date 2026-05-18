@@ -246,7 +246,8 @@ public class WorkItemTemplateService {
                 template.id,
                 parseOutcomeNames(template.outcomes),
                 template.inputDataSchema,
-                template.outputDataSchema);
+                template.outputDataSchema,
+                null); // excludedUsers
     }
 
     /** @see OutcomeCodecs#parseOutcomeNames */

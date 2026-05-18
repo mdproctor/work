@@ -65,7 +65,8 @@ public final class WorkItemMapper {
                 req.labels(), req.confidenceScore(), req.callerRef(),
                 req.claimDeadlineBusinessHours(), req.expiresAtBusinessHours(),
                 null, null, // templateId and permittedOutcomes — not set for direct creation
-                null, null); // inputDataSchema and outputDataSchema — not set for direct creation
+                null, null, // inputDataSchema and outputDataSchema — not set for direct creation
+                null); // excludedUsers
     }
 
     static WorkItemLabelResponse toLabelResponse(final WorkItemLabel label) {
