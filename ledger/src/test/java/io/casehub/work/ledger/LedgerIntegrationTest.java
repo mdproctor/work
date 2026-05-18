@@ -59,7 +59,7 @@ class LedgerIntegrationTest {
     private WorkItemCreateRequest basicRequest(final String title) {
         return new WorkItemCreateRequest(title, null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null, "system",
-                null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     // -------------------------------------------------------------------------
@@ -375,7 +375,7 @@ class LedgerIntegrationTest {
         final var item = workItemService.create(new WorkItemCreateRequest(
                 "Rationale complete test", null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null));
+                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         workItemService.claim(item.id, "alice");
         workItemService.start(item.id, "alice");
 
@@ -403,7 +403,7 @@ class LedgerIntegrationTest {
         final var item = workItemService.create(new WorkItemCreateRequest(
                 "Rationale reject test", null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null));
+                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         workItemService.claim(item.id, "alice");
 
         workItemService.reject(item.id, "alice",
@@ -428,7 +428,7 @@ class LedgerIntegrationTest {
         final var item = workItemService.create(new WorkItemCreateRequest(
                 "Human actor test", null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null,
-                "alice", null, null, null, null, null, null, null, null, null, null, null, null, null));
+                "alice", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         assertThat(entries).hasSize(1);
@@ -440,7 +440,7 @@ class LedgerIntegrationTest {
         final var item = workItemService.create(new WorkItemCreateRequest(
                 "Agent actor test", null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null,
-                "agent:content-ai", null, null, null, null, null, null, null, null, null, null, null, null, null));
+                "agent:content-ai", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         assertThat(entries).hasSize(1);
@@ -452,7 +452,7 @@ class LedgerIntegrationTest {
         final var item = workItemService.create(new WorkItemCreateRequest(
                 "System actor test", null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null,
-                "system:scheduler", null, null, null, null, null, null, null, null, null, null, null, null, null));
+                "system:scheduler", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         assertThat(entries).hasSize(1);
@@ -472,7 +472,7 @@ class LedgerIntegrationTest {
         final WorkItem child = workItemService.create(new WorkItemCreateRequest(
                 "Spawn child", null, null, null,
                 WorkItemPriority.MEDIUM, null, null, null, null,
-                "system:spawn", null, null, null, null, null, null, "task-A", null, null, null, null, null, null));
+                "system:spawn", null, null, null, null, null, null, "task-A", null, null, null, null, null, null, null));
 
         // Wire PART_OF relation: child → parent (mirrors WorkItemSpawnService.spawn)
         final WorkItemRelation rel = new WorkItemRelation();

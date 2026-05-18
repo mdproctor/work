@@ -78,5 +78,7 @@ public record WorkItemResponse(
          * JSON Schema for resolution; snapshotted from template at instantiation.
          * Null if unconstrained.
          */
-        String outputDataSchema) {
+        String outputDataSchema,
+        /** Comma-separated user IDs excluded from this WorkItem; null = unconstrained. */
+        String excludedUsers) {
 }

@@ -570,7 +570,7 @@ public class WorkItemService {
                 null, null, null, null, null, null, null, null,
                 null, null, // no template provenance for clones
                 null, null, // no schema constraints for clones
-                null); // excludedUsers
+                source.excludedUsers); // excludedUsers
 
         WorkItem clone = create(req);
 
