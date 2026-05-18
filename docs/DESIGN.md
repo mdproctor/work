@@ -35,6 +35,8 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | **— ProvenanceLink** | ⏸ Blocked | Typed PROV-O causal graph — awaiting CaseHub + Qhorus integrations (#39) |
 | **20 — Queue Broadcaster** | ✅ Complete | Epic #92/#155: `casehub-work-queues-postgres-broadcaster` — `PostgresWorkItemQueueEventBroadcaster` (`@Alternative @Priority(1)`) via PostgreSQL LISTEN/NOTIFY (`casehub_work_queue_events` channel). `WorkItemQueueEvent` plain record — no wire DTO needed. AFTER_SUCCESS observer. 13 tests (7 unit + 6 `@QuarkusTest` + Testcontainer). No Flyway migrations. |
 | **21 — Named Outcomes** | ✅ Complete | Issue #169: `Outcome` record in `casehub-work-api` (pure Java, OHT-aligned). `WorkItemTemplate.outcomes` declares typed result classifications. `WorkItem.templateId` + `permittedOutcomes` (snapshotted at instantiation) + `outcome` (recorded at completion). `WorkItemService.complete()` validates strictly against the permitted list. `WorkItemLifecycleEvent.outcome` carried for engine routing. `OutcomeCodecs` utility in model package. V22 migration. |
+| **22 — Schema-Validated Output** | ✅ Complete | Epic #170 (epic-output-schema, pending merge): `WorkItemTemplate.inputDataSchema` + `outputDataSchema` (JSON Schema draft-07). Snapshotted onto `WorkItem`. `FormSchemaValidationService` moved to service layer. `WorkItemFormSchema` entity deleted. |
+| **23 — Excluded Users** | ✅ Complete | Epic #171: `ExclusionPolicy` SPI in `casehub-work-api` (pure Java, `@DefaultBean`: `CommaSeparatedExclusionPolicy`). `excludedUsers` TEXT on `WorkItemTemplate` + `WorkItem` (snapshotted at instantiation). Enforcement at all five assignment paths: `claim()` → 409, `create()` assigneeId → 400, `delegate()` → 400, `resolveCandidates()` auto-assignment filter, `SelectionContext.excludedUsers` for external strategies. V23/V24 migrations. `clone()` carries exclusions forward. |
 
 ---
 
@@ -42,7 +44,7 @@ Configuration properties: [`README.md`](../README.md#configuration)
 
 | Version | Module | Description |
 |---|---|---|
-| V1–V22 | runtime | Sequential — initial schema through named outcomes |
+| V1–V24 | runtime | Sequential — initial schema through excluded users (V23: template excluded_users, V24: workitem excluded_users) |
 | V14 | casehub-work-ai | Worker skill profile (fills deliberate gap in runtime sequence) |
 | V2000–V2002 | casehub-work-queues / casehub-work-ledger | Queue membership tracker, ledger supplement |
 | V3000 | casehub-work-notifications | Notification rules |
@@ -79,7 +81,7 @@ Three tiers:
 |---|---|
 | casehub-work-api | 37 |
 | casehub-work-core | 38 |
-| runtime | 685 |
+| runtime | 695 |
 | work-flow | 32 |
 | casehub-work-ledger | 75 |
 | casehub-work-queues | 82 |
