@@ -101,6 +101,8 @@ public class WorkItemTemplateResource {
              * Deserialised from a raw JSON object in the request body and serialised to a JSON string for storage.
              */
             JsonNode outputDataSchema,
+            /** Comma-separated user IDs excluded from claiming instances; null = no exclusion. */
+            String excludedUsers,
             String createdBy) {
     }
 
@@ -157,6 +159,7 @@ public class WorkItemTemplateResource {
         t.outcomes = WorkItemTemplateService.encodeOutcomes(request.outcomes());
         t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
+        t.excludedUsers = request.excludedUsers();
         t.createdBy = request.createdBy();
         WorkItemTemplateValidationService.validate(t);
         t.persist();
@@ -268,6 +271,7 @@ public class WorkItemTemplateResource {
         m.put("outcomes", WorkItemTemplateService.decodeOutcomes(t.outcomes));
         m.put("inputDataSchema", t.inputDataSchema);
         m.put("outputDataSchema", t.outputDataSchema);
+        m.put("excludedUsers", t.excludedUsers);
         m.put("createdBy", t.createdBy);
         m.put("createdAt", t.createdAt);
         return m;

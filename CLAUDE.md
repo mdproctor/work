@@ -421,6 +421,8 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 
 **Known anomaly — casehub-work-ai V14:** the AI module also has a V14 migration that falls within the runtime sequential range. This was added to fill a deliberate gap left in the runtime sequence. Do not add more optional-module migrations in the V1–V999 range.
 
+**Branch-level V-number reservation (concurrent epics):** Two epic branches that both add runtime migrations independently pick the same next V number, causing a startup failure at merge time (even on a fresh install). At epic start, scan main AND all remote epic branches for the highest claimed V: `git -C <project> fetch --all && git -C <project> log --remotes="*/epic-*" --name-only --format="" | grep -oP "(?<=V)\d+(?=__)" | sort -n | tail -1`. Take the maximum across main and all branches, claim the next slot, and record it as `flyway-next-v: <N>` in `design/.meta`. Re-verify at merge time — if another epic merged first and took your number, renumber before merging. Renumbering is always safe before the first production deployment.
+
 
 **Known extension build gotchas (from casehub-qhorus experience):**
 - `quarkus-extension-processor` requires **Javadoc on every method** in `@ConfigMapping` interfaces, including group accessors — missing one causes a compile-time error
@@ -468,6 +470,7 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 - Multi-column `ALTER TABLE ... ADD COLUMN x, ADD COLUMN y` is not supported in H2 even in `MODE=PostgreSQL` — split into separate `ALTER TABLE` statements per column.
 - Schema-validated output (#170): `WorkItemTemplate.inputDataSchema` / `outputDataSchema` are JSON Schema TEXT fields (draft-07) — snapshotted onto `WorkItem.inputDataSchema` / `outputDataSchema` at instantiation, same pattern as `permittedOutcomes`. `WorkItemService.create()` validates payload; `WorkItemService.complete()` validates resolution. Null/blank data always passes (lenient). `completeFromSystem()` deliberately bypasses schema validation. `WorkItemFormSchema` entity and `/workitem-form-schemas` CRUD API are deleted — template is the sole type-level schema definition.
 - `CreateTemplateRequest.inputDataSchema` / `outputDataSchema` are typed as `JsonNode` (not `String`) — this allows callers to post a raw JSON Schema object in the request body rather than a double-encoded string. Jackson deserialises it to `JsonNode`; `JsonNode.toString()` produces compact JSON for TEXT storage. If a caller mistakenly sends a JSON string (`TextNode`) instead of an object, `toString()` produces a double-quoted value that will fail schema parsing at validation time, not at template creation time — see #183.
+- `git cherry-pick -X ours` when merging concurrent epic branches silently drops feature code from conflicting files — service-layer changes in non-conflicting files survive, but REST surface / mapping / response changes in conflicting files are replaced by the existing branch's version. No git warning is emitted, and the commit appears in `git log`. Run `git diff main..<branch> -- <key-files>` after any cherry-pick with a conflict resolution strategy to confirm all additions are present. See also: `git log main..<branch> --oneline` to verify expected commits reached main.
 
 ---
 

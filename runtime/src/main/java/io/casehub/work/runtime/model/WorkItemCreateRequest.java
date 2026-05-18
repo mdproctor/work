@@ -62,5 +62,7 @@ public record WorkItemCreateRequest(
         /** JSON Schema string for payload validation; null = no constraint. */
         String inputDataSchema,
         /** JSON Schema string for resolution validation; null = no constraint. */
-        String outputDataSchema) {
+        String outputDataSchema,
+        /** Comma-separated user IDs excluded from claiming this WorkItem. Refs #171. */
+        String excludedUsers) {
 }

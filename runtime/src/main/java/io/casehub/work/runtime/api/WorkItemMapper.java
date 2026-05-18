@@ -28,7 +28,8 @@ public final class WorkItemMapper {
                 wi.templateId, wi.outcome,
                 OutcomeCodecs.decodePermittedOutcomes(wi.permittedOutcomes),
                 wi.inputDataSchema,
-                wi.outputDataSchema);
+                wi.outputDataSchema,
+                wi.excludedUsers);
     }
 
     public static AuditEntryResponse toAuditResponse(final AuditEntry e) {
@@ -53,7 +54,8 @@ public final class WorkItemMapper {
                 labelResponses, auditResponses, wi.confidenceScore, wi.callerRef, wi.version,
                 wi.templateId, wi.outcome,
                 wi.inputDataSchema,
-                wi.outputDataSchema);
+                wi.outputDataSchema,
+                wi.excludedUsers);
     }
 
     public static WorkItemCreateRequest toServiceRequest(final CreateWorkItemRequest req) {
@@ -65,7 +67,8 @@ public final class WorkItemMapper {
                 req.labels(), req.confidenceScore(), req.callerRef(),
                 req.claimDeadlineBusinessHours(), req.expiresAtBusinessHours(),
                 null, null, // templateId and permittedOutcomes — not set for direct creation
-                null, null); // inputDataSchema and outputDataSchema — not set for direct creation
+                null, null, // inputDataSchema, outputDataSchema — no template, no schema
+                req.excludedUsers()); // caller can specify excluded users on direct creation
     }
 
     static WorkItemLabelResponse toLabelResponse(final WorkItemLabel label) {

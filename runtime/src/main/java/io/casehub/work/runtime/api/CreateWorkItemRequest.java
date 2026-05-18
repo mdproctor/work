@@ -24,5 +24,7 @@ public record CreateWorkItemRequest(
         Double confidenceScore,
         String callerRef,
         Integer claimDeadlineBusinessHours,
-        Integer expiresAtBusinessHours) {
+        Integer expiresAtBusinessHours,
+        /** Comma-separated user IDs excluded from claiming this WorkItem; null = no exclusion. */
+        String excludedUsers) {
 }

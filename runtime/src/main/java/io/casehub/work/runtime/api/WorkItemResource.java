@@ -166,9 +166,15 @@ public class WorkItemResource {
 
     @PUT
     @Path("/{id}/claim")
-    public WorkItemResponse claim(@PathParam("id") final UUID id,
+    public Response claim(@PathParam("id") final UUID id,
             @QueryParam("claimant") final String claimant) {
-        return WorkItemMapper.toResponse(workItemService.claim(id, claimant));
+        try {
+            return Response.ok(WorkItemMapper.toResponse(workItemService.claim(id, claimant))).build();
+        } catch (final IllegalStateException e) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
     }
 
     @PUT
@@ -208,10 +214,17 @@ public class WorkItemResource {
     @PUT
     @Path("/{id}/delegate")
     @Consumes(MediaType.APPLICATION_JSON)
-    public WorkItemResponse delegate(@PathParam("id") final UUID id,
+    public Response delegate(@PathParam("id") final UUID id,
             @QueryParam("actor") final String actor,
             final DelegateRequest body) {
-        return WorkItemMapper.toResponse(workItemService.delegate(id, actor, body.to()));
+        try {
+            return Response.ok(WorkItemMapper.toResponse(
+                    workItemService.delegate(id, actor, body.to()))).build();
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
     }
 
     @PUT
