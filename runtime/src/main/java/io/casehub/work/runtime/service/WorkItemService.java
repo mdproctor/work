@@ -16,6 +16,7 @@ import io.casehub.work.api.AssignmentTrigger;
 import io.casehub.work.api.BusinessCalendar;
 import io.casehub.work.api.ClaimSlaContext;
 import io.casehub.work.api.ClaimSlaPolicy;
+import io.casehub.work.api.ExclusionPolicy;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.AuditEntry;
@@ -38,6 +39,7 @@ public class WorkItemService {
     private final WorkItemsConfig config;
     private final WorkItemAssignmentService assignmentService;
     private final ClaimSlaPolicy claimSlaPolicy;
+    private final ExclusionPolicy exclusionPolicy;
 
     @Inject
     EntityManager em;
@@ -56,12 +58,14 @@ public class WorkItemService {
             final AuditEntryStore auditStore,
             final WorkItemsConfig config,
             final WorkItemAssignmentService assignmentService,
-            final ClaimSlaPolicy claimSlaPolicy) {
+            final ClaimSlaPolicy claimSlaPolicy,
+            final ExclusionPolicy exclusionPolicy) {
         this.workItemStore = workItemStore;
         this.auditStore = auditStore;
         this.config = config;
         this.assignmentService = assignmentService;
         this.claimSlaPolicy = claimSlaPolicy;
+        this.exclusionPolicy = exclusionPolicy;
     }
 
     @Transactional
@@ -86,6 +90,7 @@ public class WorkItemService {
         item.permittedOutcomes = WorkItemTemplateService.encodePermittedOutcomes(request.permittedOutcomes());
         item.inputDataSchema = request.inputDataSchema();
         item.outputDataSchema = request.outputDataSchema();
+        item.excludedUsers = request.excludedUsers();
 
         final Instant now = Instant.now();
         item.createdAt = now;
@@ -131,6 +136,10 @@ public class WorkItemService {
             }
         }
 
+        if (request.assigneeId() != null && exclusionPolicy.isExcluded(request.assigneeId(), item.excludedUsers)) {
+            throw new IllegalArgumentException(
+                    "assigneeId '" + request.assigneeId() + "' is excluded from this WorkItem");
+        }
         assignmentService.assign(item, AssignmentTrigger.CREATED);
         final WorkItem saved = workItemStore.put(item);
         audit(saved.id, "CREATED", request.createdBy(), null);
@@ -158,6 +167,10 @@ public class WorkItemService {
                     }
                 }
             }
+        }
+        if (exclusionPolicy.isExcluded(claimantId, item.excludedUsers)) {
+            throw new IllegalStateException(
+                    "Claimant '" + claimantId + "' is excluded from this WorkItem");
         }
         if (item.status != WorkItemStatus.PENDING) {
             throw new IllegalStateException("Cannot claim WorkItem in status: " + item.status);
@@ -384,6 +397,10 @@ public class WorkItemService {
     @Transactional
     public WorkItem delegate(final UUID id, final String actorId, final String toAssigneeId) {
         final WorkItem item = requireWorkItem(id);
+        if (exclusionPolicy.isExcluded(toAssigneeId, item.excludedUsers)) {
+            throw new IllegalArgumentException(
+                    "Cannot delegate to excluded user: '" + toAssigneeId + "'");
+        }
         if (item.status != WorkItemStatus.ASSIGNED && item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot delegate WorkItem in status: " + item.status);
         }
@@ -552,7 +569,8 @@ public class WorkItemService {
                 source.requiredCapabilities, createdBy, source.payload,
                 null, null, null, null, null, null, null, null,
                 null, null, // no template provenance for clones
-                null, null); // no schema constraints for clones
+                null, null, // no schema constraints for clones
+                source.excludedUsers); // excludedUsers
 
         WorkItem clone = create(req);
 

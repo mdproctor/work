@@ -152,7 +152,8 @@ public class MultiInstanceSpawnService {
                 template.id,
                 WorkItemTemplateService.parseOutcomeNames(template.outcomes),
                 template.inputDataSchema,
-                template.outputDataSchema);
+                template.outputDataSchema,
+                template.excludedUsers); // excludedUsers
     }
 
     private WorkItemCreateRequest buildChildRequest(final WorkItemTemplate template,
@@ -180,7 +181,8 @@ public class MultiInstanceSpawnService {
                 template.id,
                 WorkItemTemplateService.parseOutcomeNames(template.outcomes),
                 template.inputDataSchema,
-                template.outputDataSchema);
+                template.outputDataSchema,
+                template.excludedUsers); // excludedUsers
     }
 
     /**

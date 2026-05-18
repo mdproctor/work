@@ -14,6 +14,7 @@ package io.casehub.work.api;
  * @param candidateUsers comma-separated user IDs (may be null)
  * @param title work item title — used by semantic matchers (may be null)
  * @param description work item description — used by semantic matchers (may be null)
+ * @param excludedUsers comma-separated user IDs excluded from this WorkItem (may be null)
  */
 public record SelectionContext(
         String category,
@@ -22,5 +23,6 @@ public record SelectionContext(
         String candidateGroups,
         String candidateUsers,
         String title,
-        String description) {
+        String description,
+        String excludedUsers) {
 }

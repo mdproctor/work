@@ -56,5 +56,6 @@ public record WorkItemWithAuditResponse(
         /** JSON Schema for payload; snapshotted from template at instantiation. Null if unconstrained. */
         String inputDataSchema,
         /** JSON Schema for resolution; snapshotted from template at instantiation. Null if unconstrained. */
-        String outputDataSchema) {
+        String outputDataSchema,
+        String excludedUsers) {
 }

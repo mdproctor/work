@@ -287,6 +287,11 @@ public class WorkItem extends PanacheEntityBase {
     @Column(name = "permitted_outcomes", columnDefinition = "TEXT")
     public String permittedOutcomes;
 
+    /** Comma-separated user IDs excluded from claiming this WorkItem. Snapshotted from
+     *  {@link io.casehub.work.runtime.model.WorkItemTemplate#excludedUsers} at instantiation. Refs #171. */
+    @Column(name = "excluded_users", columnDefinition = "TEXT")
+    public String excludedUsers;
+
     /**
      * The outcome name recorded when this item reached {@link WorkItemStatus#COMPLETED}.
      * Null until the item is completed. Validated against {@link #permittedOutcomes}

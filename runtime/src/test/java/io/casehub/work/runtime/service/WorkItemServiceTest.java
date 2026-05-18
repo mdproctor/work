@@ -237,8 +237,10 @@ class WorkItemServiceTest {
                         (ctx, candidates) -> AssignmentDecision.noChange(),
                         group -> List.of(),
                         workerId -> 0,
-                        new WorkBroker()),
-                new io.casehub.work.core.policy.ContinuationPolicy());
+                        new WorkBroker(),
+                        (userId, excluded) -> false),
+                new io.casehub.work.core.policy.ContinuationPolicy(),
+                (userId, excluded) -> false);
     }
 
     private WorkItemCreateRequest basicRequest() {
@@ -246,7 +248,7 @@ class WorkItemServiceTest {
                 "Test item", "Do something", null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     // -------------------------------------------------------------------------
@@ -297,7 +299,7 @@ class WorkItemServiceTest {
                 "Explicit expiry", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, null, null,
-                "system", null, null, explicit, null, null, null, null, null, null, null, null, null, null);
+                "system", null, null, explicit, null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
         assertThat(wi.expiresAt).isEqualTo(explicit);
     }
@@ -308,7 +310,7 @@ class WorkItemServiceTest {
                 "Group item", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, "team-a,team-b", null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
         assertThat(wi.candidateGroups).isEqualTo("team-a,team-b");
     }
@@ -797,7 +799,7 @@ class WorkItemServiceTest {
                 "Group task", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, "team-a,team-b", null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
 
         List<WorkItem> inbox = repo.scan(WorkItemQuery.inbox(null, List.of("team-a"), null));
@@ -810,7 +812,7 @@ class WorkItemServiceTest {
                 "Candidate task", null, null, null,
                 WorkItemPriority.MEDIUM,
                 null, null, "bob", null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null);
+                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         WorkItem wi = service.create(req);
 
         List<WorkItem> inbox = repo.scan(WorkItemQuery.inbox("bob", null, null));
@@ -920,7 +922,7 @@ class WorkItemServiceTest {
         var request = new WorkItemCreateRequest(
                 "title", null, null, null, null, null, null, null, null, "alice",
                 null, null, null, null,
-                List.of(new WorkItemLabelResponse("legal", LabelPersistence.INFERRED, null)), null, null, null, null, null, null, null, null);
+                List.of(new WorkItemLabelResponse("legal", LabelPersistence.INFERRED, null)), null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -932,7 +934,7 @@ class WorkItemServiceTest {
         var request = new WorkItemCreateRequest(
                 "title", null, null, null, null, null, null, null, null, "alice",
                 null, null, null, null,
-                List.of(new WorkItemLabelResponse("legal", LabelPersistence.MANUAL, "alice")), null, null, null, null, null, null, null, null);
+                List.of(new WorkItemLabelResponse("legal", LabelPersistence.MANUAL, "alice")), null, null, null, null, null, null, null, null, null);
 
         var result = service.create(request);
 
@@ -949,7 +951,7 @@ class WorkItemServiceTest {
     void addLabel_addsManualLabelToWorkItem() {
         var created = service.create(new WorkItemCreateRequest(
                 "label-add-test", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         var updated = service.addLabel(created.id, "legal/contracts", "alice");
 
@@ -965,7 +967,7 @@ class WorkItemServiceTest {
                 "label-remove-test", null, null, null, null, null, null, null, null, "alice",
                 null, null, null, null,
                 List.of(new WorkItemLabelResponse("legal/contracts", LabelPersistence.MANUAL, "alice")), null, null, null,
-                null, null, null, null, null));
+                null, null, null, null, null, null));
 
         var updated = service.removeLabel(created.id, "legal/contracts");
 
@@ -976,7 +978,7 @@ class WorkItemServiceTest {
     void removeLabel_nonExistentLabel_throwsLabelNotFoundException() {
         var created = service.create(new WorkItemCreateRequest(
                 "remove-nonexistent", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         assertThatThrownBy(() -> service.removeLabel(created.id, "nonexistent/label"))
                 .isInstanceOf(LabelNotFoundException.class)
@@ -1057,8 +1059,10 @@ class WorkItemServiceTest {
                         (ctx, candidates) -> AssignmentDecision.noChange(),
                         group -> List.of(),
                         workerId -> 0,
-                        new WorkBroker()),
-                new io.casehub.work.core.policy.ContinuationPolicy());
+                        new WorkBroker(),
+                        (userId, excluded) -> false),
+                new io.casehub.work.core.policy.ContinuationPolicy(),
+                (userId, excluded) -> false);
         WorkItem wi = svc.create(basicRequest());
         assertThat(wi.claimDeadline).isNull();
     }

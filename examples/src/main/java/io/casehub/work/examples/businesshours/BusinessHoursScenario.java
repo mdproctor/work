@@ -71,7 +71,7 @@ public class BusinessHoursScenario {
                 "finance-system", null,
                 null, null, null, null, null, null,
                 null, 48 // expiresAtBusinessHours = 48
-        , null, null, null, null));
+        , null, null, null, null, null));
         steps.add(new StepLog(1,
                 "Created loan-approval WorkItem with expiresAtBusinessHours=48",
                 wi.id));

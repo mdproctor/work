@@ -138,6 +138,11 @@ public class WorkItemTemplate extends PanacheEntityBase {
     @Column(name = "outcomes", columnDefinition = "TEXT")
     public String outcomes;
 
+    /** Comma-separated user IDs excluded from claiming WorkItems from this template.
+     *  Snapshotted onto {@link WorkItem#excludedUsers} at instantiation. Refs #171. */
+    @Column(name = "excluded_users", columnDefinition = "TEXT")
+    public String excludedUsers;
+
     /**
      * JSON Schema (draft-07) validating {@link WorkItem#payload} at instantiation.
      * Null means no input constraint. Snapshotted onto {@link WorkItem#inputDataSchema}
