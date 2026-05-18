@@ -11,6 +11,7 @@ import jakarta.inject.Inject;
 
 import io.casehub.work.api.AssignmentDecision;
 import io.casehub.work.api.AssignmentTrigger;
+import io.casehub.work.api.ExclusionPolicy;
 import io.casehub.work.api.SelectionContext;
 import io.casehub.work.api.WorkerCandidate;
 import io.casehub.work.api.WorkerRegistry;
@@ -46,6 +47,7 @@ public class WorkItemAssignmentService {
     private final WorkerRegistry workerRegistry;
     private final WorkloadProvider workloadProvider;
     private final WorkBroker workBroker;
+    private final ExclusionPolicy exclusionPolicy;
 
     // CDI-wired fields — null in unit-test constructor
     private WorkItemsConfig config;
@@ -66,6 +68,7 @@ public class WorkItemAssignmentService {
      * @param workBroker the generic work assignment broker
      * @param claimFirst the built-in claim-first strategy
      * @param leastLoaded the built-in least-loaded strategy
+     * @param exclusionPolicy the exclusion policy for filtering excluded users
      */
     @Inject
     public WorkItemAssignmentService(
@@ -75,7 +78,8 @@ public class WorkItemAssignmentService {
             final WorkloadProvider workloadProvider,
             final WorkBroker workBroker,
             final ClaimFirstStrategy claimFirst,
-            final LeastLoadedStrategy leastLoaded) {
+            final LeastLoadedStrategy leastLoaded,
+            final ExclusionPolicy exclusionPolicy) {
         this.config = config;
         this.alternatives = alternatives;
         this.workerRegistry = workerRegistry;
@@ -84,6 +88,7 @@ public class WorkItemAssignmentService {
         this.claimFirst = claimFirst;
         this.leastLoaded = leastLoaded;
         this.fixedStrategy = null;
+        this.exclusionPolicy = exclusionPolicy;
     }
 
     /**
@@ -94,15 +99,18 @@ public class WorkItemAssignmentService {
      * @param workerRegistry the worker registry for group resolution
      * @param workloadProvider the workload provider for active count queries
      * @param workBroker the generic work assignment broker
+     * @param exclusionPolicy the exclusion policy for filtering excluded users
      */
     WorkItemAssignmentService(final WorkerSelectionStrategy strategy,
             final WorkerRegistry workerRegistry,
             final WorkloadProvider workloadProvider,
-            final WorkBroker workBroker) {
+            final WorkBroker workBroker,
+            final ExclusionPolicy exclusionPolicy) {
         this.fixedStrategy = strategy;
         this.workerRegistry = workerRegistry;
         this.workloadProvider = workloadProvider;
         this.workBroker = workBroker;
+        this.exclusionPolicy = exclusionPolicy;
     }
 
     /**
@@ -122,7 +130,8 @@ public class WorkItemAssignmentService {
                 workItem.candidateGroups,
                 workItem.candidateUsers,
                 workItem.title,
-                workItem.description);
+                workItem.description,
+                workItem.excludedUsers);
 
         final AssignmentDecision decision = workBroker.apply(context, trigger, candidates, strategy);
         applyDecision(workItem, decision);
@@ -169,6 +178,11 @@ public class WorkItemAssignmentService {
                             ? c
                             : c.withActiveWorkItemCount(workloadProvider.getActiveWorkCount(c.id())))
                     .forEach(candidates::add);
+        }
+
+        // Filter excluded users — prevents excluded users from being auto-assigned
+        if (workItem.excludedUsers != null) {
+            candidates.removeIf(c -> exclusionPolicy.isExcluded(c.id(), workItem.excludedUsers));
         }
 
         // Capability filtering and trigger gating are handled by WorkBroker.apply()

@@ -88,7 +88,8 @@ public class RoundRobinAssignmentStrategy implements InstanceAssignmentStrategy 
                     parent.candidateGroups,
                     filteredUsers,
                     child.title,
-                    child.description);
+                    child.description,
+                    child.excludedUsers);
 
             final AssignmentDecision decision = workerSelectionStrategy.select(selCtx, List.of());
             if (decision != null && decision.assigneeId() != null) {

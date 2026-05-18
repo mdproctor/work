@@ -237,8 +237,10 @@ class WorkItemServiceTest {
                         (ctx, candidates) -> AssignmentDecision.noChange(),
                         group -> List.of(),
                         workerId -> 0,
-                        new WorkBroker()),
-                new io.casehub.work.core.policy.ContinuationPolicy());
+                        new WorkBroker(),
+                        (userId, excluded) -> false),
+                new io.casehub.work.core.policy.ContinuationPolicy(),
+                (userId, excluded) -> false);
     }
 
     private WorkItemCreateRequest basicRequest() {
@@ -1057,8 +1059,10 @@ class WorkItemServiceTest {
                         (ctx, candidates) -> AssignmentDecision.noChange(),
                         group -> List.of(),
                         workerId -> 0,
-                        new WorkBroker()),
-                new io.casehub.work.core.policy.ContinuationPolicy());
+                        new WorkBroker(),
+                        (userId, excluded) -> false),
+                new io.casehub.work.core.policy.ContinuationPolicy(),
+                (userId, excluded) -> false);
         WorkItem wi = svc.create(basicRequest());
         assertThat(wi.claimDeadline).isNull();
     }
