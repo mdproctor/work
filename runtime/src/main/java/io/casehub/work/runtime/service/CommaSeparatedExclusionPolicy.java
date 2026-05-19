@@ -3,6 +3,7 @@ package io.casehub.work.runtime.service;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import io.casehub.work.api.ExclusionPolicy;
+import io.casehub.work.api.PolicyDecision;
 import io.quarkus.arc.DefaultBean;
 
 /**
@@ -16,15 +17,15 @@ import io.quarkus.arc.DefaultBean;
 public class CommaSeparatedExclusionPolicy implements ExclusionPolicy {
 
     @Override
-    public boolean isExcluded(final String userId, final String excludedUsers) {
+    public PolicyDecision check(final String userId, final String excludedUsers) {
         if (excludedUsers == null || excludedUsers.isBlank()) {
-            return false;
+            return PolicyDecision.ALLOW;
         }
         for (final String id : excludedUsers.split(",")) {
             if (id.trim().equals(userId)) {
-                return true;
+                return PolicyDecision.deny("user '" + userId + "' in comma-separated exclusion list");
             }
         }
-        return false;
+        return PolicyDecision.ALLOW;
     }
 }

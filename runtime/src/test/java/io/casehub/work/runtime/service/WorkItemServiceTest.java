@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.work.api.AssignmentDecision;
+import io.casehub.work.api.PolicyDecision;
 import io.casehub.work.core.strategy.WorkBroker;
 import io.casehub.work.runtime.api.WorkItemLabelResponse;
 import io.casehub.work.runtime.config.WorkItemsConfig;
@@ -238,9 +239,10 @@ class WorkItemServiceTest {
                         group -> List.of(),
                         workerId -> 0,
                         new WorkBroker(),
-                        (userId, excluded) -> false),
+                        (userId, excluded) -> PolicyDecision.ALLOW),
                 new io.casehub.work.core.policy.ContinuationPolicy(),
-                (userId, excluded) -> false);
+                (userId, excluded) -> PolicyDecision.ALLOW,
+                new BlockedAttemptAuditService(auditStore));
     }
 
     private WorkItemCreateRequest basicRequest() {
@@ -1060,9 +1062,10 @@ class WorkItemServiceTest {
                         group -> List.of(),
                         workerId -> 0,
                         new WorkBroker(),
-                        (userId, excluded) -> false),
+                        (userId, excluded) -> PolicyDecision.ALLOW),
                 new io.casehub.work.core.policy.ContinuationPolicy(),
-                (userId, excluded) -> false);
+                (userId, excluded) -> PolicyDecision.ALLOW,
+                new BlockedAttemptAuditService(auditStore));
         WorkItem wi = svc.create(basicRequest());
         assertThat(wi.claimDeadline).isNull();
     }
