@@ -53,6 +53,8 @@ public record WorkItemWithAuditResponse(
         UUID templateId,
         /** Named outcome recorded at completion; null until COMPLETED. */
         String outcome,
+        /** Permitted outcome names snapshotted from the template; null means no constraint. */
+        List<String> permittedOutcomes,
         /** JSON Schema for payload; snapshotted from template at instantiation. Null if unconstrained. */
         String inputDataSchema,
         /** JSON Schema for resolution; snapshotted from template at instantiation. Null if unconstrained. */
