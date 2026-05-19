@@ -68,6 +68,30 @@ class WorkItemTemplateSchemaTest {
     }
 
     @Test
+    void createTemplate_withInputDataSchemaAsString_returns400() {
+        // Callers that accidentally double-encode the schema as a JSON string get a
+        // clear 400 at creation time rather than a confusing error at validation time.
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"Bad Input Schema\",\"category\":\"test\"," +
+                      "\"inputDataSchema\":\"" + INPUT_SCHEMA.replace("\"", "\\\"") + "\"," +
+                      "\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void createTemplate_withOutputDataSchemaAsString_returns400() {
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"Bad Output Schema\",\"category\":\"test\"," +
+                      "\"outputDataSchema\":\"" + OUTPUT_SCHEMA.replace("\"", "\\\"") + "\"," +
+                      "\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
     void instantiateTemplate_withoutSchemas_workItemSchemasAreNull() {
         final String templateId = given().contentType(ContentType.JSON)
                 .body("{\"name\":\"No Schema\",\"candidateGroups\":\"ops\",\"createdBy\":\"admin\"}")

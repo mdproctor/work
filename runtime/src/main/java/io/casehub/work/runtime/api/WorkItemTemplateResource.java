@@ -133,6 +133,16 @@ public class WorkItemTemplateResource {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of("error", "createdBy is required")).build();
         }
+        if (request.inputDataSchema() != null && !request.inputDataSchema().isObject()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "inputDataSchema must be a JSON object (Schema), not a "
+                            + request.inputDataSchema().getNodeType().name().toLowerCase())).build();
+        }
+        if (request.outputDataSchema() != null && !request.outputDataSchema().isObject()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "outputDataSchema must be a JSON object (Schema), not a "
+                            + request.outputDataSchema().getNodeType().name().toLowerCase())).build();
+        }
 
         final WorkItemTemplate t = new WorkItemTemplate();
         t.name = request.name();
