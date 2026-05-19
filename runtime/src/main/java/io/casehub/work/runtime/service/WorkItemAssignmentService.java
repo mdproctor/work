@@ -182,7 +182,7 @@ public class WorkItemAssignmentService {
 
         // Filter excluded users — prevents excluded users from being auto-assigned
         if (workItem.excludedUsers != null) {
-            candidates.removeIf(c -> exclusionPolicy.isExcluded(c.id(), workItem.excludedUsers));
+            candidates.removeIf(c -> exclusionPolicy.check(c.id(), workItem.excludedUsers).denied());
         }
 
         // Capability filtering and trigger gating are handled by WorkBroker.apply()

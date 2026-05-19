@@ -8,15 +8,21 @@ package io.casehub.work.api;
  * whether {@code userId} appears in a comma-separated {@code excludedUsers} string.
  * Custom implementations can plug in LDAP group membership, role-based rules,
  * or time-window logic (see casehubio/work#185).
+ *
+ * <p>
+ * Implementations must return {@link PolicyDecision#ALLOW} (not {@code null}) when
+ * the user is not excluded. The reason on a denied decision flows directly into
+ * audit entries and exception messages — make it human-readable and specific.
  */
 public interface ExclusionPolicy {
 
     /**
-     * Returns {@code true} if {@code userId} is excluded.
+     * Evaluates whether {@code userId} is excluded.
      *
      * @param userId the identity to check; must not be null
-     * @param excludedUsers comma-separated user IDs; null or blank means no exclusion
-     * @return {@code true} if the user is excluded, {@code false} otherwise
+     * @param excludedUsers the policy data (e.g. comma-separated IDs); null or blank means no exclusion
+     * @return {@link PolicyDecision#ALLOW} if permitted; a denied {@link PolicyDecision} carrying
+     *         a human-readable reason if excluded
      */
-    boolean isExcluded(String userId, String excludedUsers);
+    PolicyDecision check(String userId, String excludedUsers);
 }
