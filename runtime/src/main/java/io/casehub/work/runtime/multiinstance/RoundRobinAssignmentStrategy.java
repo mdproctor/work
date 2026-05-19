@@ -79,7 +79,14 @@ public class RoundRobinAssignmentStrategy implements InstanceAssignmentStrategy 
 
         for (final Object obj : instances) {
             final WorkItem child = (WorkItem) obj;
-            final String filteredUsers = filterOut(parent.candidateUsers, alreadyAssigned);
+            // Combine already-assigned workers and template-level excluded users so the
+            // pre-filtered candidateUsers passed to the strategy never contains either set,
+            // regardless of whether the strategy itself honours context.excludedUsers().
+            final Set<String> excluded = new HashSet<>(alreadyAssigned);
+            if (child.excludedUsers != null && !child.excludedUsers.isBlank()) {
+                Arrays.stream(child.excludedUsers.split(",")).map(String::trim).forEach(excluded::add);
+            }
+            final String filteredUsers = filterOut(parent.candidateUsers, excluded);
 
             final SelectionContext selCtx = new SelectionContext(
                     child.category,
