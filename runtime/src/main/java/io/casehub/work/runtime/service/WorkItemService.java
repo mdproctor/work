@@ -17,6 +17,7 @@ import io.casehub.work.api.BusinessCalendar;
 import io.casehub.work.api.ClaimSlaContext;
 import io.casehub.work.api.ClaimSlaPolicy;
 import io.casehub.work.api.ExclusionPolicy;
+import io.casehub.work.api.PolicyDecision;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.AuditEntry;
@@ -40,6 +41,7 @@ public class WorkItemService {
     private final WorkItemAssignmentService assignmentService;
     private final ClaimSlaPolicy claimSlaPolicy;
     private final ExclusionPolicy exclusionPolicy;
+    private final BlockedAttemptAuditService blockedAuditService;
 
     @Inject
     EntityManager em;
@@ -59,13 +61,15 @@ public class WorkItemService {
             final WorkItemsConfig config,
             final WorkItemAssignmentService assignmentService,
             final ClaimSlaPolicy claimSlaPolicy,
-            final ExclusionPolicy exclusionPolicy) {
+            final ExclusionPolicy exclusionPolicy,
+            final BlockedAttemptAuditService blockedAuditService) {
         this.workItemStore = workItemStore;
         this.auditStore = auditStore;
         this.config = config;
         this.assignmentService = assignmentService;
         this.claimSlaPolicy = claimSlaPolicy;
         this.exclusionPolicy = exclusionPolicy;
+        this.blockedAuditService = blockedAuditService;
     }
 
     @Transactional
@@ -136,9 +140,11 @@ public class WorkItemService {
             }
         }
 
-        if (request.assigneeId() != null && exclusionPolicy.isExcluded(request.assigneeId(), item.excludedUsers)) {
-            throw new IllegalArgumentException(
-                    "assigneeId '" + request.assigneeId() + "' is excluded from this WorkItem");
+        if (request.assigneeId() != null) {
+            final PolicyDecision createDecision = exclusionPolicy.check(request.assigneeId(), item.excludedUsers);
+            if (createDecision.denied()) {
+                throw new IllegalArgumentException(createDecision.reason());
+            }
         }
         assignmentService.assign(item, AssignmentTrigger.CREATED);
         final WorkItem saved = workItemStore.put(item);
@@ -171,12 +177,13 @@ public class WorkItemService {
                 }
             }
         }
-        if (exclusionPolicy.isExcluded(claimantId, item.excludedUsers)) {
-            throw new IllegalStateException(
-                    "Claimant '" + claimantId + "' is excluded from this WorkItem");
-        }
         if (item.status != WorkItemStatus.PENDING) {
             throw new IllegalStateException("Cannot claim WorkItem in status: " + item.status);
+        }
+        final PolicyDecision claimDecision = exclusionPolicy.check(claimantId, item.excludedUsers);
+        if (claimDecision.denied()) {
+            blockedAuditService.record(item.id, "CLAIM_DENIED", claimantId, claimDecision.reason());
+            throw new IllegalStateException(claimDecision.reason());
         }
         final Instant now = Instant.now();
         // Accumulate time spent in the unclaimed pool for this phase
@@ -400,12 +407,14 @@ public class WorkItemService {
     @Transactional
     public WorkItem delegate(final UUID id, final String actorId, final String toAssigneeId) {
         final WorkItem item = requireWorkItem(id);
-        if (exclusionPolicy.isExcluded(toAssigneeId, item.excludedUsers)) {
-            throw new IllegalArgumentException(
-                    "Cannot delegate to excluded user: '" + toAssigneeId + "'");
-        }
         if (item.status != WorkItemStatus.ASSIGNED && item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot delegate WorkItem in status: " + item.status);
+        }
+        final PolicyDecision delegateDecision = exclusionPolicy.check(toAssigneeId, item.excludedUsers);
+        if (delegateDecision.denied()) {
+            blockedAuditService.record(item.id, "DELEGATE_DENIED", actorId,
+                    "target:" + toAssigneeId + "; reason:" + delegateDecision.reason());
+            throw new IllegalArgumentException(delegateDecision.reason());
         }
         if (item.owner == null) {
             item.owner = actorId;

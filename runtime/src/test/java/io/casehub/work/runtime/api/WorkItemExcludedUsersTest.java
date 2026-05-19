@@ -5,15 +5,24 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests that excludedUsers is enforced at all five assignment paths. Refs #171.
+ * Tests that excludedUsers is enforced at all five assignment paths. Refs #171, #186.
  */
 @QuarkusTest
 class WorkItemExcludedUsersTest {
+
+    @BeforeEach
+    @Transactional
+    void clearTemplates() {
+        WorkItemTemplate.deleteAll();
+    }
 
     // ── Template CRUD + snapshot ────────────────────────────────────────────
 
@@ -131,6 +140,59 @@ class WorkItemExcludedUsersTest {
                 .then().statusCode(201).extract().path("id");
         given().put("/workitems/" + workItemId + "/claim?claimant=alice")
                 .then().statusCode(200);
+    }
+
+    // ── Audit trail for blocked attempts ──────────────────────────────────
+
+    @Test
+    void claim_byExcludedUser_createsClaimDeniedAuditEntry() {
+        final String id = workItemWithExcludedUser("alice");
+        given().put("/workitems/" + id + "/claim?claimant=alice")
+                .then().statusCode(409);
+
+        given().get("/workitems/" + id)
+                .then().statusCode(200)
+                .body("auditTrail.find { it.event == 'CLAIM_DENIED' }.actor", equalTo("alice"))
+                .body("auditTrail.find { it.event == 'CLAIM_DENIED' }.detail", notNullValue());
+    }
+
+    @Test
+    void claim_byExcludedUser_auditEntryPersistsDespiteRejection() {
+        // Verifies the blocked attempt audit entry is durably persisted and readable after a rejected claim.
+        final String id = workItemWithExcludedUser("alice");
+        given().put("/workitems/" + id + "/claim?claimant=alice").then().statusCode(409);
+
+        // WorkItem must still be PENDING (claim was rejected)
+        given().get("/workitems/" + id)
+                .then().statusCode(200)
+                .body("status", equalTo("PENDING"))
+                .body("auditTrail.collect { it.event }.flatten()", org.hamcrest.Matchers.hasItem("CLAIM_DENIED"));
+    }
+
+    @Test
+    void delegate_toExcludedUser_createsDelegateDeniedAuditEntry() {
+        final String id = workItemWithExcludedUser("alice");
+        given().put("/workitems/" + id + "/claim?claimant=bob").then().statusCode(200);
+
+        given().contentType(ContentType.JSON)
+                .body("{\"to\":\"alice\"}")
+                .put("/workitems/" + id + "/delegate?actor=bob")
+                .then().statusCode(400);
+
+        given().get("/workitems/" + id)
+                .then().statusCode(200)
+                .body("auditTrail.find { it.event == 'DELEGATE_DENIED' }.actor", equalTo("bob"))
+                .body("auditTrail.find { it.event == 'DELEGATE_DENIED' }.detail", org.hamcrest.Matchers.containsString("alice"));
+    }
+
+    @Test
+    void claim_byAllowedUser_doesNotCreateClaimDeniedEntry() {
+        final String id = workItemWithExcludedUser("alice");
+        given().put("/workitems/" + id + "/claim?claimant=bob").then().statusCode(200);
+
+        given().get("/workitems/" + id)
+                .then().statusCode(200)
+                .body("auditTrail.collect { it.event }.flatten()", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("CLAIM_DENIED")));
     }
 
     // ── Helper ─────────────────────────────────────────────────────────────
