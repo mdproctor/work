@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.work.runtime.model.WorkItem;
@@ -26,6 +27,12 @@ class MultiInstanceClaimGuardTest {
 
     @Inject
     WorkItemService workItemService;
+
+    @BeforeEach
+    @Transactional
+    void clearTemplates() {
+        WorkItemTemplate.deleteAll();
+    }
 
     private UUID createGroupAndGetParentId(final boolean allowSameAssignee) {
         return inTx(() -> {

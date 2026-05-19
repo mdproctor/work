@@ -331,12 +331,7 @@ public class WorkItemTemplateService {
      */
     @Transactional
     public Optional<WorkItemTemplate> findByName(final String name) {
-        final List<WorkItemTemplate> matches = WorkItemTemplate.find("name", name).list();
-        if (matches.size() > 1) {
-            throw new IllegalStateException(
-                "Ambiguous template name '" + name + "': " + matches.size() + " templates found");
-        }
-        return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
+        return WorkItemTemplate.find("name", name).firstResultOptional();
     }
 
     /**

@@ -8,9 +8,12 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.notNullValue;
 
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemScheduleService;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -23,6 +26,12 @@ class WorkItemScheduleTest {
 
     @Inject
     WorkItemScheduleService scheduleService;
+
+    @BeforeEach
+    @Transactional
+    void clearTemplates() {
+        WorkItemTemplate.deleteAll(); // cascades to work_item_schedule via ON DELETE CASCADE
+    }
 
     // ── POST /workitem-schedules ──────────────────────────────────────────────
 
