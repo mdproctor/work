@@ -53,6 +53,7 @@ public final class WorkItemMapper {
                 wi.completedAt, wi.suspendedAt,
                 labelResponses, auditResponses, wi.confidenceScore, wi.callerRef, wi.version,
                 wi.templateId, wi.outcome,
+                OutcomeCodecs.decodePermittedOutcomes(wi.permittedOutcomes),
                 wi.inputDataSchema,
                 wi.outputDataSchema,
                 wi.excludedUsers);
