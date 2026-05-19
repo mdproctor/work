@@ -6,10 +6,12 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
-import org.junit.jupiter.api.Test;
-
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for named outcomes declared on WorkItemTemplate — CRUD and instantiation snapshot.
@@ -17,6 +19,12 @@ import io.restassured.http.ContentType;
  */
 @QuarkusTest
 class WorkItemTemplateOutcomeTest {
+
+    @BeforeEach
+    @Transactional
+    void clearTemplates() {
+        WorkItemTemplate.deleteAll();
+    }
 
     @Test
     void createTemplate_withOutcomes_storesAndReturnsOutcomesList() {

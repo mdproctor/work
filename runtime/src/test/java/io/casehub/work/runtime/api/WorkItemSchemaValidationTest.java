@@ -3,8 +3,11 @@ package io.casehub.work.runtime.api;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -21,6 +24,12 @@ class WorkItemSchemaValidationTest {
     private static final String INPUT_SCHEMA =
             "{\"type\":\"object\",\"required\":[\"requestor\"]," +
             "\"properties\":{\"requestor\":{\"type\":\"string\"}},\"additionalProperties\":false}";
+
+    @BeforeEach
+    @Transactional
+    void clearTemplates() {
+        WorkItemTemplate.deleteAll();
+    }
 
     // ── outputDataSchema (resolution validation) ─────────────────────────────
 

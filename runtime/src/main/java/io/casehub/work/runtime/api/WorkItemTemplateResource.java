@@ -133,6 +133,10 @@ public class WorkItemTemplateResource {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of("error", "createdBy is required")).build();
         }
+        if (templateService.findByName(request.name()).isPresent()) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(Map.of("error", "template with name '" + request.name() + "' already exists")).build();
+        }
         if (request.inputDataSchema() != null && !request.inputDataSchema().isObject()) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of("error", "inputDataSchema must be a JSON object (Schema), not a "

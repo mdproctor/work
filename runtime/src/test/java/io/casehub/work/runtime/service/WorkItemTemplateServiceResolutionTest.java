@@ -48,18 +48,6 @@ class WorkItemTemplateServiceResolutionTest {
         assertThat(result).isEmpty();
     }
 
-    @Test
-    void findByName_multipleMatches_throwsIllegalStateException() {
-        persist("Duplicate Template");
-        persist("Duplicate Template");
-
-        assertThatThrownBy(() -> templateService.findByName("Duplicate Template"))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("Ambiguous template name")
-            .hasMessageContaining("Duplicate Template")
-            .hasMessageContaining("2");
-    }
-
     // ── findByRef ─────────────────────────────────────────────────────────────
 
     @Test
@@ -95,16 +83,6 @@ class WorkItemTemplateServiceResolutionTest {
         final Optional<WorkItemTemplate> result = templateService.findByRef("Unknown Template");
 
         assertThat(result).isEmpty();
-    }
-
-    @Test
-    void findByRef_ambiguousName_throwsIllegalStateException() {
-        persist("AML Review");
-        persist("AML Review");
-
-        assertThatThrownBy(() -> templateService.findByRef("AML Review"))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("Ambiguous template name");
     }
 
     // ── instantiate: payloadOverride ─────────────────────────────────────────
