@@ -151,6 +151,9 @@ public class WorkItemService {
 
     @Transactional
     public WorkItem claim(final UUID id, final String claimantId) {
+        if (claimantId == null || claimantId.isBlank()) {
+            throw new IllegalArgumentException("claimantId is required");
+        }
         final WorkItem item = requireWorkItem(id);
         // Multi-instance claim guard — read allowSameAssignee then detach: the spawn group
         // has @Version and would otherwise participate in persistAndFlush(), racing with
