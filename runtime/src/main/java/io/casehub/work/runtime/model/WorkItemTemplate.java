@@ -9,8 +9,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Table;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
@@ -47,7 +47,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
  */
 @Entity
 @Table(name = "work_item_template",
-       indexes = @Index(name = "idx_work_item_template_name", columnList = "name"))
+       uniqueConstraints = @UniqueConstraint(name = "uq_work_item_template_name", columnNames = "name"))
 public class WorkItemTemplate extends PanacheEntityBase {
 
     /** Primary key — UUID assigned on first persist. */

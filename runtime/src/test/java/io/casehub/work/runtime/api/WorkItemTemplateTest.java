@@ -7,8 +7,11 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 
@@ -32,6 +35,12 @@ import io.restassured.http.ContentType;
  */
 @QuarkusTest
 class WorkItemTemplateTest {
+
+    @BeforeEach
+    @Transactional
+    void clearTemplates() {
+        WorkItemTemplate.deleteAll();
+    }
 
     // ── POST /workitem-templates ──────────────────────────────────────────────
 
@@ -62,6 +71,13 @@ class WorkItemTemplateTest {
                 .post("/workitem-templates")
                 .then()
                 .statusCode(400);
+    }
+
+    @Test
+    void createTemplate_returns409_whenNameAlreadyExists() {
+        final String body = "{\"name\":\"Duplicate Name\",\"createdBy\":\"admin\"}";
+        given().contentType(ContentType.JSON).body(body).post("/workitem-templates").then().statusCode(201);
+        given().contentType(ContentType.JSON).body(body).post("/workitem-templates").then().statusCode(409);
     }
 
     @Test

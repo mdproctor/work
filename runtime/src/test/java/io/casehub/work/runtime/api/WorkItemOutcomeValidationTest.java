@@ -3,8 +3,11 @@ package io.casehub.work.runtime.api;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 
@@ -18,6 +21,12 @@ import io.restassured.http.ContentType;
  */
 @QuarkusTest
 class WorkItemOutcomeValidationTest {
+
+    @BeforeEach
+    @Transactional
+    void clearTemplates() {
+        WorkItemTemplate.deleteAll();
+    }
 
     /** Create a template with outcomes, instantiate, claim, start — returns the workItem id. */
     private String workItemReadyToComplete(final String... outcomeNames) {
