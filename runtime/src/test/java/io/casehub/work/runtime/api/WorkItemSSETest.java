@@ -104,8 +104,7 @@ class WorkItemSSETest {
         });
         Thread.sleep(400);
         createWorkItem(); // noise — should NOT appear
-        given().contentType(ContentType.JSON).body("{\"assigneeId\":\"alice\"}")
-                .put("/workitems/" + targetId + "/claim").then().statusCode(200);
+        given().put("/workitems/" + targetId + "/claim?claimant=alice").then().statusCode(200);
         assertThat(latch.await(4, TimeUnit.SECONDS)).as("Expected event for target within 4s").isTrue();
         assertThat(dataLines).isNotEmpty();
         assertThat(dataLines).allMatch(line -> line.contains(targetId));
@@ -126,8 +125,7 @@ class WorkItemSSETest {
             }
         });
         Thread.sleep(400);
-        given().contentType(ContentType.JSON).body("{\"assigneeId\":\"bob\"}")
-                .put("/workitems/" + itemId + "/claim").then().statusCode(200);
+        given().put("/workitems/" + itemId + "/claim?claimant=bob").then().statusCode(200);
         assertThat(latch.await(4, TimeUnit.SECONDS)).as("Expected event via per-WorkItem alias").isTrue();
         assertThat(dataLines.get(0)).contains(itemId);
         sseThread.interrupt();
@@ -148,8 +146,7 @@ class WorkItemSSETest {
         });
         Thread.sleep(400);
         createWorkItem(); // fires CREATED — should not trigger latch (filter=assigned)
-        given().contentType(ContentType.JSON).body("{\"assigneeId\":\"carol\"}")
-                .put("/workitems/" + itemId + "/claim").then().statusCode(200);
+        given().put("/workitems/" + itemId + "/claim?claimant=carol").then().statusCode(200);
         assertThat(latch.await(4, TimeUnit.SECONDS)).as("Expected ASSIGNED event").isTrue();
         assertThat(dataLines.get(0)).contains("assigned");
         sseThread.interrupt();
