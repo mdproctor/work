@@ -87,24 +87,14 @@ public class CreditDecisionScenario {
         final String description1 = "credit-scoring-system creates loan review WorkItem for LOAN-8821";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Loan review: LOAN-8821",
-                "Regulated credit decision for personal loan application LOAN-8821",
-                "credit-decision",
-                null,
-                WorkItemPriority.HIGH,
-                null,
-                null,
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"loanId\": \"LOAN-8821\", \"amount\": 25000, \"currency\": \"GBP\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title("Loan review: LOAN-8821")
+                .description("Regulated credit decision for personal loan application LOAN-8821")
+                .category("credit-decision")
+                .priority(WorkItemPriority.HIGH)
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"loanId\": \"LOAN-8821\", \"amount\": 25000, \"currency\": \"GBP\"}")
+                .build();
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));

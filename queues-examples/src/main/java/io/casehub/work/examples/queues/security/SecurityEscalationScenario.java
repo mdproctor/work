@@ -140,27 +140,33 @@ public class SecurityEscalationScenario {
         final List<QueueScenarioStep> steps = new ArrayList<>();
 
         LOG.info("[SECURITY] Step 1/3: HIGH security incident — security/incident only (not URGENT)");
-        final WorkItem highIncident = workItemService.create(new WorkItemCreateRequest(
-                "Suspicious login attempts — automated bot detected",
-                "Rate limiter flagged 2,400 failed login attempts from a single IP range over 10 minutes.",
-                "security", "login-anomaly", WorkItemPriority.HIGH,
-                null, "security-team", null, null, "siem-system",
-                "{\"source_ip_range\": \"185.220.x.x\", \"attempts\": 2400, \"period_minutes\": 10}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem highIncident = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Suspicious login attempts — automated bot detected")
+                .description("Rate limiter flagged 2,400 failed login attempts from a single IP range over 10 minutes.")
+                .category("security")
+                .formKey("login-anomaly")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("security-team")
+                .createdBy("siem-system")
+                .payload("{\"source_ip_range\": \"185.220.x.x\", \"attempts\": 2400, \"period_minutes\": 10}")
+                .build());
         steps.add(new QueueScenarioStep(1,
                 "HIGH security anomaly — filter A fires: security/incident; filter B (URGENT) does not match; filter C (cascade) cannot fire without priority/critical",
                 highIncident.id, inferredPaths(highIncident), manualPaths(highIncident),
                 formatEvents(eventLog.drain())));
 
         LOG.info("[SECURITY] Step 2/3: URGENT security breach — all 3 labels via cascade");
-        final WorkItem criticalBreach = workItemService.create(new WorkItemCreateRequest(
-                "Data breach confirmed — customer PII exfiltrated",
-                "Forensic analysis confirms unauthorised exfiltration of 340,000 customer records.",
-                "security", "data-breach", WorkItemPriority.URGENT,
-                null, "security-team,legal-team,executive-team", null, null, "forensics-system",
-                "{\"records_affected\": 340000, \"data_types\": [\"name\", \"email\", \"password_hash\"], " +
-                        "\"gdpr_window_hours\": 72, \"incident_id\": \"SEC-BREACH-2026-001\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem criticalBreach = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Data breach confirmed — customer PII exfiltrated")
+                .description("Forensic analysis confirms unauthorised exfiltration of 340,000 customer records.")
+                .category("security")
+                .formKey("data-breach")
+                .priority(WorkItemPriority.URGENT)
+                .candidateGroups("security-team,legal-team,executive-team")
+                .createdBy("forensics-system")
+                .payload("{\"records_affected\": 340000, \"data_types\": [\"name\", \"email\", \"password_hash\"], " +
+                        "\"gdpr_window_hours\": 72, \"incident_id\": \"SEC-BREACH-2026-001\"}")
+                .build());
         steps.add(new QueueScenarioStep(2,
                 "URGENT data breach — filter A: security/incident, filter B: priority/critical, filter C cascades: security/exec-escalate — 3 queue ADDED events",
                 criticalBreach.id, inferredPaths(criticalBreach), manualPaths(criticalBreach),

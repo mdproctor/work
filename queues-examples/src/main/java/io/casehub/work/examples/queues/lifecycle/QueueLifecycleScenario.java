@@ -134,10 +134,12 @@ public class QueueLifecycleScenario {
         // Creating the WorkItem with a MANUAL label matching the queue triggers
         // the filter engine. The before-state has no queue membership (new item),
         // the after-state has the queue → ADDED fires.
-        final WorkItemCreateRequest createReq = new WorkItemCreateRequest(
-                "Queue lifecycle demo item", null, "demo", null,
-                WorkItemPriority.HIGH, null, null, null, null,
-                "demo", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest createReq = WorkItemCreateRequest.builder()
+                .title("Queue lifecycle demo item")
+                .category("demo")
+                .priority(WorkItemPriority.HIGH)
+                .createdBy("demo")
+                .build();
         final WorkItem wi = workItemService.create(createReq);
         final UUID itemId = wi.id;
 

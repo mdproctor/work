@@ -192,13 +192,16 @@ public class DocumentReviewScenario {
 
         // ── Step 1: Security advisory — MEDIUM priority, overridden to urgent by Lambda ──
         LOG.info("[REVIEW] Step 1/7: Security advisory submitted — Lambda overrides MEDIUM priority to urgent tier");
-        final WorkItem secAdvisory = workItemService.create(new WorkItemCreateRequest(
-                "Security advisory: TLS 1.0 deprecation — migration guide",
-                "Update the TLS migration guide to reflect Q2 deprecation timeline.",
-                "security-docs", "migration-guide", WorkItemPriority.MEDIUM,
-                null, "security-writers,docs-team", null, null, "doc-system",
-                "{\"doc_type\": \"security-advisory\", \"publish_deadline\": \"2026-04-18\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem secAdvisory = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Security advisory: TLS 1.0 deprecation — migration guide")
+                .description("Update the TLS migration guide to reflect Q2 deprecation timeline.")
+                .category("security-docs")
+                .formKey("migration-guide")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("security-writers,docs-team")
+                .createdBy("doc-system")
+                .payload("{\"doc_type\": \"security-advisory\", \"publish_deadline\": \"2026-04-18\"}")
+                .build());
         steps.add(new QueueScenarioStep(1,
                 "Security advisory — priority=MEDIUM but candidateGroups contains 'security-writers'. " +
                         "Lambda filter overrides: review/urgent + review/urgent/unassigned",
@@ -208,13 +211,16 @@ public class DocumentReviewScenario {
 
         // ── Step 2: Release notes — HIGH priority → standard tier ──
         LOG.info("[REVIEW] Step 2/7: Release notes — HIGH priority → standard tier");
-        final WorkItem releaseNotes = workItemService.create(new WorkItemCreateRequest(
-                "v3.2 release notes — features and breaking changes",
-                "Document all features and breaking changes for the v3.2 release.",
-                "release-docs", "release-notes", WorkItemPriority.HIGH,
-                null, "docs-team", null, null, "release-system",
-                "{\"version\": \"3.2\", \"breaking_changes\": 3, \"new_features\": 12}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem releaseNotes = workItemService.create(WorkItemCreateRequest.builder()
+                .title("v3.2 release notes — features and breaking changes")
+                .description("Document all features and breaking changes for the v3.2 release.")
+                .category("release-docs")
+                .formKey("release-notes")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("docs-team")
+                .createdBy("release-system")
+                .payload("{\"version\": \"3.2\", \"breaking_changes\": 3, \"new_features\": 12}")
+                .build());
         steps.add(new QueueScenarioStep(2,
                 "Release notes — priority=HIGH → JEXL filter: review/standard + review/standard/unassigned",
                 releaseNotes.id, inferredPaths(releaseNotes), manualPaths(releaseNotes),
@@ -223,13 +229,16 @@ public class DocumentReviewScenario {
 
         // ── Step 3: Tutorial — MEDIUM priority → routine tier ──
         LOG.info("[REVIEW] Step 3/7: Tutorial — MEDIUM priority → routine tier");
-        final WorkItem tutorial = workItemService.create(new WorkItemCreateRequest(
-                "Getting started tutorial — CaseHub Work quick start",
-                "Write a 10-minute getting-started guide for new users.",
-                "tutorials", "quick-start", WorkItemPriority.MEDIUM,
-                null, "docs-team", null, null, "doc-system",
-                "{\"estimated_reading_time_min\": 10, \"skill_level\": \"beginner\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem tutorial = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Getting started tutorial — CaseHub Work quick start")
+                .description("Write a 10-minute getting-started guide for new users.")
+                .category("tutorials")
+                .formKey("quick-start")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("docs-team")
+                .createdBy("doc-system")
+                .payload("{\"estimated_reading_time_min\": 10, \"skill_level\": \"beginner\"}")
+                .build());
         steps.add(new QueueScenarioStep(3,
                 "Tutorial — priority=MEDIUM → JEXL filter: review/routine + review/routine/unassigned",
                 tutorial.id, inferredPaths(tutorial), manualPaths(tutorial),

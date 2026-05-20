@@ -105,24 +105,15 @@ public class DocumentQueueScenario {
         // ----------------------------------------------------------------
         final String desc1 = "system:document-system creates document review WorkItem WI-1 (contract-review-001)";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, desc1);
-        final WorkItemCreateRequest req1 = new WorkItemCreateRequest(
-                "Contract review: contract-review-001",
-                "Review and approve vendor contract for Q2 2026",
-                "document-review",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                CANDIDATE_GROUP,
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"documentId\": \"contract-review-001\", \"documentType\": \"vendor-contract\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest req1 = WorkItemCreateRequest.builder()
+                .title("Contract review: contract-review-001")
+                .description("Review and approve vendor contract for Q2 2026")
+                .category("document-review")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups(CANDIDATE_GROUP)
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"documentId\": \"contract-review-001\", \"documentType\": \"vendor-contract\"}")
+                .build();
         final WorkItem wi1 = workItemService.create(req1);
         steps.add(new StepLog(1, desc1, wi1.id));
 
@@ -131,24 +122,15 @@ public class DocumentQueueScenario {
         // ----------------------------------------------------------------
         final String desc2 = "system:document-system creates document review WorkItem WI-2 (policy-review-007)";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 2, total, desc2);
-        final WorkItemCreateRequest req2 = new WorkItemCreateRequest(
-                "Policy review: policy-review-007",
-                "Review and approve updated data retention policy",
-                "document-review",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                CANDIDATE_GROUP,
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"documentId\": \"policy-review-007\", \"documentType\": \"data-policy\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest req2 = WorkItemCreateRequest.builder()
+                .title("Policy review: policy-review-007")
+                .description("Review and approve updated data retention policy")
+                .category("document-review")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups(CANDIDATE_GROUP)
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"documentId\": \"policy-review-007\", \"documentType\": \"data-policy\"}")
+                .build();
         final WorkItem wi2 = workItemService.create(req2);
         steps.add(new StepLog(2, desc2, wi2.id));
 
@@ -157,24 +139,15 @@ public class DocumentQueueScenario {
         // ----------------------------------------------------------------
         final String desc3 = "system:document-system creates document review WorkItem WI-3 (sla-review-003)";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 3, total, desc3);
-        final WorkItemCreateRequest req3 = new WorkItemCreateRequest(
-                "SLA review: sla-review-003",
-                "Review and approve service level agreement for cloud provider",
-                "document-review",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                CANDIDATE_GROUP,
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"documentId\": \"sla-review-003\", \"documentType\": \"sla\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest req3 = WorkItemCreateRequest.builder()
+                .title("SLA review: sla-review-003")
+                .description("Review and approve service level agreement for cloud provider")
+                .category("document-review")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups(CANDIDATE_GROUP)
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"documentId\": \"sla-review-003\", \"documentType\": \"sla\"}")
+                .build();
         final WorkItem wi3 = workItemService.create(req3);
         steps.add(new StepLog(3, desc3, wi3.id));
 

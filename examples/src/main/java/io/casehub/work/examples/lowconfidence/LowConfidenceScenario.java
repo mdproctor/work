@@ -83,24 +83,17 @@ public class LowConfidenceScenario {
         final String description1 = "contract-ai creates WorkItem with confidenceScore=0.95 (high confidence — no flag expected)";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
 
-        final WorkItemCreateRequest highConfidenceRequest = new WorkItemCreateRequest(
-                "Review standard NDA — Acme Corp",
-                "Standard non-disclosure agreement for Acme Corp partnership — straightforward NDA with no unusual clauses",
-                "contract-review",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                "legal-team",
-                null,
-                "contract-review,nda",
-                ACTOR_AI,
-                "{\"contractRef\": \"ACME-NDA-2026-04\", \"contractType\": \"NDA\"}",
-                null,
-                null,
-                null,
-                null,
-                0.95,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest highConfidenceRequest = WorkItemCreateRequest.builder()
+                .title("Review standard NDA — Acme Corp")
+                .description("Standard non-disclosure agreement for Acme Corp partnership — straightforward NDA with no unusual clauses")
+                .category("contract-review")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("legal-team")
+                .requiredCapabilities("contract-review,nda")
+                .createdBy(ACTOR_AI)
+                .payload("{\"contractRef\": \"ACME-NDA-2026-04\", \"contractType\": \"NDA\"}")
+                .confidenceScore(0.95)
+                .build();
 
         final WorkItem highConfidenceWi = workItemService.create(highConfidenceRequest);
         steps.add(new StepLog(1, description1, highConfidenceWi.id));
@@ -109,24 +102,17 @@ public class LowConfidenceScenario {
         final String description2 = "contract-ai creates WorkItem with confidenceScore=0.45 (low confidence — ai/low-confidence label expected)";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 2, total, description2);
 
-        final WorkItemCreateRequest lowConfidenceRequest = new WorkItemCreateRequest(
-                "Review unusual IP licensing clause",
-                "IP licensing clause appears to grant unusually broad rights — may involve novel legal territory requiring expert judgment",
-                "contract-review",
-                null,
-                WorkItemPriority.HIGH,
-                null,
-                "legal-team",
-                null,
-                "contract-review,ip-licensing",
-                ACTOR_AI,
-                "{\"contractRef\": \"PARTNER-IP-2026-Q2\", \"contractType\": \"IP_LICENSE\", \"flagReason\": \"unusual_scope\"}",
-                null,
-                null,
-                null,
-                null,
-                0.45,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest lowConfidenceRequest = WorkItemCreateRequest.builder()
+                .title("Review unusual IP licensing clause")
+                .description("IP licensing clause appears to grant unusually broad rights — may involve novel legal territory requiring expert judgment")
+                .category("contract-review")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("legal-team")
+                .requiredCapabilities("contract-review,ip-licensing")
+                .createdBy(ACTOR_AI)
+                .payload("{\"contractRef\": \"PARTNER-IP-2026-Q2\", \"contractType\": \"IP_LICENSE\", \"flagReason\": \"unusual_scope\"}")
+                .confidenceScore(0.45)
+                .build();
 
         final WorkItem lowConfidenceWi = workItemService.create(lowConfidenceRequest);
         steps.add(new StepLog(2, description2, lowConfidenceWi.id));
@@ -135,24 +121,16 @@ public class LowConfidenceScenario {
         final String description3 = "assistant creates WorkItem with no confidence score (manual request — no flag expected)";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 3, total, description3);
 
-        final WorkItemCreateRequest nullConfidenceRequest = new WorkItemCreateRequest(
-                "Manual contract review request",
-                "Legal team has requested a manual review of the supplier agreement — submitted by the legal assistant",
-                "contract-review",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                "legal-team",
-                null,
-                "contract-review",
-                ACTOR_MANUAL,
-                "{\"requestRef\": \"MANUAL-2026-0042\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest nullConfidenceRequest = WorkItemCreateRequest.builder()
+                .title("Manual contract review request")
+                .description("Legal team has requested a manual review of the supplier agreement — submitted by the legal assistant")
+                .category("contract-review")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("legal-team")
+                .requiredCapabilities("contract-review")
+                .createdBy(ACTOR_MANUAL)
+                .payload("{\"requestRef\": \"MANUAL-2026-0042\"}")
+                .build();
 
         final WorkItem nullConfidenceWi = workItemService.create(nullConfidenceRequest);
         steps.add(new StepLog(3, description3, nullConfidenceWi.id));

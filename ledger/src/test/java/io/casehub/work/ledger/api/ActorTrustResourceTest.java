@@ -54,10 +54,11 @@ class ActorTrustResourceTest {
      * @return the UUID of the completed WorkItem
      */
     private UUID createAndCompleteWorkItem(final String actor) {
-        final WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Trust REST test", null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Trust REST test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build();
         final WorkItem wi = workItemService.create(req);
         workItemService.claim(wi.id, actor);
         workItemService.start(wi.id, actor);

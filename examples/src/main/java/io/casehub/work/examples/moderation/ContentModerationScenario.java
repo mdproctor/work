@@ -95,24 +95,15 @@ public class ContentModerationScenario {
         final String description1 = "agent:content-ai flags post POST-9912 for hate-speech (confidence=0.73)";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Content moderation: POST-9912",
-                "AI classifier flagged post POST-9912 for potential policy violation",
-                "content-moderation",
-                null,
-                WorkItemPriority.HIGH,
-                null,
-                "content-moderators",
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"postId\": \"POST-9912\", \"flagReason\": \"hate-speech\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title("Content moderation: POST-9912")
+                .description("AI classifier flagged post POST-9912 for potential policy violation")
+                .category("content-moderation")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("content-moderators")
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"postId\": \"POST-9912\", \"flagReason\": \"hate-speech\"}")
+                .build();
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));

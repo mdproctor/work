@@ -61,24 +61,12 @@ public class SpawnScenario {
         steps.add(new StepLog(1, "Creates three check templates (credit, fraud, compliance)", null));
 
         // Step 2: create the parent WorkItem — in a real CaseHub deployment CaseHub does this
-        final WorkItem parent = workItemService.create(new WorkItemCreateRequest(
-                "Loan Application #" + UUID.randomUUID().toString().substring(0, 8),
-                "Parallel approval checks for loan application",
-                "loan-application",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                "finance-system",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null));
+        final WorkItem parent = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Loan Application #" + UUID.randomUUID().toString().substring(0, 8))
+                .description("Parallel approval checks for loan application")
+                .category("loan-application")
+                .createdBy("finance-system")
+                .build());
         steps.add(new StepLog(2, "Creates loan-application WorkItem (parent)", parent.id));
 
         // Step 3: spawn three parallel child WorkItems

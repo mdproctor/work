@@ -43,11 +43,12 @@ class WorkItemSmokeTest {
     // -------------------------------------------------------------------------
 
     private WorkItemCreateRequest basicRequest() {
-        return new WorkItemCreateRequest(
-                "Test item", "Do something", null, null,
-                WorkItemPriority.MEDIUM,
-                null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return WorkItemCreateRequest.builder()
+                .title("Test item")
+                .description("Do something")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build();
     }
 
     // -------------------------------------------------------------------------
@@ -146,11 +147,12 @@ class WorkItemSmokeTest {
 
     @Test
     void defaultExpiryApplied() {
-        WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Test item", "Do something", null, null,
-                WorkItemPriority.MEDIUM,
-                null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Test item")
+                .description("Do something")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build();
         WorkItem wi = service.create(req);
         assertThat(wi.expiresAt).isNotNull();
     }
@@ -200,10 +202,12 @@ class WorkItemSmokeTest {
     void claimDeadlineStoredAndRetrievable() {
         Instant deadline = Instant.now().plus(2, ChronoUnit.HOURS)
                 .truncatedTo(ChronoUnit.SECONDS);
-        WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Test", null, null, null, WorkItemPriority.MEDIUM,
-                null, null, null, null, "system", null,
-                deadline, null, null, null, null, null, null, null, null, null, null, null, null);
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .claimDeadline(deadline)
+                .build();
         WorkItem wi = service.create(req);
         assertThat(wi.claimDeadline).isNotNull();
         // verify it round-trips through JPA

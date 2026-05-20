@@ -104,72 +104,51 @@ public class QueueModuleScenario {
         final String description1 = "legal-system creates WorkItem A with label contract-review/nda";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
 
-        final WorkItem wiA = workItemService.create(new WorkItemCreateRequest(
-                "Review NDA with TechPartner Inc",
-                "Non-disclosure agreement for technology partnership — standard NDA, review for compliance with IP policy",
-                "legal",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                "legal-team",
-                null,
-                "contract-review,nda",
-                ACTOR_CREATOR,
-                "{\"contractRef\": \"TECHPARTNER-NDA-2026-Q2\"}",
-                null,
-                null,
-                null,
-                List.of(new WorkItemLabelResponse("contract-review/nda", LabelPersistence.MANUAL, ACTOR_CREATOR)),
-                null,
-                null, null, null, null, null, null, null, null));
+        final WorkItem wiA = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Review NDA with TechPartner Inc")
+                .description("Non-disclosure agreement for technology partnership — standard NDA, review for compliance with IP policy")
+                .category("legal")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("legal-team")
+                .requiredCapabilities("contract-review,nda")
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"contractRef\": \"TECHPARTNER-NDA-2026-Q2\"}")
+                .labels(List.of(new WorkItemLabelResponse("contract-review/nda", LabelPersistence.MANUAL, ACTOR_CREATOR)))
+                .build());
         steps.add(new StepLog(1, description1, wiA.id));
 
         // Step 2: create WorkItem B — compliance/gdpr
         final String description2 = "legal-system creates WorkItem B with label compliance/gdpr";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 2, total, description2);
 
-        final WorkItem wiB = workItemService.create(new WorkItemCreateRequest(
-                "GDPR data processing agreement — EU vendor",
-                "Data Processing Agreement required for new EU-based data analytics vendor",
-                "legal",
-                null,
-                WorkItemPriority.HIGH,
-                null,
-                "legal-team",
-                null,
-                "compliance,gdpr",
-                ACTOR_CREATOR,
-                "{\"contractRef\": \"EU-DPA-2026-0031\"}",
-                null,
-                null,
-                null,
-                List.of(new WorkItemLabelResponse("compliance/gdpr", LabelPersistence.MANUAL, ACTOR_CREATOR)),
-                null,
-                null, null, null, null, null, null, null, null));
+        final WorkItem wiB = workItemService.create(WorkItemCreateRequest.builder()
+                .title("GDPR data processing agreement — EU vendor")
+                .description("Data Processing Agreement required for new EU-based data analytics vendor")
+                .category("legal")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("legal-team")
+                .requiredCapabilities("compliance,gdpr")
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"contractRef\": \"EU-DPA-2026-0031\"}")
+                .labels(List.of(new WorkItemLabelResponse("compliance/gdpr", LabelPersistence.MANUAL, ACTOR_CREATOR)))
+                .build());
         steps.add(new StepLog(2, description2, wiB.id));
 
         // Step 3: create WorkItem C — contract-review/ip
         final String description3 = "legal-system creates WorkItem C with label contract-review/ip";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 3, total, description3);
 
-        final WorkItem wiC = workItemService.create(new WorkItemCreateRequest(
-                "Review IP licensing agreement — ResearchCo",
-                "Intellectual property licensing agreement covering patent and know-how transfer",
-                "legal",
-                null,
-                WorkItemPriority.HIGH,
-                null,
-                "legal-team",
-                null,
-                "contract-review,ip-licensing",
-                ACTOR_CREATOR,
-                "{\"contractRef\": \"RESEARCHCO-IP-2026-Q2\"}",
-                null,
-                null,
-                null,
-                List.of(new WorkItemLabelResponse("contract-review/ip", LabelPersistence.MANUAL, ACTOR_CREATOR)),
-                null,
-                null, null, null, null, null, null, null, null));
+        final WorkItem wiC = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Review IP licensing agreement — ResearchCo")
+                .description("Intellectual property licensing agreement covering patent and know-how transfer")
+                .category("legal")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("legal-team")
+                .requiredCapabilities("contract-review,ip-licensing")
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"contractRef\": \"RESEARCHCO-IP-2026-Q2\"}")
+                .labels(List.of(new WorkItemLabelResponse("contract-review/ip", LabelPersistence.MANUAL, ACTOR_CREATOR)))
+                .build());
         steps.add(new StepLog(3, description3, wiC.id));
 
         // Step 4: create the contract-review queue view

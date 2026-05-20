@@ -63,9 +63,11 @@ class WorkItemEventTest {
     // -------------------------------------------------------------------------
 
     private WorkItemCreateRequest basicRequest() {
-        return new WorkItemCreateRequest(
-                "Test", null, null, null, WorkItemPriority.MEDIUM,
-                null, null, null, null, "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return WorkItemCreateRequest.builder()
+                .title("Test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build();
     }
 
     // -------------------------------------------------------------------------

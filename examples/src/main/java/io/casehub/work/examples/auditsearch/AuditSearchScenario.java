@@ -145,23 +145,12 @@ public class AuditSearchScenario {
     }
 
     private WorkItemCreateRequest procurementRequest(final String title) {
-        return new WorkItemCreateRequest(
-                title,
-                "Procurement approval required for vendor onboarding",
-                "procurement",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                null,
-                null,
-                null,
-                ACTOR_CREATOR,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        return WorkItemCreateRequest.builder()
+                .title(title)
+                .description("Procurement approval required for vendor onboarding")
+                .category("procurement")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy(ACTOR_CREATOR)
+                .build();
     }
 }

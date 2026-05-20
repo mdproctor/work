@@ -73,24 +73,15 @@ public class ExpenseApprovalScenario {
         final String description1 = "Creates expense WorkItem for team offsite Q2";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Expense report: team offsite Q2",
-                "Team offsite expenses for Q2, including travel and accommodation",
-                "expense-approval",
-                null,
-                WorkItemPriority.HIGH,
-                ACTOR_ASSIGNEE,
-                null,
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"amount\": 450.00, \"currency\": \"GBP\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title("Expense report: team offsite Q2")
+                .description("Team offsite expenses for Q2, including travel and accommodation")
+                .category("expense-approval")
+                .priority(WorkItemPriority.HIGH)
+                .assigneeId(ACTOR_ASSIGNEE)
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"amount\": 450.00, \"currency\": \"GBP\"}")
+                .build();
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));

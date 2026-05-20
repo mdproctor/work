@@ -65,18 +65,14 @@ class EscalationSummaryResourceTest {
     @SuppressWarnings("unchecked")
     void list_afterExpiry_summaryPersistedWithNullText() {
         // Create WorkItem with past expiresAt so ExpiryCleanupJob fires on it
-        final WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Approve expense claim",
-                "Team offsite expenses Q2",
-                "finance",
-                null,
-                WorkItemPriority.MEDIUM,
-                null, null, null, null,
-                "test-system",
-                null,
-                null,
-                Instant.now().minusSeconds(10), // already expired
-                null, null, null, null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Approve expense claim")
+                .description("Team offsite expenses Q2")
+                .category("finance")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("test-system")
+                .expiresAt(Instant.now().minusSeconds(10)) // already expired
+                .build();
 
         final var wi = workItemService.create(req);
 

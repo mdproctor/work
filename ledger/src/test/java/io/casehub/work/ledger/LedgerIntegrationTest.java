@@ -57,9 +57,11 @@ class LedgerIntegrationTest {
     // -------------------------------------------------------------------------
 
     private WorkItemCreateRequest basicRequest(final String title) {
-        return new WorkItemCreateRequest(title, null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null, "system",
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return WorkItemCreateRequest.builder()
+                .title(title)
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build();
     }
 
     // -------------------------------------------------------------------------
@@ -372,10 +374,11 @@ class LedgerIntegrationTest {
 
     @Test
     void complete_withRationaleAndPlanRef_capturedInLedger() {
-        final var item = workItemService.create(new WorkItemCreateRequest(
-                "Rationale complete test", null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final var item = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Rationale complete test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build());
         workItemService.claim(item.id, "alice");
         workItemService.start(item.id, "alice");
 
@@ -400,10 +403,11 @@ class LedgerIntegrationTest {
 
     @Test
     void reject_withRationale_capturedInLedger() {
-        final var item = workItemService.create(new WorkItemCreateRequest(
-                "Rationale reject test", null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final var item = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Rationale reject test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build());
         workItemService.claim(item.id, "alice");
 
         workItemService.reject(item.id, "alice",
@@ -425,10 +429,11 @@ class LedgerIntegrationTest {
 
     @Test
     void create_humanActor_actorTypeIsHuman() {
-        final var item = workItemService.create(new WorkItemCreateRequest(
-                "Human actor test", null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null,
-                "alice", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final var item = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Human actor test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("alice")
+                .build());
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         assertThat(entries).hasSize(1);
@@ -437,10 +442,11 @@ class LedgerIntegrationTest {
 
     @Test
     void create_agentPrefixActor_actorTypeIsAgent() {
-        final var item = workItemService.create(new WorkItemCreateRequest(
-                "Agent actor test", null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null,
-                "agent:content-ai", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final var item = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Agent actor test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("agent:content-ai")
+                .build());
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         assertThat(entries).hasSize(1);
@@ -449,10 +455,11 @@ class LedgerIntegrationTest {
 
     @Test
     void create_systemPrefixActor_actorTypeIsSystem() {
-        final var item = workItemService.create(new WorkItemCreateRequest(
-                "System actor test", null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null,
-                "system:scheduler", null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final var item = workItemService.create(WorkItemCreateRequest.builder()
+                .title("System actor test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system:scheduler")
+                .build());
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         assertThat(entries).hasSize(1);
@@ -469,10 +476,12 @@ class LedgerIntegrationTest {
         final WorkItem parent = workItemService.create(basicRequest("Spawn parent"));
 
         // Create child with callerRef, as WorkItemSpawnService would
-        final WorkItem child = workItemService.create(new WorkItemCreateRequest(
-                "Spawn child", null, null, null,
-                WorkItemPriority.MEDIUM, null, null, null, null,
-                "system:spawn", null, null, null, null, null, null, "task-A", null, null, null, null, null, null, null));
+        final WorkItem child = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Spawn child")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system:spawn")
+                .callerRef("task-A")
+                .build());
 
         // Wire PART_OF relation: child → parent (mirrors WorkItemSpawnService.spawn)
         final WorkItemRelation rel = new WorkItemRelation();

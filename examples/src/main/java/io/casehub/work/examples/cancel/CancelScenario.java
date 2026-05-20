@@ -77,24 +77,15 @@ public class CancelScenario {
         final String description1 = "procurement-bot creates software licence request for JetBrains IDE";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Software licence request: JetBrains IDE",
-                "Individual developer licence for IntelliJ IDEA Ultimate Edition",
-                "procurement",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                null,
-                ACTOR_MANAGER,
-                null,
-                ACTOR_CREATOR,
-                "{\"product\": \"IntelliJ IDEA Ultimate\", \"seats\": 1}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title("Software licence request: JetBrains IDE")
+                .description("Individual developer licence for IntelliJ IDEA Ultimate Edition")
+                .category("procurement")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateUsers(ACTOR_MANAGER)
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"product\": \"IntelliJ IDEA Ultimate\", \"seats\": 1}")
+                .build();
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));

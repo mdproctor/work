@@ -84,25 +84,17 @@ public class EscalationScenario {
         // Step 1: create an incident WorkItem with an expiry already in the past
         final String description1 = "alerting-system creates production incident WorkItem with expiresAt 10 seconds in the past";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Production incident: payment service 500 errors",
-                "Critical: payment service returning HTTP 500 for all transactions since 03:14 UTC. "
-                        + "Revenue impact: ~£2,000/min. Immediate action required.",
-                "incident",
-                null,
-                WorkItemPriority.URGENT,
-                null,
-                null,
-                "oncall-engineer",
-                null,
-                ACTOR_CREATOR,
-                "{\"service\": \"payment-service\", \"errorRate\": \"100%\", \"since\": \"03:14 UTC\"}",
-                null,
-                Instant.now().minusSeconds(10), // already expired
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title("Production incident: payment service 500 errors")
+                .description("Critical: payment service returning HTTP 500 for all transactions since 03:14 UTC. "
+                        + "Revenue impact: ~£2,000/min. Immediate action required.")
+                .category("incident")
+                .priority(WorkItemPriority.URGENT)
+                .candidateUsers("oncall-engineer")
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"service\": \"payment-service\", \"errorRate\": \"100%\", \"since\": \"03:14 UTC\"}")
+                .expiresAt(Instant.now().minusSeconds(10)) // already expired
+                .build();
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));
 

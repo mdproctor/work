@@ -223,31 +223,26 @@ public class WorkItemTemplateService {
                 ? payloadOverride
                 : template.defaultPayload;
 
-        return new WorkItemCreateRequest(
-                title,
-                template.description,
-                template.category,
-                null, // formKey — not templated
-                template.priority,
-                assigneeIdOverride,
-                template.candidateGroups,
-                template.candidateUsers,
-                template.requiredCapabilities,
-                createdBy,
-                payload,
-                null, // claimDeadline — use config default unless template overrides
-                null, // expiresAt — use config default unless template overrides
-                null, // followUpDate
-                null, // labels — applied separately so addLabel fires LABEL_ADDED events
-                null, // confidenceScore — template-spawned items have no AI confidence
-                callerRef,
-                template.defaultClaimBusinessHours, // business hours claim deadline from template
-                template.defaultExpiryBusinessHours, // business hours expiry from template
-                template.id,
-                parseOutcomeNames(template.outcomes),
-                template.inputDataSchema,
-                template.outputDataSchema,
-                template.excludedUsers); // excludedUsers
+        return WorkItemCreateRequest.builder()
+                .title(title)
+                .description(template.description)
+                .category(template.category)
+                .priority(template.priority)
+                .assigneeId(assigneeIdOverride)
+                .candidateGroups(template.candidateGroups)
+                .candidateUsers(template.candidateUsers)
+                .requiredCapabilities(template.requiredCapabilities)
+                .createdBy(createdBy)
+                .payload(payload)
+                .callerRef(callerRef)
+                .claimDeadlineBusinessHours(template.defaultClaimBusinessHours)
+                .expiresAtBusinessHours(template.defaultExpiryBusinessHours)
+                .templateId(template.id)
+                .permittedOutcomes(parseOutcomeNames(template.outcomes))
+                .inputDataSchema(template.inputDataSchema)
+                .outputDataSchema(template.outputDataSchema)
+                .excludedUsers(template.excludedUsers)
+                .build();
     }
 
     /** @see OutcomeCodecs#parseOutcomeNames */

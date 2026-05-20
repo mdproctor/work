@@ -246,11 +246,12 @@ class WorkItemServiceTest {
     }
 
     private WorkItemCreateRequest basicRequest() {
-        return new WorkItemCreateRequest(
-                "Test item", "Do something", null, null,
-                WorkItemPriority.MEDIUM,
-                null, null, null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return WorkItemCreateRequest.builder()
+                .title("Test item")
+                .description("Do something")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .build();
     }
 
     // -------------------------------------------------------------------------
@@ -297,22 +298,24 @@ class WorkItemServiceTest {
     @Test
     void create_withExplicitExpiresAt_usesProvidedValue() {
         Instant explicit = Instant.now().plus(48, ChronoUnit.HOURS).truncatedTo(ChronoUnit.SECONDS);
-        WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Explicit expiry", null, null, null,
-                WorkItemPriority.MEDIUM,
-                null, null, null, null,
-                "system", null, null, explicit, null, null, null, null, null, null, null, null, null, null, null);
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Explicit expiry")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .expiresAt(explicit)
+                .build();
         WorkItem wi = service.create(req);
         assertThat(wi.expiresAt).isEqualTo(explicit);
     }
 
     @Test
     void create_withCandidateGroups_storesGroups() {
-        WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Group item", null, null, null,
-                WorkItemPriority.MEDIUM,
-                null, "team-a,team-b", null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Group item")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("team-a,team-b")
+                .createdBy("system")
+                .build();
         WorkItem wi = service.create(req);
         assertThat(wi.candidateGroups).isEqualTo("team-a,team-b");
     }
@@ -797,11 +800,12 @@ class WorkItemServiceTest {
 
     @Test
     void inbox_findsByCandidateGroup() {
-        WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Group task", null, null, null,
-                WorkItemPriority.MEDIUM,
-                null, "team-a,team-b", null, null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Group task")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("team-a,team-b")
+                .createdBy("system")
+                .build();
         WorkItem wi = service.create(req);
 
         List<WorkItem> inbox = repo.scan(WorkItemQuery.inbox(null, List.of("team-a"), null));
@@ -810,11 +814,12 @@ class WorkItemServiceTest {
 
     @Test
     void inbox_findsByCandidateUsers() {
-        WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Candidate task", null, null, null,
-                WorkItemPriority.MEDIUM,
-                null, null, "bob", null,
-                "system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Candidate task")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateUsers("bob")
+                .createdBy("system")
+                .build();
         WorkItem wi = service.create(req);
 
         List<WorkItem> inbox = repo.scan(WorkItemQuery.inbox("bob", null, null));
@@ -921,10 +926,11 @@ class WorkItemServiceTest {
 
     @Test
     void create_withInferredLabel_throwsIllegalArgumentException() {
-        var request = new WorkItemCreateRequest(
-                "title", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null,
-                List.of(new WorkItemLabelResponse("legal", LabelPersistence.INFERRED, null)), null, null, null, null, null, null, null, null, null);
+        var request = WorkItemCreateRequest.builder()
+                .title("title")
+                .createdBy("alice")
+                .labels(List.of(new WorkItemLabelResponse("legal", LabelPersistence.INFERRED, null)))
+                .build();
 
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -933,10 +939,11 @@ class WorkItemServiceTest {
 
     @Test
     void create_withManualLabel_succeeds() {
-        var request = new WorkItemCreateRequest(
-                "title", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null,
-                List.of(new WorkItemLabelResponse("legal", LabelPersistence.MANUAL, "alice")), null, null, null, null, null, null, null, null, null);
+        var request = WorkItemCreateRequest.builder()
+                .title("title")
+                .createdBy("alice")
+                .labels(List.of(new WorkItemLabelResponse("legal", LabelPersistence.MANUAL, "alice")))
+                .build();
 
         var result = service.create(request);
 
@@ -951,9 +958,10 @@ class WorkItemServiceTest {
 
     @Test
     void addLabel_addsManualLabelToWorkItem() {
-        var created = service.create(new WorkItemCreateRequest(
-                "label-add-test", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        var created = service.create(WorkItemCreateRequest.builder()
+                .title("label-add-test")
+                .createdBy("alice")
+                .build());
 
         var updated = service.addLabel(created.id, "legal/contracts", "alice");
 
@@ -965,11 +973,11 @@ class WorkItemServiceTest {
 
     @Test
     void removeLabel_removesManualLabel() {
-        var created = service.create(new WorkItemCreateRequest(
-                "label-remove-test", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null,
-                List.of(new WorkItemLabelResponse("legal/contracts", LabelPersistence.MANUAL, "alice")), null, null, null,
-                null, null, null, null, null, null));
+        var created = service.create(WorkItemCreateRequest.builder()
+                .title("label-remove-test")
+                .createdBy("alice")
+                .labels(List.of(new WorkItemLabelResponse("legal/contracts", LabelPersistence.MANUAL, "alice")))
+                .build());
 
         var updated = service.removeLabel(created.id, "legal/contracts");
 
@@ -978,9 +986,10 @@ class WorkItemServiceTest {
 
     @Test
     void removeLabel_nonExistentLabel_throwsLabelNotFoundException() {
-        var created = service.create(new WorkItemCreateRequest(
-                "remove-nonexistent", null, null, null, null, null, null, null, null, "alice",
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        var created = service.create(WorkItemCreateRequest.builder()
+                .title("remove-nonexistent")
+                .createdBy("alice")
+                .build());
 
         assertThatThrownBy(() -> service.removeLabel(created.id, "nonexistent/label"))
                 .isInstanceOf(LabelNotFoundException.class)

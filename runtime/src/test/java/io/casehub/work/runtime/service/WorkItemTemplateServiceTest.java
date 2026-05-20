@@ -21,14 +21,14 @@ class WorkItemTemplateServiceTest {
     void toCreateRequest_usesTemplateNameAsTitle_whenNoOverride() {
         final WorkItemTemplate t = template("Contract Review");
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
-        assertThat(req.title()).isEqualTo("Contract Review");
+        assertThat(req.title).isEqualTo("Contract Review");
     }
 
     @Test
     void toCreateRequest_usesOverrideTitle_whenProvided() {
         final WorkItemTemplate t = template("Default Title");
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, "Specific Contract #44", null, "system");
-        assertThat(req.title()).isEqualTo("Specific Contract #44");
+        assertThat(req.title).isEqualTo("Specific Contract #44");
     }
 
     @Test
@@ -36,7 +36,7 @@ class WorkItemTemplateServiceTest {
         final WorkItemTemplate t = template("T");
         t.category = "legal";
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
-        assertThat(req.category()).isEqualTo("legal");
+        assertThat(req.category).isEqualTo("legal");
     }
 
     @Test
@@ -44,7 +44,7 @@ class WorkItemTemplateServiceTest {
         final WorkItemTemplate t = template("T");
         t.priority = WorkItemPriority.HIGH;
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
-        assertThat(req.priority()).isEqualTo(WorkItemPriority.HIGH);
+        assertThat(req.priority).isEqualTo(WorkItemPriority.HIGH);
     }
 
     @Test
@@ -52,7 +52,7 @@ class WorkItemTemplateServiceTest {
         final WorkItemTemplate t = template("T");
         t.candidateGroups = "legal-team,compliance-team";
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
-        assertThat(req.candidateGroups()).isEqualTo("legal-team,compliance-team");
+        assertThat(req.candidateGroups).isEqualTo("legal-team,compliance-team");
     }
 
     @Test
@@ -60,32 +60,32 @@ class WorkItemTemplateServiceTest {
         final WorkItemTemplate t = template("T");
         t.defaultPayload = "{\"type\":\"nda\"}";
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
-        assertThat(req.payload()).isEqualTo("{\"type\":\"nda\"}");
+        assertThat(req.payload).isEqualTo("{\"type\":\"nda\"}");
     }
 
     @Test
     void toCreateRequest_setsCreatedBy() {
         final WorkItemTemplate t = template("T");
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "finance-bot");
-        assertThat(req.createdBy()).isEqualTo("finance-bot");
+        assertThat(req.createdBy).isEqualTo("finance-bot");
     }
 
     @Test
     void toCreateRequest_setsAssigneeOverride_whenProvided() {
         final WorkItemTemplate t = template("T");
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, "alice", "system");
-        assertThat(req.assigneeId()).isEqualTo("alice");
+        assertThat(req.assigneeId).isEqualTo("alice");
     }
 
     @Test
     void toCreateRequest_nullFields_whenTemplateHasNoDefaults() {
         final WorkItemTemplate t = template("Minimal");
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
-        assertThat(req.category()).isNull();
-        assertThat(req.priority()).isNull();
-        assertThat(req.candidateGroups()).isNull();
-        assertThat(req.payload()).isNull();
-        assertThat(req.assigneeId()).isNull();
+        assertThat(req.category).isNull();
+        assertThat(req.priority).isNull();
+        assertThat(req.candidateGroups).isNull();
+        assertThat(req.payload).isNull();
+        assertThat(req.assigneeId).isNull();
     }
 
     @Test
@@ -94,7 +94,7 @@ class WorkItemTemplateServiceTest {
         final String callerRef = "case:550e8400-e29b-41d4-a716-446655440000/pi:irb-gate";
         final WorkItemCreateRequest req =
             WorkItemTemplateService.toCreateRequest(t, null, null, "system", callerRef);
-        assertThat(req.callerRef()).isEqualTo(callerRef);
+        assertThat(req.callerRef).isEqualTo(callerRef);
     }
 
     @Test
@@ -102,7 +102,7 @@ class WorkItemTemplateServiceTest {
         final WorkItemTemplate t = template("IRB Review");
         final WorkItemCreateRequest req =
             WorkItemTemplateService.toCreateRequest(t, null, null, "system");
-        assertThat(req.callerRef()).isNull();
+        assertThat(req.callerRef).isNull();
     }
 
     // ── parseLabels ───────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ class WorkItemTemplateServiceTest {
         t.defaultPayload = "{\"type\":\"default\"}";
         final WorkItemCreateRequest req =
             WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "{\"type\":\"override\"}");
-        assertThat(req.payload()).isEqualTo("{\"type\":\"override\"}");
+        assertThat(req.payload).isEqualTo("{\"type\":\"override\"}");
     }
 
     @Test
@@ -158,7 +158,7 @@ class WorkItemTemplateServiceTest {
         t.defaultPayload = "{\"type\":\"default\"}";
         final WorkItemCreateRequest req =
             WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, null);
-        assertThat(req.payload()).isEqualTo("{\"type\":\"default\"}");
+        assertThat(req.payload).isEqualTo("{\"type\":\"default\"}");
     }
 
     @Test
@@ -167,7 +167,7 @@ class WorkItemTemplateServiceTest {
         t.defaultPayload = "{\"type\":\"default\"}";
         final WorkItemCreateRequest req =
             WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "   ");
-        assertThat(req.payload()).isEqualTo("{\"type\":\"default\"}");
+        assertThat(req.payload).isEqualTo("{\"type\":\"default\"}");
     }
 
     @Test
@@ -176,7 +176,7 @@ class WorkItemTemplateServiceTest {
         t.defaultPayload = null;
         final WorkItemCreateRequest req =
             WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "{\"case\":\"42\"}");
-        assertThat(req.payload()).isEqualTo("{\"case\":\"42\"}");
+        assertThat(req.payload).isEqualTo("{\"case\":\"42\"}");
     }
 
     @Test
@@ -185,7 +185,7 @@ class WorkItemTemplateServiceTest {
         t.defaultPayload = null;
         final WorkItemCreateRequest req =
             WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, null);
-        assertThat(req.payload()).isNull();
+        assertThat(req.payload).isNull();
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

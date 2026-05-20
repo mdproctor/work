@@ -137,9 +137,12 @@ class HumanTaskIntegrationTest {
                 "Unrelated test", null, "eve", WorkItemPriority.MEDIUM, null);
 
         // Create and complete a DIFFERENT WorkItem (not registered in registry)
-        WorkItemCreateRequest req = new WorkItemCreateRequest(
-                "Other item", null, null, null, WorkItemPriority.MEDIUM,
-                "frank", null, null, null, "test", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Other item")
+                .priority(WorkItemPriority.MEDIUM)
+                .assigneeId("frank")
+                .createdBy("test")
+                .build();
         WorkItem other = service.create(req);
         service.claim(other.id, "frank");
         service.start(other.id, "frank");
