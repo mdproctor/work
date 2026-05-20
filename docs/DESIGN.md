@@ -37,6 +37,7 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | **21 — Named Outcomes** | ✅ Complete | Issue #169: `Outcome` record in `casehub-work-api` (pure Java, OHT-aligned). `WorkItemTemplate.outcomes` declares typed result classifications. `WorkItem.templateId` + `permittedOutcomes` (snapshotted at instantiation) + `outcome` (recorded at completion). `WorkItemService.complete()` validates strictly against the permitted list. `WorkItemLifecycleEvent.outcome` carried for engine routing. `OutcomeCodecs` utility in model package. V22 migration. |
 | **22 — Template-level Data Schemas** | ✅ Complete | Epic #170: `WorkItemTemplate.inputDataSchema` + `outputDataSchema` (JSON Schema draft-07, TEXT). Validated at instantiation and completion via `FormSchemaValidationService`. Snapshotted onto `WorkItem` — self-governing after creation. `WorkItemFormSchema` entity, its CRUD REST resource, and all associated tests deleted. UI schema-discovery path migrated to `GET /workitem-templates/{id}`. V23+V24+V25 migrations. |
 | **23 — Conflict-of-Interest Exclusions** | ✅ Complete | Epic #171: `ExclusionPolicy` SPI in `casehub-work-api` (consistent with `EscalationPolicy`, `ClaimSlaPolicy`, `WorkerSelectionStrategy`). `CommaSeparatedExclusionPolicy` `@DefaultBean` covers OHT initiator-exclusion use case. Enforcement across all 5 assignment paths. `SelectionContext` carries `excludedUsers` so external strategies can honour exclusions. `clone()` inherits `excludedUsers`. V26+V27 migrations. **#186:** `check() : PolicyDecision` replaces `isExcluded() : boolean` — the denial reason now travels from the policy that knows it to audit entries and exception messages, making custom implementations (LDAP, role-based, time-window) first-class without touching `WorkItemService`. `BlockedAttemptAuditService` writes `CLAIM_DENIED`/`DELEGATE_DENIED` entries via `@Transactional(REQUIRES_NEW)`, committing independently of the outer transaction that always rolls back on rejection. Guard ordering: status check fires before exclusion check to prevent phantom audit entries for already-rejected operations. |
+| **24 — WorkItemCreateRequest Builder** | ✅ Complete | Issue #182: `WorkItemCreateRequest` replaced from a 24-param positional record with a `final class` + enforced builder (`builder()` / `toBuilder()`). Positional construction is structurally impossible — the private constructor is only reachable via `Builder.build()`. `CreateWorkItemRequest` (HTTP DTO record) gained an inner `Builder` for programmatic construction. 60+ call sites migrated across 7 modules. Drift-protection test (`builderHasSetterForEveryField`) guards against future field/setter mismatches. |
 
 ---
 
@@ -47,6 +48,7 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | V1–V22 | runtime | Sequential — initial schema through named outcomes |
 | V23–V25 | runtime | Template data schemas (inputDataSchema, outputDataSchema), WorkItem snapshot columns, drop work_item_form_schema table (Epic #170) |
 | V26–V27 | runtime | excluded_users TEXT on work_item_template and work_item (Epic #171) |
+| V28 | runtime | UNIQUE constraint on work_item_template.name (#174) |
 | V14 | casehub-work-ai | Worker skill profile (fills deliberate gap in runtime sequence) |
 | V2000–V2002 | casehub-work-queues / casehub-work-ledger | Queue membership tracker, ledger supplement |
 | V3000 | casehub-work-notifications | Notification rules |
@@ -81,19 +83,22 @@ Three tiers:
 
 | Module | Tests |
 |---|---|
-| casehub-work-api | 37 |
+| casehub-work-api | 51 |
 | casehub-work-core | 38 |
-| runtime | 663 |
+| runtime | 693 |
 | work-flow | 32 |
-| casehub-work-ledger | 75 |
+| casehub-work-ledger | 76 |
 | casehub-work-queues | 82 |
-| casehub-work-ai | 48 |
-| casehub-work-examples | 37 |
+| casehub-work-ai | 77 |
+| casehub-work-examples | 18 |
+| casehub-work-queues-examples | 37 |
 | casehub-work-reports | 73 |
-| casehub-work-notifications | ~30 |
+| casehub-work-notifications | 39 |
 | casehub-work-postgres-broadcaster | 22 |
 | casehub-work-queues-postgres-broadcaster | 13 |
 | casehub-work-issue-tracker | 93 |
 | testing | 31 |
 | integration-tests | 25 |
-| **Total** | **~1252+** |
+| **Total** | **~1271** |
+
+Modules with PostgreSQL Testcontainer tests (reports, postgres-broadcaster, queues-postgres-broadcaster, notifications) show reduced run counts without Docker — full counts require Docker running.
