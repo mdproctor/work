@@ -112,8 +112,7 @@ class WorkItemQueueEventTest {
         capture.clear();
 
         // Claim the item: triggers lifecycle event → filter strips INFERRED label then re-applies it
-        given().contentType(ContentType.JSON)
-                .body("{\"assigneeId\":\"alice\"}")
+        given().queryParam("claimant", "alice")
                 .put("/workitems/" + itemId + "/claim")
                 .then().statusCode(200);
 
@@ -143,8 +142,7 @@ class WorkItemQueueEventTest {
         capture.clear(); // ignore ADDED from creation
 
         // Any lifecycle event triggers re-evaluation: INFERRED label stripped → re-applied → CHANGED
-        given().contentType(ContentType.JSON)
-                .body("{\"assigneeId\":\"alice\"}")
+        given().queryParam("claimant", "alice")
                 .put("/workitems/" + itemId + "/claim")
                 .then().statusCode(200);
 
@@ -174,8 +172,7 @@ class WorkItemQueueEventTest {
         capture.clear();
 
         // Claim → re-evaluation → item still in queue
-        given().contentType(ContentType.JSON)
-                .body("{\"assigneeId\":\"alice\"}")
+        given().queryParam("claimant", "alice")
                 .put("/workitems/" + itemId + "/claim")
                 .then().statusCode(200);
 
