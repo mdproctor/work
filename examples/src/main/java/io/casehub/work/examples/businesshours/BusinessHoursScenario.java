@@ -62,16 +62,15 @@ public class BusinessHoursScenario {
         final ZoneId zone = ZoneId.of("UTC");
 
         // Step 1: create with 48 business-hour SLA
-        final WorkItem wi = workItemService.create(new WorkItemCreateRequest(
-                "Loan application review — 48 business-hour SLA",
-                "Review and approve or reject the loan application within 48 business hours.",
-                "loan-approval",
-                null, WorkItemPriority.HIGH,
-                null, "loan-officers", null, null,
-                "finance-system", null,
-                null, null, null, null, null, null,
-                null, 48 // expiresAtBusinessHours = 48
-        , null, null, null, null, null));
+        final WorkItem wi = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Loan application review — 48 business-hour SLA")
+                .description("Review and approve or reject the loan application within 48 business hours.")
+                .category("loan-approval")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("loan-officers")
+                .createdBy("finance-system")
+                .expiresAtBusinessHours(48)
+                .build());
         steps.add(new StepLog(1,
                 "Created loan-approval WorkItem with expiresAtBusinessHours=48",
                 wi.id));

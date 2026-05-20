@@ -2,67 +2,204 @@ package io.casehub.work.runtime.model;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import io.casehub.work.runtime.api.WorkItemLabelResponse;
 
-/**
- * Immutable request object used to create a new {@link WorkItem}.
- * All fields are optional except {@code title}; the service layer
- * applies defaults (expiry, claim deadline) for any null deadline fields.
- *
- * @param title Short human-readable title for the work item (required).
- * @param description Detailed description of what needs to be done.
- * @param category Logical category or process classification (e.g. "approval", "review").
- * @param formKey Key identifying the UI form to render for this work item.
- * @param priority Priority level; defaults to {@link WorkItemPriority#MEDIUM} when null.
- * @param assigneeId Identity of the actor to whom the item is pre-assigned at creation.
- * @param candidateGroups Comma-separated group identifiers eligible to claim this item.
- * @param candidateUsers Comma-separated user identifiers eligible to claim this item.
- * @param requiredCapabilities Comma-separated capability tags the assignee must possess.
- * @param createdBy Identity of the actor or system that created the work item.
- * @param payload Arbitrary JSON payload carrying business context for the work item.
- * @param claimDeadline Absolute instant by which the item must be claimed; null uses default.
- * @param expiresAt Absolute instant by which the item must be completed; null uses default.
- * @param followUpDate Optional follow-up reminder date for inbox filtering.
- * @param labels Optional list of {@link WorkItemLabelResponse} labels to attach at creation; only MANUAL labels accepted.
- * @param confidenceScore Confidence score from the AI agent that created this WorkItem (0.0–1.0); null if not AI-created.
- * @param callerRef Opaque caller-supplied routing key set at spawn time; null for WorkItems not created via spawn.
- * @param claimDeadlineBusinessHours Claim deadline expressed in business hours; resolved to absolute {@code claimDeadline}
- *        via {@code BusinessCalendar} at create time. Takes precedence over {@code claimDeadline} when set.
- * @param expiresAtBusinessHours Completion deadline expressed in business hours; resolved to absolute {@code expiresAt}
- *        via {@code BusinessCalendar} at create time. Takes precedence over {@code expiresAt} when set.
- * @param templateId UUID of the WorkItemTemplate this item was instantiated from; null for direct creation.
- * @param permittedOutcomes Outcome name strings snapshotted from the template; null means no outcome constraint.
- * @param inputDataSchema JSON Schema string for payload validation; null means no constraint.
- * @param outputDataSchema JSON Schema string for resolution validation; null means no constraint.
- */
-public record WorkItemCreateRequest(
-        String title,
-        String description,
-        String category,
-        String formKey,
-        WorkItemPriority priority,
-        String assigneeId,
-        String candidateGroups,
-        String candidateUsers,
-        String requiredCapabilities,
-        String createdBy,
-        String payload,
-        Instant claimDeadline,
-        Instant expiresAt,
-        Instant followUpDate,
-        List<WorkItemLabelResponse> labels,
-        Double confidenceScore,
-        String callerRef,
-        Integer claimDeadlineBusinessHours,
-        Integer expiresAtBusinessHours,
-        UUID templateId,
-        List<String> permittedOutcomes,
-        /** JSON Schema string for payload validation; null = no constraint. */
-        String inputDataSchema,
-        /** JSON Schema string for resolution validation; null = no constraint. */
-        String outputDataSchema,
-        /** Comma-separated user IDs excluded from claiming this WorkItem. Refs #171. */
-        String excludedUsers) {
+public final class WorkItemCreateRequest {
+
+    public final String title;
+    public final String description;
+    public final String category;
+    public final String formKey;
+    public final WorkItemPriority priority;
+    public final String assigneeId;
+    public final String candidateGroups;
+    public final String candidateUsers;
+    public final String requiredCapabilities;
+    public final String createdBy;
+    public final String payload;
+    public final Instant claimDeadline;
+    public final Instant expiresAt;
+    public final Instant followUpDate;
+    public final List<WorkItemLabelResponse> labels;
+    public final Double confidenceScore;
+    public final String callerRef;
+    public final Integer claimDeadlineBusinessHours;
+    public final Integer expiresAtBusinessHours;
+    public final UUID templateId;
+    public final List<String> permittedOutcomes;
+    public final String inputDataSchema;
+    public final String outputDataSchema;
+    public final String excludedUsers;
+
+    private WorkItemCreateRequest(final Builder b) {
+        this.title                      = b.title;
+        this.description                = b.description;
+        this.category                   = b.category;
+        this.formKey                    = b.formKey;
+        this.priority                   = b.priority;
+        this.assigneeId                 = b.assigneeId;
+        this.candidateGroups            = b.candidateGroups;
+        this.candidateUsers             = b.candidateUsers;
+        this.requiredCapabilities       = b.requiredCapabilities;
+        this.createdBy                  = b.createdBy;
+        this.payload                    = b.payload;
+        this.claimDeadline              = b.claimDeadline;
+        this.expiresAt                  = b.expiresAt;
+        this.followUpDate               = b.followUpDate;
+        this.labels                     = b.labels;
+        this.confidenceScore            = b.confidenceScore;
+        this.callerRef                  = b.callerRef;
+        this.claimDeadlineBusinessHours = b.claimDeadlineBusinessHours;
+        this.expiresAtBusinessHours     = b.expiresAtBusinessHours;
+        this.templateId                 = b.templateId;
+        this.permittedOutcomes          = b.permittedOutcomes;
+        this.inputDataSchema            = b.inputDataSchema;
+        this.outputDataSchema           = b.outputDataSchema;
+        this.excludedUsers              = b.excludedUsers;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public Builder toBuilder() {
+        return new Builder(this);
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) return true;
+        if (!(o instanceof WorkItemCreateRequest r)) return false;
+        return Objects.equals(title, r.title)
+                && Objects.equals(description, r.description)
+                && Objects.equals(category, r.category)
+                && Objects.equals(formKey, r.formKey)
+                && Objects.equals(priority, r.priority)
+                && Objects.equals(assigneeId, r.assigneeId)
+                && Objects.equals(candidateGroups, r.candidateGroups)
+                && Objects.equals(candidateUsers, r.candidateUsers)
+                && Objects.equals(requiredCapabilities, r.requiredCapabilities)
+                && Objects.equals(createdBy, r.createdBy)
+                && Objects.equals(payload, r.payload)
+                && Objects.equals(claimDeadline, r.claimDeadline)
+                && Objects.equals(expiresAt, r.expiresAt)
+                && Objects.equals(followUpDate, r.followUpDate)
+                && Objects.equals(labels, r.labels)
+                && Objects.equals(confidenceScore, r.confidenceScore)
+                && Objects.equals(callerRef, r.callerRef)
+                && Objects.equals(claimDeadlineBusinessHours, r.claimDeadlineBusinessHours)
+                && Objects.equals(expiresAtBusinessHours, r.expiresAtBusinessHours)
+                && Objects.equals(templateId, r.templateId)
+                && Objects.equals(permittedOutcomes, r.permittedOutcomes)
+                && Objects.equals(inputDataSchema, r.inputDataSchema)
+                && Objects.equals(outputDataSchema, r.outputDataSchema)
+                && Objects.equals(excludedUsers, r.excludedUsers);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(title, description, category, formKey, priority,
+                assigneeId, candidateGroups, candidateUsers, requiredCapabilities,
+                createdBy, payload, claimDeadline, expiresAt, followUpDate, labels,
+                confidenceScore, callerRef, claimDeadlineBusinessHours, expiresAtBusinessHours,
+                templateId, permittedOutcomes, inputDataSchema, outputDataSchema, excludedUsers);
+    }
+
+    @Override
+    public String toString() {
+        return "WorkItemCreateRequest{title='" + title + "', category='" + category
+                + "', priority=" + priority + ", assigneeId='" + assigneeId
+                + "', candidateGroups='" + candidateGroups + "'}";
+    }
+
+    public static final class Builder {
+
+        private String title;
+        private String description;
+        private String category;
+        private String formKey;
+        private WorkItemPriority priority;
+        private String assigneeId;
+        private String candidateGroups;
+        private String candidateUsers;
+        private String requiredCapabilities;
+        private String createdBy;
+        private String payload;
+        private Instant claimDeadline;
+        private Instant expiresAt;
+        private Instant followUpDate;
+        private List<WorkItemLabelResponse> labels;
+        private Double confidenceScore;
+        private String callerRef;
+        private Integer claimDeadlineBusinessHours;
+        private Integer expiresAtBusinessHours;
+        private UUID templateId;
+        private List<String> permittedOutcomes;
+        private String inputDataSchema;
+        private String outputDataSchema;
+        private String excludedUsers;
+
+        private Builder() {}
+
+        private Builder(final WorkItemCreateRequest src) {
+            this.title                      = src.title;
+            this.description                = src.description;
+            this.category                   = src.category;
+            this.formKey                    = src.formKey;
+            this.priority                   = src.priority;
+            this.assigneeId                 = src.assigneeId;
+            this.candidateGroups            = src.candidateGroups;
+            this.candidateUsers             = src.candidateUsers;
+            this.requiredCapabilities       = src.requiredCapabilities;
+            this.createdBy                  = src.createdBy;
+            this.payload                    = src.payload;
+            this.claimDeadline              = src.claimDeadline;
+            this.expiresAt                  = src.expiresAt;
+            this.followUpDate               = src.followUpDate;
+            this.labels                     = src.labels;
+            this.confidenceScore            = src.confidenceScore;
+            this.callerRef                  = src.callerRef;
+            this.claimDeadlineBusinessHours = src.claimDeadlineBusinessHours;
+            this.expiresAtBusinessHours     = src.expiresAtBusinessHours;
+            this.templateId                 = src.templateId;
+            this.permittedOutcomes          = src.permittedOutcomes;
+            this.inputDataSchema            = src.inputDataSchema;
+            this.outputDataSchema           = src.outputDataSchema;
+            this.excludedUsers              = src.excludedUsers;
+        }
+
+        public Builder title(final String v)                          { this.title = v; return this; }
+        public Builder description(final String v)                    { this.description = v; return this; }
+        public Builder category(final String v)                       { this.category = v; return this; }
+        public Builder formKey(final String v)                        { this.formKey = v; return this; }
+        public Builder priority(final WorkItemPriority v)             { this.priority = v; return this; }
+        public Builder assigneeId(final String v)                     { this.assigneeId = v; return this; }
+        public Builder candidateGroups(final String v)                { this.candidateGroups = v; return this; }
+        public Builder candidateUsers(final String v)                 { this.candidateUsers = v; return this; }
+        public Builder requiredCapabilities(final String v)           { this.requiredCapabilities = v; return this; }
+        public Builder createdBy(final String v)                      { this.createdBy = v; return this; }
+        public Builder payload(final String v)                        { this.payload = v; return this; }
+        public Builder claimDeadline(final Instant v)                 { this.claimDeadline = v; return this; }
+        public Builder expiresAt(final Instant v)                     { this.expiresAt = v; return this; }
+        public Builder followUpDate(final Instant v)                  { this.followUpDate = v; return this; }
+        public Builder labels(final List<WorkItemLabelResponse> v)    { this.labels = v; return this; }
+        public Builder confidenceScore(final Double v)                { this.confidenceScore = v; return this; }
+        public Builder callerRef(final String v)                      { this.callerRef = v; return this; }
+        public Builder claimDeadlineBusinessHours(final Integer v)    { this.claimDeadlineBusinessHours = v; return this; }
+        public Builder expiresAtBusinessHours(final Integer v)        { this.expiresAtBusinessHours = v; return this; }
+        public Builder templateId(final UUID v)                       { this.templateId = v; return this; }
+        public Builder permittedOutcomes(final List<String> v)        { this.permittedOutcomes = v; return this; }
+        public Builder inputDataSchema(final String v)                { this.inputDataSchema = v; return this; }
+        public Builder outputDataSchema(final String v)               { this.outputDataSchema = v; return this; }
+        public Builder excludedUsers(final String v)                  { this.excludedUsers = v; return this; }
+
+        public WorkItemCreateRequest build() {
+            if (title == null || title.isBlank())
+                throw new IllegalArgumentException("title is required");
+            return new WorkItemCreateRequest(this);
+        }
+    }
 }

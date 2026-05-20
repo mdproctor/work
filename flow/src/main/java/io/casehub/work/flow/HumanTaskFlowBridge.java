@@ -59,12 +59,14 @@ public class HumanTaskFlowBridge {
             final WorkItemPriority priority,
             final String payload) {
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                title, description, null, null,
-                priority != null ? priority : WorkItemPriority.MEDIUM,
-                assigneeId, null, null, null,
-                "work-flow",
-                payload, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title(title)
+                .description(description)
+                .priority(priority != null ? priority : WorkItemPriority.MEDIUM)
+                .assigneeId(assigneeId)
+                .createdBy("work-flow")
+                .payload(payload)
+                .build();
 
         final WorkItem workItem = workItemService.create(request);
         return Uni.createFrom().completionStage(registry.register(workItem.id));
@@ -88,12 +90,14 @@ public class HumanTaskFlowBridge {
             final WorkItemPriority priority,
             final String payload) {
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                title, description, null, null,
-                priority != null ? priority : WorkItemPriority.MEDIUM,
-                null, candidateGroups, null, null,
-                "work-flow",
-                payload, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title(title)
+                .description(description)
+                .priority(priority != null ? priority : WorkItemPriority.MEDIUM)
+                .candidateGroups(candidateGroups)
+                .createdBy("work-flow")
+                .payload(payload)
+                .build();
 
         final WorkItem workItem = workItemService.create(request);
         return Uni.createFrom().completionStage(registry.register(workItem.id));

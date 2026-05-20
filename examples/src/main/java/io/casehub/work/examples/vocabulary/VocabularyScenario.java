@@ -110,45 +110,25 @@ public class VocabularyScenario {
         final String description3 = "hr-manager creates annual leave and sick leave WorkItems";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 3, total, description3);
 
-        final WorkItemCreateRequest annualLeaveRequest = new WorkItemCreateRequest(
-                "Annual leave request: Jane Smith — July 2026",
-                "Annual leave for two weeks in July 2026",
-                "leave/annual",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                null,
-                null,
-                null,
-                "jane.smith",
-                "{\"startDate\": \"2026-07-14\", \"endDate\": \"2026-07-25\", \"days\": 10}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest annualLeaveRequest = WorkItemCreateRequest.builder()
+                .title("Annual leave request: Jane Smith — July 2026")
+                .description("Annual leave for two weeks in July 2026")
+                .category("leave/annual")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("jane.smith")
+                .payload("{\"startDate\": \"2026-07-14\", \"endDate\": \"2026-07-25\", \"days\": 10}")
+                .build();
 
         final WorkItem annualLeaveWi = workItemService.create(annualLeaveRequest);
 
-        final WorkItemCreateRequest sickLeaveRequest = new WorkItemCreateRequest(
-                "Sick leave notification: Tom Jones — 23 Apr 2026",
-                "Self-certified sick leave — one day",
-                "leave/sick",
-                null,
-                WorkItemPriority.LOW,
-                null,
-                null,
-                null,
-                null,
-                "tom.jones",
-                "{\"date\": \"2026-04-23\", \"selfCertified\": true}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest sickLeaveRequest = WorkItemCreateRequest.builder()
+                .title("Sick leave notification: Tom Jones — 23 Apr 2026")
+                .description("Self-certified sick leave — one day")
+                .category("leave/sick")
+                .priority(WorkItemPriority.LOW)
+                .createdBy("tom.jones")
+                .payload("{\"date\": \"2026-04-23\", \"selfCertified\": true}")
+                .build();
 
         workItemService.create(sickLeaveRequest);
         steps.add(new StepLog(3, description3, annualLeaveWi.id));

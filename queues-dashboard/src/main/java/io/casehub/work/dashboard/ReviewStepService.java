@@ -118,28 +118,38 @@ public class ReviewStepService {
     private StepResult stepSetup() {
         ensureFilters();
 
-        final WorkItem advisory = workItemService.create(new WorkItemCreateRequest(
-                "Security advisory: TLS 1.0 deprecation — migration guide",
-                "Update TLS guide. Must publish before customer notification Friday.",
-                "security-docs", "migration-guide", WorkItemPriority.MEDIUM,
-                null, "security-writers,docs-team", null, null, "doc-system",
-                "{\"doc_type\": \"security-advisory\"}", null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem advisory = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Security advisory: TLS 1.0 deprecation — migration guide")
+                .description("Update TLS guide. Must publish before customer notification Friday.")
+                .category("security-docs")
+                .formKey("migration-guide")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("security-writers,docs-team")
+                .createdBy("doc-system")
+                .payload("{\"doc_type\": \"security-advisory\"}")
+                .build());
         advisoryId.set(advisory.id);
 
-        final WorkItem releaseNotes = workItemService.create(new WorkItemCreateRequest(
-                "v3.2 release notes — features and breaking changes",
-                "Document all features and breaking changes for the v3.2 release.",
-                "release-docs", "release-notes", WorkItemPriority.HIGH,
-                null, "docs-team", null, null, "release-system",
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem releaseNotes = workItemService.create(WorkItemCreateRequest.builder()
+                .title("v3.2 release notes — features and breaking changes")
+                .description("Document all features and breaking changes for the v3.2 release.")
+                .category("release-docs")
+                .formKey("release-notes")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("docs-team")
+                .createdBy("release-system")
+                .build());
         releaseNotesId.set(releaseNotes.id);
 
-        final WorkItem tutorial = workItemService.create(new WorkItemCreateRequest(
-                "Getting started tutorial — CaseHub Work quick start",
-                "Write a 10-minute getting-started guide for new users.",
-                "tutorials", "quick-start", WorkItemPriority.MEDIUM,
-                null, "docs-team", null, null, "doc-system",
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem tutorial = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Getting started tutorial — CaseHub Work quick start")
+                .description("Write a 10-minute getting-started guide for new users.")
+                .category("tutorials")
+                .formKey("quick-start")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("docs-team")
+                .createdBy("doc-system")
+                .build());
         tutorialId.set(tutorial.id);
 
         step.set(1);

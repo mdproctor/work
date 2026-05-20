@@ -82,24 +82,14 @@ public class LabellingScenario {
         final String description1 = "support-bot creates support ticket for VIP client login failure";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 1, total, description1);
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Customer support: login failure for VIP client",
-                "VIP client unable to log in since platform upgrade — urgent resolution required",
-                "support",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                null,
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"clientId\": \"CLIENT-VIP-9912\", \"channel\": \"email\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title("Customer support: login failure for VIP client")
+                .description("VIP client unable to log in since platform upgrade — urgent resolution required")
+                .category("support")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"clientId\": \"CLIENT-VIP-9912\", \"channel\": \"email\"}")
+                .build();
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(1, description1, wi.id));

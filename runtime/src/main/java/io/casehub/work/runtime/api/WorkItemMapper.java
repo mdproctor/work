@@ -60,16 +60,30 @@ public final class WorkItemMapper {
     }
 
     public static WorkItemCreateRequest toServiceRequest(final CreateWorkItemRequest req) {
-        return new WorkItemCreateRequest(
-                req.title(), req.description(), req.category(), req.formKey(),
-                req.priority(), req.assigneeId(), req.candidateGroups(),
-                req.candidateUsers(), req.requiredCapabilities(), req.createdBy(),
-                req.payload(), req.claimDeadline(), req.expiresAt(), req.followUpDate(),
-                req.labels(), req.confidenceScore(), req.callerRef(),
-                req.claimDeadlineBusinessHours(), req.expiresAtBusinessHours(),
-                null, null, // templateId and permittedOutcomes — not set for direct creation
-                null, null, // inputDataSchema, outputDataSchema — no template, no schema
-                req.excludedUsers()); // caller can specify excluded users on direct creation
+        return WorkItemCreateRequest.builder()
+                .title(req.title())
+                .description(req.description())
+                .category(req.category())
+                .formKey(req.formKey())
+                .priority(req.priority())
+                .assigneeId(req.assigneeId())
+                .candidateGroups(req.candidateGroups())
+                .candidateUsers(req.candidateUsers())
+                .requiredCapabilities(req.requiredCapabilities())
+                .createdBy(req.createdBy())
+                .payload(req.payload())
+                .claimDeadline(req.claimDeadline())
+                .expiresAt(req.expiresAt())
+                .followUpDate(req.followUpDate())
+                .labels(req.labels())
+                .confidenceScore(req.confidenceScore())
+                .callerRef(req.callerRef())
+                .claimDeadlineBusinessHours(req.claimDeadlineBusinessHours())
+                .expiresAtBusinessHours(req.expiresAtBusinessHours())
+                .excludedUsers(req.excludedUsers())
+                // templateId, permittedOutcomes, inputDataSchema, outputDataSchema intentionally
+                // omitted — populated from a WorkItemTemplate at instantiation time, not on direct REST creation
+                .build();
     }
 
     static WorkItemLabelResponse toLabelResponse(final WorkItemLabel label) {

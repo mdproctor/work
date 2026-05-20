@@ -76,44 +76,44 @@ public class WorkItemService {
     public WorkItem create(final WorkItemCreateRequest request) {
         final WorkItem item = new WorkItem();
         item.status = WorkItemStatus.PENDING;
-        item.title = request.title();
-        item.description = request.description();
-        item.category = request.category();
-        item.formKey = request.formKey();
-        item.priority = request.priority() != null ? request.priority() : WorkItemPriority.MEDIUM;
-        item.assigneeId = request.assigneeId();
-        item.candidateGroups = request.candidateGroups();
-        item.candidateUsers = request.candidateUsers();
-        item.requiredCapabilities = request.requiredCapabilities();
-        item.createdBy = request.createdBy();
-        item.payload = request.payload();
-        item.confidenceScore = request.confidenceScore();
-        item.callerRef = request.callerRef();
-        item.followUpDate = request.followUpDate();
-        item.templateId = request.templateId();
-        item.permittedOutcomes = WorkItemTemplateService.encodePermittedOutcomes(request.permittedOutcomes());
-        item.inputDataSchema = request.inputDataSchema();
-        item.outputDataSchema = request.outputDataSchema();
-        item.excludedUsers = request.excludedUsers();
+        item.title = request.title;
+        item.description = request.description;
+        item.category = request.category;
+        item.formKey = request.formKey;
+        item.priority = request.priority != null ? request.priority : WorkItemPriority.MEDIUM;
+        item.assigneeId = request.assigneeId;
+        item.candidateGroups = request.candidateGroups;
+        item.candidateUsers = request.candidateUsers;
+        item.requiredCapabilities = request.requiredCapabilities;
+        item.createdBy = request.createdBy;
+        item.payload = request.payload;
+        item.confidenceScore = request.confidenceScore;
+        item.callerRef = request.callerRef;
+        item.followUpDate = request.followUpDate;
+        item.templateId = request.templateId;
+        item.permittedOutcomes = WorkItemTemplateService.encodePermittedOutcomes(request.permittedOutcomes);
+        item.inputDataSchema = request.inputDataSchema;
+        item.outputDataSchema = request.outputDataSchema;
+        item.excludedUsers = request.excludedUsers;
 
         final Instant now = Instant.now();
         item.createdAt = now;
         item.updatedAt = now;
 
         // expiresAt: absolute > business hours > config default (wall-clock)
-        if (request.expiresAt() != null) {
-            item.expiresAt = request.expiresAt();
-        } else if (request.expiresAtBusinessHours() != null) {
-            item.expiresAt = resolveBusinessHours(now, request.expiresAtBusinessHours());
+        if (request.expiresAt != null) {
+            item.expiresAt = request.expiresAt;
+        } else if (request.expiresAtBusinessHours != null) {
+            item.expiresAt = resolveBusinessHours(now, request.expiresAtBusinessHours);
         } else {
             item.expiresAt = now.plus(config.defaultExpiryHours(), ChronoUnit.HOURS);
         }
 
         // claimDeadline: absolute > business hours > config default (wall-clock)
-        if (request.claimDeadline() != null) {
-            item.claimDeadline = request.claimDeadline();
-        } else if (request.claimDeadlineBusinessHours() != null) {
-            item.claimDeadline = resolveBusinessHours(now, request.claimDeadlineBusinessHours());
+        if (request.claimDeadline != null) {
+            item.claimDeadline = request.claimDeadline;
+        } else if (request.claimDeadlineBusinessHours != null) {
+            item.claimDeadline = resolveBusinessHours(now, request.claimDeadlineBusinessHours);
         } else if (config.defaultClaimHours() > 0) {
             item.claimDeadline = now.plus(config.defaultClaimHours(), ChronoUnit.HOURS);
         }
@@ -123,8 +123,8 @@ public class WorkItemService {
         item.lastReturnedToPoolAt = now;
 
         // Labels: only MANUAL labels accepted at creation time
-        if (request.labels() != null) {
-            for (var labelReq : request.labels()) {
+        if (request.labels != null) {
+            for (var labelReq : request.labels) {
                 if (labelReq.persistence() == LabelPersistence.INFERRED) {
                     throw new IllegalArgumentException(
                             "INFERRED labels cannot be submitted at creation time — they are managed by the filter engine");
@@ -140,17 +140,17 @@ public class WorkItemService {
             }
         }
 
-        if (request.assigneeId() != null) {
-            final PolicyDecision createDecision = exclusionPolicy.check(request.assigneeId(), item.excludedUsers);
+        if (request.assigneeId != null) {
+            final PolicyDecision createDecision = exclusionPolicy.check(request.assigneeId, item.excludedUsers);
             if (createDecision.denied()) {
                 throw new IllegalArgumentException(createDecision.reason());
             }
         }
         assignmentService.assign(item, AssignmentTrigger.CREATED);
         final WorkItem saved = workItemStore.put(item);
-        audit(saved.id, "CREATED", request.createdBy(), null);
+        audit(saved.id, "CREATED", request.createdBy, null);
         if (lifecycleEvent != null) {
-            lifecycleEvent.fire(WorkItemLifecycleEvent.of("CREATED", saved, request.createdBy(), null));
+            lifecycleEvent.fire(WorkItemLifecycleEvent.of("CREATED", saved, request.createdBy, null));
         }
         return saved;
     }
@@ -575,14 +575,19 @@ public class WorkItemService {
                         .filter(l -> l.persistence == LabelPersistence.MANUAL)
                         .toList();
 
-        final WorkItemCreateRequest req = new WorkItemCreateRequest(
-                title, source.description, source.category, source.formKey,
-                source.priority, null, source.candidateGroups, source.candidateUsers,
-                source.requiredCapabilities, createdBy, source.payload,
-                null, null, null, null, null, null, null, null,
-                null, null, // no template provenance for clones
-                null, null, // no schema constraints for clones
-                source.excludedUsers); // excludedUsers
+        final WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title(title)
+                .description(source.description)
+                .category(source.category)
+                .formKey(source.formKey)
+                .priority(source.priority)
+                .candidateGroups(source.candidateGroups)
+                .candidateUsers(source.candidateUsers)
+                .requiredCapabilities(source.requiredCapabilities)
+                .createdBy(createdBy)
+                .payload(source.payload)
+                .excludedUsers(source.excludedUsers)
+                .build();
 
         WorkItem clone = create(req);
 

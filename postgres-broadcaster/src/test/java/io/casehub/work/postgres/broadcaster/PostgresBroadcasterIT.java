@@ -163,9 +163,11 @@ class PostgresBroadcasterIT {
 
     @Transactional
     WorkItem createWorkItem(final String title) {
-        final WorkItemCreateRequest req = new WorkItemCreateRequest(
-                title, null, "test", null, null, null, null, null,
-                null, "test-system", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title(title)
+                .category("test")
+                .createdBy("test-system")
+                .build();
         return workItemService.create(req);
     }
 

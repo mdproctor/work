@@ -124,26 +124,32 @@ public class LegalRoutingScenario {
         final List<QueueScenarioStep> steps = new ArrayList<>();
 
         LOG.info("[LEGAL] Step 1/3: MEDIUM priority contract review — gets legal/review only");
-        final WorkItem contractReview = workItemService.create(new WorkItemCreateRequest(
-                "Vendor contract review — Acme Corp SaaS agreement",
-                "Review vendor SaaS agreement for GDPR compliance. Non-urgent; renewal date in 6 weeks.",
-                "legal", "contract-review", WorkItemPriority.MEDIUM,
-                null, "legal-team", null, null, "contract-service",
-                "{\"vendor\": \"Acme Corp\", \"contract_type\": \"SaaS\", \"renewal_date\": \"2026-06-01\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem contractReview = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Vendor contract review — Acme Corp SaaS agreement")
+                .description("Review vendor SaaS agreement for GDPR compliance. Non-urgent; renewal date in 6 weeks.")
+                .category("legal")
+                .formKey("contract-review")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("legal-team")
+                .createdBy("contract-service")
+                .payload("{\"vendor\": \"Acme Corp\", \"contract_type\": \"SaaS\", \"renewal_date\": \"2026-06-01\"}")
+                .build());
         steps.add(new QueueScenarioStep(1,
                 "MEDIUM legal contract review — JEXL filter fires: legal/review; JQ filter (legal+HIGH) does not match",
                 contractReview.id, inferredPaths(contractReview), manualPaths(contractReview),
                 formatEvents(eventLog.drain())));
 
         LOG.info("[LEGAL] Step 2/3: HIGH priority NDA dispute — gets legal/review + legal/urgent");
-        final WorkItem ndaDispute = workItemService.create(new WorkItemCreateRequest(
-                "NDA breach — former employee posted confidential roadmap",
-                "Ex-employee posted internal roadmap on LinkedIn. Legal and PR action required immediately.",
-                "legal", "nda-breach", WorkItemPriority.HIGH,
-                null, "legal-team,executive-team", null, null, "hr-system",
-                "{\"employee_id\": \"EMP-4521\", \"disclosure_type\": \"roadmap\", \"channel\": \"LinkedIn\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem ndaDispute = workItemService.create(WorkItemCreateRequest.builder()
+                .title("NDA breach — former employee posted confidential roadmap")
+                .description("Ex-employee posted internal roadmap on LinkedIn. Legal and PR action required immediately.")
+                .category("legal")
+                .formKey("nda-breach")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("legal-team,executive-team")
+                .createdBy("hr-system")
+                .payload("{\"employee_id\": \"EMP-4521\", \"disclosure_type\": \"roadmap\", \"channel\": \"LinkedIn\"}")
+                .build());
         steps.add(new QueueScenarioStep(2,
                 "HIGH legal NDA dispute — JEXL fires: legal/review; JQ fires: legal/urgent — two filters, two queues",
                 ndaDispute.id, inferredPaths(ndaDispute), manualPaths(ndaDispute),

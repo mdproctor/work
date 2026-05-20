@@ -116,31 +116,25 @@ public class WorkItemSpawnService implements SpawnPort {
                 throw new IllegalArgumentException("WorkItemTemplate not found: " + spec.templateId());
             }
 
-            final WorkItemCreateRequest createRequest = new WorkItemCreateRequest(
-                    template.name,
-                    template.description,
-                    template.category,
-                    null, // formKey — not on template
-                    template.priority,
-                    null, // assigneeId
-                    override(spec, "candidateGroups", template.candidateGroups),
-                    override(spec, "candidateUsers", template.candidateUsers),
-                    override(spec, "requiredCapabilities", template.requiredCapabilities),
-                    "system:spawn:" + group.id,
-                    template.defaultPayload,
-                    null, // claimDeadline
-                    null, // expiresAt
-                    null, // followUpDate
-                    null, // labels
-                    null, // confidenceScore
-                    spec.callerRef(),
-                    template.defaultClaimBusinessHours,
-                    template.defaultExpiryBusinessHours,
-                    template.id,
-                    WorkItemTemplateService.parseOutcomeNames(template.outcomes),
-                    template.inputDataSchema,
-                    template.outputDataSchema,
-                    template.excludedUsers); // excludedUsers
+            final WorkItemCreateRequest createRequest = WorkItemCreateRequest.builder()
+                    .title(template.name)
+                    .description(template.description)
+                    .category(template.category)
+                    .priority(template.priority)
+                    .candidateGroups(override(spec, "candidateGroups", template.candidateGroups))
+                    .candidateUsers(override(spec, "candidateUsers", template.candidateUsers))
+                    .requiredCapabilities(override(spec, "requiredCapabilities", template.requiredCapabilities))
+                    .createdBy("system:spawn:" + group.id)
+                    .payload(template.defaultPayload)
+                    .callerRef(spec.callerRef())
+                    .claimDeadlineBusinessHours(template.defaultClaimBusinessHours)
+                    .expiresAtBusinessHours(template.defaultExpiryBusinessHours)
+                    .templateId(template.id)
+                    .permittedOutcomes(WorkItemTemplateService.parseOutcomeNames(template.outcomes))
+                    .inputDataSchema(template.inputDataSchema)
+                    .outputDataSchema(template.outputDataSchema)
+                    .excludedUsers(template.excludedUsers)
+                    .build();
 
             final WorkItem child = workItemService.create(createRequest);
 

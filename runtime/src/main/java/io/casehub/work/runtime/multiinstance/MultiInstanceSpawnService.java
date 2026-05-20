@@ -129,60 +129,46 @@ public class MultiInstanceSpawnService {
         final String title = (titleOverride != null && !titleOverride.isBlank())
                 ? titleOverride
                 : template.name;
-        return new WorkItemCreateRequest(
-                title,
-                template.description,
-                template.category,
-                null, // formKey — not templated
-                template.priority,
-                null, // assigneeId — coordinator has none; participant uses candidateGroups routing
-                isCoordinator ? null : template.candidateGroups,
-                isCoordinator ? null : template.candidateUsers,
-                template.requiredCapabilities,
-                createdBy,
-                template.defaultPayload,
-                null, // claimDeadline
-                null, // expiresAt
-                null, // followUpDate
-                null, // labels — applied separately if needed
-                null, // confidenceScore
-                callerRef,
-                null, // defaultClaimBusinessHours — coordinator has no deadline
-                isCoordinator ? null : template.defaultExpiryBusinessHours,
-                template.id,
-                WorkItemTemplateService.parseOutcomeNames(template.outcomes),
-                template.inputDataSchema,
-                template.outputDataSchema,
-                template.excludedUsers); // excludedUsers
+        return WorkItemCreateRequest.builder()
+                .title(title)
+                .description(template.description)
+                .category(template.category)
+                .priority(template.priority)
+                .candidateGroups(isCoordinator ? null : template.candidateGroups)
+                .candidateUsers(isCoordinator ? null : template.candidateUsers)
+                .requiredCapabilities(template.requiredCapabilities)
+                .createdBy(createdBy)
+                .payload(template.defaultPayload)
+                .callerRef(callerRef)
+                .expiresAtBusinessHours(isCoordinator ? null : template.defaultExpiryBusinessHours)
+                .templateId(template.id)
+                .permittedOutcomes(WorkItemTemplateService.parseOutcomeNames(template.outcomes))
+                .inputDataSchema(template.inputDataSchema)
+                .outputDataSchema(template.outputDataSchema)
+                .excludedUsers(template.excludedUsers)
+                .build();
     }
 
     private WorkItemCreateRequest buildChildRequest(final WorkItemTemplate template,
             final String createdBy, final int index, final WorkItemSpawnGroup group) {
-        return new WorkItemCreateRequest(
-                template.name + " [" + (index + 1) + "/" + template.instanceCount + "]",
-                template.description,
-                template.category,
-                null, // formKey
-                template.priority,
-                null, // assigneeId — strategy handles assignment
-                template.candidateGroups,
-                template.candidateUsers,
-                template.requiredCapabilities,
-                "system:multi-instance:" + group.id,
-                template.defaultPayload,
-                null, // claimDeadline
-                null, // expiresAt
-                null, // followUpDate
-                null, // labels
-                null, // confidenceScore
-                null, // callerRef
-                template.defaultClaimBusinessHours,
-                template.defaultExpiryBusinessHours,
-                template.id,
-                WorkItemTemplateService.parseOutcomeNames(template.outcomes),
-                template.inputDataSchema,
-                template.outputDataSchema,
-                template.excludedUsers); // excludedUsers
+        return WorkItemCreateRequest.builder()
+                .title(template.name + " [" + (index + 1) + "/" + template.instanceCount + "]")
+                .description(template.description)
+                .category(template.category)
+                .priority(template.priority)
+                .candidateGroups(template.candidateGroups)
+                .candidateUsers(template.candidateUsers)
+                .requiredCapabilities(template.requiredCapabilities)
+                .createdBy("system:multi-instance:" + group.id)
+                .payload(template.defaultPayload)
+                .claimDeadlineBusinessHours(template.defaultClaimBusinessHours)
+                .expiresAtBusinessHours(template.defaultExpiryBusinessHours)
+                .templateId(template.id)
+                .permittedOutcomes(WorkItemTemplateService.parseOutcomeNames(template.outcomes))
+                .inputDataSchema(template.inputDataSchema)
+                .outputDataSchema(template.outputDataSchema)
+                .excludedUsers(template.excludedUsers)
+                .build();
     }
 
     /**

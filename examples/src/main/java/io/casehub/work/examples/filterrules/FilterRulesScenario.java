@@ -94,24 +94,15 @@ public class FilterRulesScenario {
         final String description2 = "procurement-system creates HIGH-priority WorkItem: Emergency supplier payment";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 2, total, description2);
 
-        final WorkItemCreateRequest highPriorityRequest = new WorkItemCreateRequest(
-                "Emergency supplier payment — critical component shortage",
-                "Supplier payment required within 24 hours to prevent production line stoppage",
-                "procurement",
-                null,
-                WorkItemPriority.HIGH,
-                null,
-                "procurement-team",
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"supplierId\": \"SUPP-001\", \"amount\": 12500.00, \"currency\": \"GBP\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest highPriorityRequest = WorkItemCreateRequest.builder()
+                .title("Emergency supplier payment — critical component shortage")
+                .description("Supplier payment required within 24 hours to prevent production line stoppage")
+                .category("procurement")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("procurement-team")
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"supplierId\": \"SUPP-001\", \"amount\": 12500.00, \"currency\": \"GBP\"}")
+                .build();
 
         final WorkItem highPriorityWi = workItemService.create(highPriorityRequest);
         steps.add(new StepLog(2, description2, highPriorityWi.id));
@@ -120,24 +111,15 @@ public class FilterRulesScenario {
         final String description3 = "procurement-system creates MEDIUM-priority WorkItem: Routine office supplies order";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 3, total, description3);
 
-        final WorkItemCreateRequest normalPriorityRequest = new WorkItemCreateRequest(
-                "Routine office supplies order — Q2 2026",
-                "Quarterly office supplies requisition for the procurement team",
-                "procurement",
-                null,
-                WorkItemPriority.MEDIUM,
-                null,
-                "procurement-team",
-                null,
-                null,
-                ACTOR_CREATOR,
-                "{\"requisitionId\": \"REQ-2026-Q2-047\"}",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest normalPriorityRequest = WorkItemCreateRequest.builder()
+                .title("Routine office supplies order — Q2 2026")
+                .description("Quarterly office supplies requisition for the procurement team")
+                .category("procurement")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("procurement-team")
+                .createdBy(ACTOR_CREATOR)
+                .payload("{\"requisitionId\": \"REQ-2026-Q2-047\"}")
+                .build();
 
         final WorkItem normalPriorityWi = workItemService.create(normalPriorityRequest);
         steps.add(new StepLog(3, description3, normalPriorityWi.id));

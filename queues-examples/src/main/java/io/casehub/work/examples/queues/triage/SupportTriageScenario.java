@@ -146,26 +146,30 @@ public class SupportTriageScenario {
         final List<QueueScenarioStep> steps = new ArrayList<>();
 
         LOG.info("[TRIAGE] Step 1/4: Creating URGENT ticket — should get sla/critical + queue/fast-track");
-        final WorkItem critical = workItemService.create(new WorkItemCreateRequest(
-                "Production database unreachable — all services down",
-                "Database cluster is not responding. All customer-facing APIs returning 503.",
-                "infrastructure", null, WorkItemPriority.URGENT,
-                null, "ops-team", null, null, "incident-detector",
-                "{\"affected_services\": 12, \"error\": \"Connection refused\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem critical = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Production database unreachable — all services down")
+                .description("Database cluster is not responding. All customer-facing APIs returning 503.")
+                .category("infrastructure")
+                .priority(WorkItemPriority.URGENT)
+                .candidateGroups("ops-team")
+                .createdBy("incident-detector")
+                .payload("{\"affected_services\": 12, \"error\": \"Connection refused\"}")
+                .build());
         steps.add(new QueueScenarioStep(1,
                 "URGENT production incident created — filter A fires: sla/critical + queue/fast-track",
                 critical.id, inferredPaths(critical), manualPaths(critical),
                 formatEvents(eventLog.drain())));
 
         LOG.info("[TRIAGE] Step 2/4: Creating HIGH unassigned ticket — should get intake/triage + team/support-lead (cascade)");
-        final WorkItem high = workItemService.create(new WorkItemCreateRequest(
-                "Login flow broken for EU region customers",
-                "Multiple reports of authentication failures for users in EU region. Appears intermittent.",
-                "authentication", null, WorkItemPriority.HIGH,
-                null, "support-tier1", null, null, "support-portal",
-                "{\"region\": \"EU\", \"affected_users\": 47}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem high = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Login flow broken for EU region customers")
+                .description("Multiple reports of authentication failures for users in EU region. Appears intermittent.")
+                .category("authentication")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("support-tier1")
+                .createdBy("support-portal")
+                .payload("{\"region\": \"EU\", \"affected_users\": 47}")
+                .build());
         steps.add(new QueueScenarioStep(2,
                 "HIGH unassigned ticket — filter B fires: intake/triage; filter C cascades: team/support-lead",
                 high.id, inferredPaths(high), manualPaths(high),

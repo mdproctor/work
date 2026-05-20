@@ -94,24 +94,16 @@ public class NdaReviewScenario {
         final String description2 = "contract-agent creates NDA review WorkItem for Acme Corp partnership";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 2, total, description2);
 
-        final WorkItemCreateRequest request = new WorkItemCreateRequest(
-                "Review NDA with Acme Corp",
-                "Non-disclosure agreement for IP protection and legal compliance with Acme Corp partnership",
-                "legal",
-                null,
-                WorkItemPriority.HIGH,
-                null,
-                null,
-                ACTOR_LEGAL + "," + ACTOR_FINANCE,
-                null,
-                ACTOR_AGENT,
-                "{\"contractRef\": \"ACME-NDA-2026-04\"}",
-                null,
-                null,
-                null,
-                null,
-                0.92,
-                null, null, null, null, null, null, null, null);
+        final WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+                .title("Review NDA with Acme Corp")
+                .description("Non-disclosure agreement for IP protection and legal compliance with Acme Corp partnership")
+                .category("legal")
+                .priority(WorkItemPriority.HIGH)
+                .candidateUsers(ACTOR_LEGAL + "," + ACTOR_FINANCE)
+                .createdBy(ACTOR_AGENT)
+                .payload("{\"contractRef\": \"ACME-NDA-2026-04\"}")
+                .confidenceScore(0.92)
+                .build();
 
         final WorkItem wi = workItemService.create(request);
         steps.add(new StepLog(2, description2, wi.id));

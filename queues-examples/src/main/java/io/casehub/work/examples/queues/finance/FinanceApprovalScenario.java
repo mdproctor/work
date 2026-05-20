@@ -124,39 +124,48 @@ public class FinanceApprovalScenario {
         final List<QueueScenarioStep> steps = new ArrayList<>();
 
         LOG.info("[FINANCE] Step 1/4: MEDIUM expense report → finance/approval only");
-        final WorkItem expense = workItemService.create(new WorkItemCreateRequest(
-                "Q2 team training budget — approval required",
-                "Request to use £2,400 from training budget for team certification renewals.",
-                "finance", "budget-request", WorkItemPriority.MEDIUM,
-                null, "finance-team", null, null, "hr-system",
-                "{\"amount\": 2400, \"currency\": \"GBP\", \"category\": \"training\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem expense = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Q2 team training budget — approval required")
+                .description("Request to use £2,400 from training budget for team certification renewals.")
+                .category("finance")
+                .formKey("budget-request")
+                .priority(WorkItemPriority.MEDIUM)
+                .candidateGroups("finance-team")
+                .createdBy("hr-system")
+                .payload("{\"amount\": 2400, \"currency\": \"GBP\", \"category\": \"training\"}")
+                .build());
         steps.add(new QueueScenarioStep(1,
                 "MEDIUM expense — finance/approval only (standard team queue)",
                 expense.id, inferredPaths(expense), manualPaths(expense),
                 formatEvents(eventLog.drain())));
 
         LOG.info("[FINANCE] Step 2/4: HIGH budget reallocation → finance/approval only (HIGH != URGENT)");
-        final WorkItem realloc = workItemService.create(new WorkItemCreateRequest(
-                "Q3 marketing budget reallocation — £15,000 to digital",
-                "Propose reallocating £15,000 from events budget to digital marketing for H2.",
-                "finance", "budget-reallocation", WorkItemPriority.HIGH,
-                null, "finance-team", null, null, "finance-system",
-                "{\"amount\": 15000, \"from\": \"events\", \"to\": \"digital\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem realloc = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Q3 marketing budget reallocation — £15,000 to digital")
+                .description("Propose reallocating £15,000 from events budget to digital marketing for H2.")
+                .category("finance")
+                .formKey("budget-reallocation")
+                .priority(WorkItemPriority.HIGH)
+                .candidateGroups("finance-team")
+                .createdBy("finance-system")
+                .payload("{\"amount\": 15000, \"from\": \"events\", \"to\": \"digital\"}")
+                .build());
         steps.add(new QueueScenarioStep(2,
                 "HIGH budget reallocation — finance/approval only (URGENT threshold not met for exec review)",
                 realloc.id, inferredPaths(realloc), manualPaths(realloc),
                 formatEvents(eventLog.drain())));
 
         LOG.info("[FINANCE] Step 3/4: URGENT emergency spend → finance/approval + finance/exec-review");
-        final WorkItem emergency = workItemService.create(new WorkItemCreateRequest(
-                "Emergency cloud spend — incident recovery infrastructure",
-                "Incident required provisioning $180,000 of additional cloud capacity.",
-                "finance", "emergency-spend", WorkItemPriority.URGENT,
-                null, "finance-team,executive-team", null, null, "ops-system",
-                "{\"amount\": 180000, \"currency\": \"USD\", \"incident_id\": \"INC-9981\"}",
-                null, null, null, null, null, null, null, null, null, null, null, null, null));
+        final WorkItem emergency = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Emergency cloud spend — incident recovery infrastructure")
+                .description("Incident required provisioning $180,000 of additional cloud capacity.")
+                .category("finance")
+                .formKey("emergency-spend")
+                .priority(WorkItemPriority.URGENT)
+                .candidateGroups("finance-team,executive-team")
+                .createdBy("ops-system")
+                .payload("{\"amount\": 180000, \"currency\": \"USD\", \"incident_id\": \"INC-9981\"}")
+                .build());
         steps.add(new QueueScenarioStep(3,
                 "URGENT emergency spend — both finance/approval (standard) AND finance/exec-review (executive oversight)",
                 emergency.id, inferredPaths(emergency), manualPaths(emergency),
