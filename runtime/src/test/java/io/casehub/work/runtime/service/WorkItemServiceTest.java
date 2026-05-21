@@ -18,11 +18,11 @@ import org.junit.jupiter.api.Test;
 import io.casehub.work.api.AssignmentDecision;
 import io.casehub.work.api.PolicyDecision;
 import io.casehub.work.core.strategy.WorkBroker;
-import io.casehub.work.runtime.api.WorkItemLabelResponse;
+import io.casehub.work.runtime.model.WorkItemLabelRequest;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.model.AuditEntry;
 import io.casehub.work.runtime.model.DelegationState;
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemPriority;
@@ -929,7 +929,7 @@ class WorkItemServiceTest {
         var request = WorkItemCreateRequest.builder()
                 .title("title")
                 .createdBy("alice")
-                .labels(List.of(new WorkItemLabelResponse("legal", LabelPersistence.INFERRED, null)))
+                .labels(List.of(new WorkItemLabelRequest("legal", LabelPersistence.INFERRED, null)))
                 .build();
 
         assertThatThrownBy(() -> service.create(request))
@@ -942,7 +942,7 @@ class WorkItemServiceTest {
         var request = WorkItemCreateRequest.builder()
                 .title("title")
                 .createdBy("alice")
-                .labels(List.of(new WorkItemLabelResponse("legal", LabelPersistence.MANUAL, "alice")))
+                .labels(List.of(new WorkItemLabelRequest("legal", LabelPersistence.MANUAL, "alice")))
                 .build();
 
         var result = service.create(request);
@@ -976,7 +976,7 @@ class WorkItemServiceTest {
         var created = service.create(WorkItemCreateRequest.builder()
                 .title("label-remove-test")
                 .createdBy("alice")
-                .labels(List.of(new WorkItemLabelResponse("legal/contracts", LabelPersistence.MANUAL, "alice")))
+                .labels(List.of(new WorkItemLabelRequest("legal/contracts", LabelPersistence.MANUAL, "alice")))
                 .build());
 
         var updated = service.removeLabel(created.id, "legal/contracts");

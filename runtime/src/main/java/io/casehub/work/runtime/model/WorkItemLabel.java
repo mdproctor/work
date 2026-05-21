@@ -9,8 +9,8 @@ import jakarta.persistence.Enumerated;
  * A label applied to a {@link WorkItem}, identified by a {@code /}-separated path.
  *
  * <p>
- * Labels are either {@link LabelPersistence#MANUAL} (human-applied, persists until
- * explicitly removed) or {@link LabelPersistence#INFERRED} (filter-applied, recomputed
+ * Labels are either {@link io.casehub.work.api.LabelPersistence#MANUAL} (human-applied, persists until
+ * explicitly removed) or {@link io.casehub.work.api.LabelPersistence#INFERRED} (filter-applied, recomputed
  * on every WorkItem mutation).
  *
  * <p>
@@ -28,16 +28,16 @@ public class WorkItemLabel {
     /**
      * How this label was applied and how it is maintained.
      *
-     * @see LabelPersistence
+     * @see io.casehub.work.api.LabelPersistence
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "persistence", nullable = false, length = 20)
-    public LabelPersistence persistence;
+    public io.casehub.work.api.LabelPersistence persistence;
 
     /**
      * Who or what applied this label.
-     * For {@link LabelPersistence#MANUAL}: the userId who applied it.
-     * For {@link LabelPersistence#INFERRED}: the filterId that applied it (may be null).
+     * For {@link io.casehub.work.api.LabelPersistence#MANUAL}: the userId who applied it.
+     * For {@link io.casehub.work.api.LabelPersistence#INFERRED}: the filterId that applied it (may be null).
      */
     @Column(name = "applied_by", length = 255)
     public String appliedBy;
@@ -53,7 +53,7 @@ public class WorkItemLabel {
      * @param persistence how the label is maintained
      * @param appliedBy userId (MANUAL) or filterId (INFERRED); may be null
      */
-    public WorkItemLabel(final String path, final LabelPersistence persistence, final String appliedBy) {
+    public WorkItemLabel(final String path, final io.casehub.work.api.LabelPersistence persistence, final String appliedBy) {
         this.path = path;
         this.persistence = persistence;
         this.appliedBy = appliedBy;

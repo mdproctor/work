@@ -42,7 +42,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
  * <p>
  * {@link #labelPaths} is a JSON array of label path strings:
  * {@code ["intake/triage", "priority/high"]}. At instantiation, these are applied
- * as {@link LabelPersistence#MANUAL} labels (not INFERRED — the filter engine may
+ * as {@link io.casehub.work.api.LabelPersistence#MANUAL} labels (not INFERRED — the filter engine may
  * add INFERRED labels on top after the first lifecycle event fires).
  */
 @Entity

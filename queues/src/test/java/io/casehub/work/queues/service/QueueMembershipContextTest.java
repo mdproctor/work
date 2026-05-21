@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.work.queues.event.QueueEventType;
 import io.casehub.work.queues.event.WorkItemQueueEvent;
 import io.casehub.work.queues.model.QueueView;
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemLabel;
 
