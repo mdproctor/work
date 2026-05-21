@@ -54,7 +54,7 @@ public class RoundRobinStrategy implements WorkerSelectionStrategy {
         try {
             final MessageDigest md = MessageDigest.getInstance("SHA-256");
             final byte[] digest = md.digest(sorted.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest).substring(0, 64);
+            return HexFormat.of().formatHex(digest);
         } catch (final NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
