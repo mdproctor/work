@@ -4,6 +4,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -162,9 +163,18 @@ public class WorkItemResource {
             @QueryParam("status") final WorkItemStatus status,
             @QueryParam("priority") final WorkItemPriority priority,
             @QueryParam("category") final String category,
-            @QueryParam("followUp") final Boolean followUp) {
-        return workItemStore.scanRoots(assignee, candidateGroups)
-                .stream().map(WorkItemRootResponse::from).toList();
+            @QueryParam("followUp") final Boolean followUp,
+            @QueryParam("outcome") final String outcome) {
+        Stream<WorkItemRootView> stream = workItemStore.scanRoots(
+                assignee != null ? assignee : candidateUser, candidateGroups).stream();
+        if (status != null)   stream = stream.filter(v -> Objects.equals(v.workItem().status, status));
+        if (priority != null) stream = stream.filter(v -> Objects.equals(v.workItem().priority, priority));
+        if (category != null) stream = stream.filter(v -> category.equals(v.workItem().category));
+        if (followUp != null) stream = stream.filter(v -> Boolean.TRUE.equals(followUp)
+                ? v.workItem().followUpDate != null
+                : v.workItem().followUpDate == null);
+        if (outcome != null)  stream = stream.filter(v -> outcome.equals(v.workItem().outcome));
+        return stream.map(WorkItemRootResponse::from).toList();
     }
 
     @GET

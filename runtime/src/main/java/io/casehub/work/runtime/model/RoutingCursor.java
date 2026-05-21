@@ -1,5 +1,7 @@
 package io.casehub.work.runtime.model;
 
+import java.time.Instant;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -15,6 +17,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
  * Pool identity is the SHA-256 of sorted candidate IDs (64 hex characters).
  * {@code lastIndex} starts at -1; the first {@code acquireNext()} returns 0.
  * {@code version} provides OCC via JPA {@code @Version}.
+ * {@code lastAccessed} is stamped on every {@code acquireNext()} call for TTL-based GC.
  */
 @Entity
 @Table(name = "routing_cursor")
@@ -31,10 +34,14 @@ public class RoutingCursor extends PanacheEntityBase {
     @Column(name = "version", nullable = false)
     public int version;
 
+    @Column(name = "last_accessed", nullable = false)
+    public Instant lastAccessed = Instant.now();
+
     public RoutingCursor() {}
 
     public RoutingCursor(final String poolHash) {
         this.poolHash = poolHash;
         this.lastIndex = -1;
+        this.lastAccessed = Instant.now();
     }
 }

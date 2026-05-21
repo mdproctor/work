@@ -166,7 +166,15 @@ class DefaultBusinessCalendarTest {
 
         @Override
         public RoutingConfig routing() {
-            return () -> "least-loaded";
+            return new RoutingConfig() {
+                @Override public String strategy() { return "least-loaded"; }
+                @Override public CursorConfig cursor() {
+                    return new CursorConfig() {
+                        @Override public int ttlDays() { return 30; }
+                        @Override public String cleanupCron() { return "disabled"; }
+                    };
+                }
+            };
         }
 
         @Override

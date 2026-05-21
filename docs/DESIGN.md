@@ -49,6 +49,8 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | V23–V25 | runtime | Template data schemas (inputDataSchema, outputDataSchema), WorkItem snapshot columns, drop work_item_form_schema table (Epic #170) |
 | V26–V27 | runtime | excluded_users TEXT on work_item_template and work_item (Epic #171) |
 | V28 | runtime | UNIQUE constraint on work_item_template.name (#174) |
+| V29 | runtime | routing_cursor table — pool_hash PK, last_index, version (OCC) for round-robin cursor (#117) |
+| V30 | runtime | routing_cursor.last_accessed TIMESTAMP WITH TIME ZONE — TTL-based GC (#202) |
 | V14 | casehub-work-ai | Worker skill profile (fills deliberate gap in runtime sequence) |
 | V2000–V2002 | casehub-work-queues / casehub-work-ledger | Queue membership tracker, ledger supplement |
 | V3000 | casehub-work-notifications | Notification rules |
@@ -85,7 +87,7 @@ Three tiers:
 |---|---|
 | casehub-work-api | 51 |
 | casehub-work-core | 38 |
-| runtime | 693 |
+| runtime | 722 |
 | work-flow | 32 |
 | casehub-work-ledger | 76 |
 | casehub-work-queues | 82 |

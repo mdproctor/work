@@ -410,7 +410,7 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 
 | Range | Module |
 |---|---|
-| V1–V999 | `runtime` (sequential, currently at V21) |
+| V1–V999 | `runtime` (sequential, currently at V30) |
 | V2000–V2999 | `casehub-work-queues` and `casehub-work-ledger` (shared 2000s block) |
 | V3000–V3999 | `casehub-work-notifications` |
 | V4000–V4999 | `casehub-work-ai` |
@@ -475,6 +475,9 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 - `WorkItemCreateRequest` is a `final class` with an enforced builder — use `WorkItemCreateRequest.builder().title("x").createdBy("system").build()`. There is no positional constructor; `new WorkItemCreateRequest(...)` will not compile. `toBuilder()` produces a copy-with-overrides builder. `CreateWorkItemRequest` (HTTP DTO record) also has an inner `Builder` for test construction but retains its record canonical constructor for Jackson deserialization. (#182)
 - `casehub.work.routing.strategy=round-robin` activates `RoundRobinStrategy` — requires the `routing_cursor` table (V29 Flyway migration). When adding a new built-in strategy, update three places atomically: `WorkItemAssignmentService.activeStrategy()` switch, the `@Alternative` exclusion filter in the same method, and `WorkItemsConfig.RoutingConfig.strategy()` Javadoc (see protocol PP-20260521-903472).
 - `reject()` accepts a named `outcome` parameter (5-arg overload: `id, actorId, reason, outcome, rationale`) — note `outcome` comes before `rationale`, matching `complete()` ordering. `rejectFromSystem()` deliberately bypasses outcome validation (#176).
+- `candidateUsers` on a WorkItem causes `WorkItemAssignmentService.resolveCandidates()` to build `WorkerCandidate` objects from the comma-separated IDs directly. On creation, `LeastLoadedStrategy` (the default) immediately pre-assigns to the candidate with the lowest workload, changing status from `PENDING` to `ASSIGNED`. Tests that create items with `candidateUsers` and then filter the inbox by `status=PENDING` will get 0 results — filter by `status=ASSIGNED` instead, or omit `candidateUsers` and use `candidateGroups` with a no-op registry for pure claim-first behaviour. (#204)
+- `WorkItemsConfig.RoutingConfig` adding `CursorConfig cursor()` (an abstract method) breaks any existing test that used `RoutingConfig` as a single-abstract-method (functional) interface via lambda `() -> "least-loaded"`. Replace lambdas with anonymous inner classes that implement both `strategy()` and `cursor()`. (#202)
+- `casehub.work.routing.strategy=round-robin` activates `RoundRobinStrategy` for single-item routing AND `RoundRobinAssignmentStrategy` uses the same config to select its inner per-batch strategy. V29 adds `routing_cursor` table; V30 adds `last_accessed` column for TTL-based GC (`casehub.work.routing.cursor.ttl-days`, default 30 days; `casehub.work.routing.cursor.cleanup-cron`, default `"0 2 * * ?"`; set `"disabled"` to skip scheduling). Protocol PP-20260521-903472 governs three-place atomicity for strategy registration.
 
 ---
 
