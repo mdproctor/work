@@ -68,6 +68,38 @@ class WorkItemExcludedUsersTest {
                 .body("excludedUsers", nullValue());
     }
 
+    // ── instantiate() assigneeId override vs template excludedUsers ──────────
+
+    @Test
+    void instantiateTemplate_withExcludedAssigneeIdOverride_returns400() {
+        final String templateId = given().contentType(ContentType.JSON)
+                .body("{\"name\":\"Excl Override\",\"candidateGroups\":\"reviewers\"," +
+                      "\"excludedUsers\":\"alice\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        given().contentType(ContentType.JSON)
+                .body("{\"assigneeId\":\"alice\",\"createdBy\":\"system\"}")
+                .post("/workitem-templates/" + templateId + "/instantiate")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void instantiateTemplate_withNonExcludedAssigneeIdOverride_returns201() {
+        final String templateId = given().contentType(ContentType.JSON)
+                .body("{\"name\":\"Excl Override OK\",\"candidateGroups\":\"reviewers\"," +
+                      "\"excludedUsers\":\"alice\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        given().contentType(ContentType.JSON)
+                .body("{\"assigneeId\":\"bob\",\"createdBy\":\"system\"}")
+                .post("/workitem-templates/" + templateId + "/instantiate")
+                .then()
+                .statusCode(201);
+    }
+
     // ── Claim enforcement ──────────────────────────────────────────────────
 
     @Test
