@@ -169,6 +169,8 @@ public interface WorkItemsConfig {
          * <li>{@code least-loaded} — pre-assigns to the candidateUser with the fewest
          * active (ASSIGNED/IN_PROGRESS/SUSPENDED) WorkItems (default)
          * <li>{@code claim-first} — no pre-assignment; pool stays open
+         * <li>{@code round-robin} — sequential rotation across all candidates;
+         *     requires persistent cursor (routing_cursor table, V29 migration)
          * </ul>
          *
          * @return strategy name; defaults to {@code "least-loaded"}

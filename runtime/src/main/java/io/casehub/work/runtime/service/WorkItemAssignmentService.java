@@ -19,6 +19,7 @@ import io.casehub.work.api.WorkerSelectionStrategy;
 import io.casehub.work.api.WorkloadProvider;
 import io.casehub.work.core.strategy.ClaimFirstStrategy;
 import io.casehub.work.core.strategy.LeastLoadedStrategy;
+import io.casehub.work.core.strategy.RoundRobinStrategy;
 import io.casehub.work.core.strategy.WorkBroker;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.model.WorkItem;
@@ -54,6 +55,7 @@ public class WorkItemAssignmentService {
     private Instance<WorkerSelectionStrategy> alternatives;
     private ClaimFirstStrategy claimFirst;
     private LeastLoadedStrategy leastLoaded;
+    private RoundRobinStrategy roundRobin;
 
     // Resolved at construction time for the package-private test constructor
     private final WorkerSelectionStrategy fixedStrategy;
@@ -68,6 +70,7 @@ public class WorkItemAssignmentService {
      * @param workBroker the generic work assignment broker
      * @param claimFirst the built-in claim-first strategy
      * @param leastLoaded the built-in least-loaded strategy
+     * @param roundRobin the built-in round-robin strategy
      * @param exclusionPolicy the exclusion policy for filtering excluded users
      */
     @Inject
@@ -79,6 +82,7 @@ public class WorkItemAssignmentService {
             final WorkBroker workBroker,
             final ClaimFirstStrategy claimFirst,
             final LeastLoadedStrategy leastLoaded,
+            final RoundRobinStrategy roundRobin,
             final ExclusionPolicy exclusionPolicy) {
         this.config = config;
         this.alternatives = alternatives;
@@ -87,6 +91,7 @@ public class WorkItemAssignmentService {
         this.workBroker = workBroker;
         this.claimFirst = claimFirst;
         this.leastLoaded = leastLoaded;
+        this.roundRobin = roundRobin;
         this.fixedStrategy = null;
         this.exclusionPolicy = exclusionPolicy;
     }
@@ -145,13 +150,18 @@ public class WorkItemAssignmentService {
         if (alternatives != null) {
             final var alt = alternatives.stream()
                     .filter(s -> !(s instanceof ClaimFirstStrategy)
-                            && !(s instanceof LeastLoadedStrategy))
+                            && !(s instanceof LeastLoadedStrategy)
+                            && !(s instanceof RoundRobinStrategy))
                     .findFirst();
             if (alt.isPresent()) {
                 return alt.get();
             }
         }
-        return "claim-first".equals(config.routing().strategy()) ? claimFirst : leastLoaded;
+        return switch (config.routing().strategy()) {
+            case "claim-first" -> claimFirst;
+            case "round-robin" -> roundRobin;
+            default -> leastLoaded;
+        };
     }
 
     private List<WorkerCandidate> resolveCandidates(final WorkItem workItem) {
