@@ -1,11 +1,14 @@
 package io.casehub.work.runtime.api;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import io.casehub.work.runtime.model.AuditEntry;
+import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -23,6 +26,8 @@ class WorkItemTemplateOutcomeTest {
     @BeforeEach
     @Transactional
     void clearTemplates() {
+        AuditEntry.deleteAll();
+        WorkItem.deleteAll();
         WorkItemTemplate.deleteAll();
     }
 
@@ -112,5 +117,125 @@ class WorkItemTemplateOutcomeTest {
                 .statusCode(201)
                 .body("templateId", equalTo(templateId))
                 .body("permittedOutcomes", nullValue());
+    }
+
+    // -------------------------------------------------------------------------
+    // reject() with named outcomes — Refs #176
+    // -------------------------------------------------------------------------
+
+    @Test
+    void reject_withPermittedOutcome_setsOutcomeOnWorkItem() {
+        final String templateId = given().contentType(ContentType.JSON)
+                .body("""
+                        {"name":"Reject Outcome Template","createdBy":"admin",
+                         "outcomes":[
+                           {"name":"approved","displayName":"Approved"},
+                           {"name":"rejected-conflict","displayName":"Conflict of Interest"}
+                         ]}
+                        """)
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        final String id = given().contentType(ContentType.JSON)
+                .body("""
+                        {"createdBy":"system"}
+                        """)
+                .post("/workitem-templates/" + templateId + "/instantiate")
+                .then().statusCode(201).extract().path("id");
+
+        given().put("/workitems/" + id + "/claim?claimant=alice").then().statusCode(200);
+
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"reason":"conflict of interest","outcome":"rejected-conflict"}
+                        """)
+                .put("/workitems/" + id + "/reject?actor=alice")
+                .then()
+                .statusCode(200)
+                .body("outcome", equalTo("rejected-conflict"))
+                .body("status", equalTo("REJECTED"));
+    }
+
+    @Test
+    void reject_withUnpermittedOutcome_returns400() {
+        final String templateId = given().contentType(ContentType.JSON)
+                .body("""
+                        {"name":"Reject Outcome Template2","createdBy":"admin",
+                         "outcomes":[
+                           {"name":"approved","displayName":"Approved"}
+                         ]}
+                        """)
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        final String id = given().contentType(ContentType.JSON)
+                .body("""
+                        {"createdBy":"system"}
+                        """)
+                .post("/workitem-templates/" + templateId + "/instantiate")
+                .then().statusCode(201).extract().path("id");
+
+        given().put("/workitems/" + id + "/claim?claimant=alice").then().statusCode(200);
+
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"reason":"no good","outcome":"not-a-real-outcome"}
+                        """)
+                .put("/workitems/" + id + "/reject?actor=alice")
+                .then()
+                .statusCode(400)
+                .body("error", containsString("not-a-real-outcome"));
+    }
+
+    @Test
+    void reject_withNoPermittedOutcomes_outcomeIsOptional() {
+        final String id = given().contentType(ContentType.JSON)
+                .body("""
+                        {"title":"No outcome constraint","createdBy":"system"}
+                        """)
+                .post("/workitems")
+                .then().statusCode(201).extract().path("id");
+
+        given().put("/workitems/" + id + "/claim?claimant=bob").then().statusCode(200);
+
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"reason":"not suitable","outcome":"any-value"}
+                        """)
+                .put("/workitems/" + id + "/reject?actor=bob")
+                .then()
+                .statusCode(200)
+                .body("outcome", equalTo("any-value"))
+                .body("status", equalTo("REJECTED"));
+    }
+
+    @Test
+    void reject_withNoOutcome_whenPermittedDeclared_returns400() {
+        final String templateId = given().contentType(ContentType.JSON)
+                .body("""
+                        {"name":"Reject Null Outcome Template","createdBy":"admin",
+                         "outcomes":[{"name":"approved","displayName":"Approved"}]}
+                        """)
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        final String id = given().contentType(ContentType.JSON)
+                .body("""
+                        {"createdBy":"system"}
+                        """)
+                .post("/workitem-templates/" + templateId + "/instantiate")
+                .then().statusCode(201).extract().path("id");
+
+        given().put("/workitems/" + id + "/claim?claimant=alice").then().statusCode(200);
+
+        // Reject with no outcome — should fail since template declares permitted outcomes
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"reason":"not good"}
+                        """)
+                .put("/workitems/" + id + "/reject?actor=alice")
+                .then()
+                .statusCode(400)
+                .body("error", containsString("outcome is required"));
     }
 }

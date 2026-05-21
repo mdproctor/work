@@ -217,10 +217,19 @@ public class WorkItemResource {
     @PUT
     @Path("/{id}/reject")
     @Consumes(MediaType.APPLICATION_JSON)
-    public WorkItemResponse reject(@PathParam("id") final UUID id,
+    public Response reject(@PathParam("id") final UUID id,
             @QueryParam("actor") final String actor,
             final RejectRequest body) {
-        return WorkItemMapper.toResponse(workItemService.reject(id, actor, body != null ? body.reason() : null));
+        final String reason = body != null ? body.reason() : null;
+        final String outcome = body != null ? body.outcome() : null;
+        try {
+            return Response.ok(WorkItemMapper.toResponse(
+                    workItemService.reject(id, actor, reason, outcome))).build();
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
     }
 
     @PUT

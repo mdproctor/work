@@ -179,7 +179,7 @@ class WebhookEventHandlerTest {
                 "github", "owner/repo#42", WebhookEventKind.CLOSED,
                 "alice", NormativeResolution.FAILURE, null, null, null, null, null));
 
-        verify(workItemService).reject(workItemId, "alice", null);
+        verify(workItemService).reject(workItemId, "alice", null, null);
     }
 
     @Test

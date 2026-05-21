@@ -128,7 +128,7 @@ class WorkItemEventTest {
     void reject_emitsRejectedEvent() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        service.reject(wi.id, "alice", "not applicable");
+        service.reject(wi.id, "alice", "not applicable", null);
 
         List<WorkItemLifecycleEvent> events = observer.getEvents();
         WorkItemLifecycleEvent last = events.get(events.size() - 1);

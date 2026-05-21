@@ -76,7 +76,7 @@ class WorkItemSmokeTest {
     void rejectPath() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.reject(wi.id, "alice", "Not applicable");
+        wi = service.reject(wi.id, "alice", "Not applicable", null);
 
         assertThat(wi.status).isEqualTo(WorkItemStatus.REJECTED);
     }
