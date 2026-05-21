@@ -389,7 +389,7 @@ public class WorkItemService {
      */
     @Transactional
     public WorkItem reject(final UUID id, final String actorId, final String reason,
-            final String rationale, final String outcome) {
+            final String outcome, final String rationale) {
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.ASSIGNED && item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot reject WorkItem in status: " + item.status);
