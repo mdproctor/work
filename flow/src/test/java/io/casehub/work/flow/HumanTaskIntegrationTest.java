@@ -90,7 +90,7 @@ class HumanTaskIntegrationTest {
                 .orElseThrow();
 
         service.claim(workItem.id, "carol");
-        service.reject(workItem.id, "carol", "out of budget");
+        service.reject(workItem.id, "carol", "out of budget", null);
 
         assertThatThrownBy(() -> result.await().atMost(Duration.ofSeconds(5)))
                 .isInstanceOf(WorkItemResolutionException.class)
@@ -186,7 +186,7 @@ class HumanTaskIntegrationTest {
                 .findFirst().orElseThrow();
 
         service.claim(wi.id, "bob");
-        service.reject(wi.id, "bob", "not applicable");
+        service.reject(wi.id, "bob", "not applicable", null);
 
         assertThatThrownBy(() -> result.await().atMost(Duration.ofSeconds(5)))
                 .isInstanceOf(WorkItemResolutionException.class);

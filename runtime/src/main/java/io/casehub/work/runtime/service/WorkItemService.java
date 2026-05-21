@@ -291,13 +291,15 @@ public class WorkItemService {
     }
 
     @Transactional
-    public WorkItem reject(final UUID id, final String actorId, final String reason) {
+    public WorkItem reject(final UUID id, final String actorId, final String reason, final String outcome) {
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.ASSIGNED && item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot reject WorkItem in status: " + item.status);
         }
+        validateOutcome(item, outcome);
         item.status = WorkItemStatus.REJECTED;
         item.completedAt = Instant.now();
+        item.outcome = outcome;
         final WorkItem saved = workItemStore.put(item);
         audit(saved.id, "REJECTED", actorId, reason);
         if (lifecycleEvent != null) {
@@ -377,22 +379,25 @@ public class WorkItemService {
     }
 
     /**
-     * Reject a WorkItem with an explicit rationale for ledger capture.
+     * Reject a WorkItem with an explicit rationale and named outcome for ledger capture.
      *
      * @param id the WorkItem UUID
      * @param actorId who rejected it
      * @param reason the rejection reason (stored as event detail)
      * @param rationale the actor's formal stated basis (stored as ledger rationale)
+     * @param outcome the named outcome (validated against permittedOutcomes if set)
      */
     @Transactional
     public WorkItem reject(final UUID id, final String actorId, final String reason,
-            final String rationale) {
+            final String outcome, final String rationale) {
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.ASSIGNED && item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot reject WorkItem in status: " + item.status);
         }
+        validateOutcome(item, outcome);
         item.status = WorkItemStatus.REJECTED;
         item.completedAt = Instant.now();
+        item.outcome = outcome;
         final WorkItem saved = workItemStore.put(item);
         audit(saved.id, "REJECTED", actorId, reason);
         if (lifecycleEvent != null) {

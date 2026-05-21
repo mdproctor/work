@@ -134,13 +134,14 @@ public class ContentModerationScenario {
         workItemService.start(wi.id, ACTOR_MODERATOR);
         steps.add(new StepLog(3, description3, wi.id));
 
-        // Step 4: moderator-dana rejects with reason + rationale (4-arg overload)
+        // Step 4: moderator-dana rejects with reason + rationale (5-arg overload)
         final String description4 = "moderator-dana rejects — content is satire, not hate speech";
         LOG.infof("[SCENARIO] Step %d/%d: %s", 4, total, description4);
         workItemService.reject(
                 wi.id,
                 ACTOR_MODERATOR,
                 "Content violates community guidelines",
+                null,
                 "Context review: satire, not hate speech");
         steps.add(new StepLog(4, description4, wi.id));
 
