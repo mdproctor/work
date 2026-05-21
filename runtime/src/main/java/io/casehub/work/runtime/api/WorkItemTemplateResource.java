@@ -31,6 +31,7 @@ import io.casehub.work.runtime.service.WorkItemTemplateValidationService;
  * GET    /workitem-templates                         — list all templates
  * GET    /workitem-templates/{id}                    — get a single template
  * DELETE /workitem-templates/{id}                    — delete a template
+ * PUT    /workitem-templates/{id}                    — update (replace) a template
  * POST   /workitem-templates/{id}/instantiate        — create a WorkItem from the template
  * </pre>
  */
@@ -118,9 +119,35 @@ public class WorkItemTemplateResource {
     }
 
     /**
-     * Request body for updating an existing WorkItemTemplate.
-     * All fields except {@code name} are nullable — null clears the field.
+     * Request body for updating an existing WorkItemTemplate (full replacement).
+     *
+     * <p>
+     * All fields except {@code name} are nullable — null clears the field on the stored template.
      * {@code createdBy} is intentionally absent — authorship is immutable after creation.
+     *
+     * @param name                       required; must be unique across all templates
+     * @param description                optional free-text description
+     * @param category                   optional process classification
+     * @param priority                   optional default priority (LOW/MEDIUM/HIGH/URGENT)
+     * @param candidateGroups            optional comma-separated group IDs
+     * @param candidateUsers             optional comma-separated user IDs
+     * @param requiredCapabilities       optional comma-separated capability tags
+     * @param defaultExpiryHours         optional completion deadline in calendar hours
+     * @param defaultClaimHours          optional claim deadline in calendar hours
+     * @param defaultExpiryBusinessHours optional completion deadline in business hours
+     * @param defaultClaimBusinessHours  optional claim deadline in business hours
+     * @param defaultPayload             optional default JSON payload for instantiated WorkItems
+     * @param labelPaths                 optional comma-separated label paths to auto-apply
+     * @param instanceCount              optional total instance count for multi-instance templates
+     * @param requiredCount              optional M-of-N threshold for multi-instance completion
+     * @param parentRole                 optional role label for the coordinator WorkItem
+     * @param assignmentStrategy         optional instance assignment strategy name
+     * @param onThresholdReached         optional action when M-of-N threshold met (KEEP/CANCEL)
+     * @param allowSameAssignee          optional whether the same person may claim multiple instances
+     * @param outcomes                   optional named outcomes constraining how instances are resolved
+     * @param inputDataSchema            optional JSON Schema (draft-07) for payload validation
+     * @param outputDataSchema           optional JSON Schema (draft-07) for resolution validation
+     * @param excludedUsers              optional comma-separated user IDs excluded from claiming
      */
     public record UpdateTemplateRequest(
             String name,
@@ -207,7 +234,12 @@ public class WorkItemTemplateResource {
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.excludedUsers = request.excludedUsers();
         t.createdBy = request.createdBy();
-        WorkItemTemplateValidationService.validate(t);
+        try {
+            WorkItemTemplateValidationService.validate(t);
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage())).build();
+        }
         t.persist();
 
         return Response.status(Response.Status.CREATED).entity(toResponse(t)).build();
@@ -273,7 +305,6 @@ public class WorkItemTemplateResource {
     @PUT
     @Path("/{id}")
     @Transactional
-    @Consumes(MediaType.APPLICATION_JSON)
     public Response updateTemplate(@PathParam("id") final UUID id, final UpdateTemplateRequest request) {
         if (request == null || request.name() == null || request.name().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -328,7 +359,12 @@ public class WorkItemTemplateResource {
         t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.excludedUsers = request.excludedUsers();
-        WorkItemTemplateValidationService.validate(t);
+        try {
+            WorkItemTemplateValidationService.validate(t);
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage())).build();
+        }
 
         return Response.ok(toResponse(t)).build();
     }

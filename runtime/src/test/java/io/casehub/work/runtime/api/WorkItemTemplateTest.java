@@ -287,7 +287,8 @@ class WorkItemTemplateTest {
                 .statusCode(200)
                 .body("name", equalTo("Updated"))
                 .body("category", equalTo("finance"))
-                .body("candidateGroups", equalTo("ops"));
+                .body("candidateGroups", equalTo("ops"))
+                .body("createdBy", equalTo("admin"));
     }
 
     @Test
