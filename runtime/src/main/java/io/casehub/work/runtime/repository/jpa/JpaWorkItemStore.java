@@ -105,6 +105,14 @@ public class JpaWorkItemStore implements WorkItemStore {
             params.put("category", query.category());
         }
 
+        if (query.outcome() != null) {
+            if (jpql.length() > 0) {
+                jpql.append(" AND ");
+            }
+            jpql.append("outcome = :outcome");
+            params.put("outcome", query.outcome());
+        }
+
         if (query.followUpBefore() != null) {
             if (jpql.length() > 0) {
                 jpql.append(" AND ");

@@ -63,6 +63,9 @@ public final class WorkItemQuery {
     // Label
     private final String labelPattern;
 
+    // Outcome
+    private final String outcome;
+
     private WorkItemQuery(final Builder b) {
         this.assigneeId = b.assigneeId;
         this.candidateGroups = b.candidateGroups;
@@ -75,6 +78,7 @@ public final class WorkItemQuery {
         this.expiresAtOrBefore = b.expiresAtOrBefore;
         this.claimDeadlineOrBefore = b.claimDeadlineOrBefore;
         this.labelPattern = b.labelPattern;
+        this.outcome = b.outcome;
     }
 
     // ── Static factories for common patterns ─────────────────────────────────
@@ -245,6 +249,15 @@ public final class WorkItemQuery {
         return labelPattern;
     }
 
+    /**
+     * Returns the exact outcome filter, or {@code null} if not constrained.
+     *
+     * @return outcome filter value
+     */
+    public String outcome() {
+        return outcome;
+    }
+
     /** Returns a builder pre-populated with this query's values for incremental modification. */
     public Builder toBuilder() {
         return new Builder()
@@ -258,7 +271,8 @@ public final class WorkItemQuery {
                 .followUpBefore(followUpBefore)
                 .expiresAtOrBefore(expiresAtOrBefore)
                 .claimDeadlineOrBefore(claimDeadlineOrBefore)
-                .labelPattern(labelPattern);
+                .labelPattern(labelPattern)
+                .outcome(outcome);
     }
 
     /**
@@ -286,6 +300,7 @@ public final class WorkItemQuery {
         private Instant expiresAtOrBefore;
         private Instant claimDeadlineOrBefore;
         private String labelPattern;
+        private String outcome;
 
         /**
          * Sets the assignee id constraint.
@@ -405,6 +420,17 @@ public final class WorkItemQuery {
          */
         public Builder labelPattern(final String v) {
             this.labelPattern = v;
+            return this;
+        }
+
+        /**
+         * Sets the exact outcome constraint.
+         *
+         * @param v the outcome string; {@code null} means unconstrained
+         * @return this builder
+         */
+        public Builder outcome(final String v) {
+            this.outcome = v;
             return this;
         }
 
