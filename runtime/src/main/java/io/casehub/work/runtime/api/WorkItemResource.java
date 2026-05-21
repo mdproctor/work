@@ -82,12 +82,18 @@ public class WorkItemResource {
     }
 
     @GET
-    public List<WorkItemResponse> listAll(@QueryParam("label") final String label) {
+    public List<WorkItemResponse> listAll(
+            @QueryParam("label") final String label,
+            @QueryParam("outcome") final String outcome) {
         if (label != null && !label.isBlank()) {
             return workItemStore.scan(WorkItemQuery.byLabelPattern(label)).stream()
                     .map(WorkItemMapper::toResponse).toList();
         }
-        return workItemStore.scan(WorkItemQuery.all()).stream().map(WorkItemMapper::toResponse).toList();
+        final WorkItemQuery.Builder qb = WorkItemQuery.builder();
+        if (outcome != null && !outcome.isBlank()) {
+            qb.outcome(outcome);
+        }
+        return workItemStore.scan(qb.build()).stream().map(WorkItemMapper::toResponse).toList();
     }
 
     /**
