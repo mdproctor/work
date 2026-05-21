@@ -270,4 +270,97 @@ class WorkItemTemplateTest {
                 .body("labels.path", hasItem("priority/high"))
                 .body("labels.findAll { it.persistence == 'MANUAL' }", hasSize(2));
     }
+
+    // ── PUT /workitem-templates/{id} ─────────────────────────────────────────
+
+    @Test
+    void updateTemplate_returns200_withUpdatedFields() {
+        final String id = given().contentType(ContentType.JSON)
+                .body("{\"name\":\"Original\",\"category\":\"legal\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"Updated\",\"category\":\"finance\",\"candidateGroups\":\"ops\"}")
+                .put("/workitem-templates/" + id)
+                .then()
+                .statusCode(200)
+                .body("name", equalTo("Updated"))
+                .body("category", equalTo("finance"))
+                .body("candidateGroups", equalTo("ops"))
+                .body("createdBy", equalTo("admin"));
+    }
+
+    @Test
+    void updateTemplate_clearsFieldsWhenNull() {
+        final String id = given().contentType(ContentType.JSON)
+                .body("{\"name\":\"WithDesc\",\"description\":\"old desc\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"WithDesc\"}")
+                .put("/workitem-templates/" + id)
+                .then()
+                .statusCode(200)
+                .body("description", nullValue());
+    }
+
+    @Test
+    void updateTemplate_returns404_whenNotFound() {
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"Whatever\"}")
+                .put("/workitem-templates/00000000-0000-0000-0000-000000000000")
+                .then()
+                .statusCode(404);
+    }
+
+    @Test
+    void updateTemplate_returns400_whenNameBlank() {
+        final String id = given().contentType(ContentType.JSON)
+                .body("{\"name\":\"ToUpdate\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"\"}")
+                .put("/workitem-templates/" + id)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void updateTemplate_returns409_whenNameConflictsWithOtherTemplate() {
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"AlreadyExists\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201);
+
+        final String id = given().contentType(ContentType.JSON)
+                .body("{\"name\":\"ToRename\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"AlreadyExists\"}")
+                .put("/workitem-templates/" + id)
+                .then()
+                .statusCode(409);
+    }
+
+    @Test
+    void updateTemplate_allowsSameNameOnSameTemplate() {
+        final String id = given().contentType(ContentType.JSON)
+                .body("{\"name\":\"SameName\",\"createdBy\":\"admin\"}")
+                .post("/workitem-templates")
+                .then().statusCode(201).extract().path("id");
+
+        given().contentType(ContentType.JSON)
+                .body("{\"name\":\"SameName\",\"category\":\"finance\"}")
+                .put("/workitem-templates/" + id)
+                .then()
+                .statusCode(200)
+                .body("name", equalTo("SameName"))
+                .body("category", equalTo("finance"));
+    }
 }

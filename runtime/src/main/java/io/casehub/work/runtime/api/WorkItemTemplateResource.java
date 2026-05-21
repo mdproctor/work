@@ -10,6 +10,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -30,6 +31,7 @@ import io.casehub.work.runtime.service.WorkItemTemplateValidationService;
  * GET    /workitem-templates                         — list all templates
  * GET    /workitem-templates/{id}                    — get a single template
  * DELETE /workitem-templates/{id}                    — delete a template
+ * PUT    /workitem-templates/{id}                    — update (replace) a template
  * POST   /workitem-templates/{id}/instantiate        — create a WorkItem from the template
  * </pre>
  */
@@ -117,6 +119,63 @@ public class WorkItemTemplateResource {
     }
 
     /**
+     * Request body for updating an existing WorkItemTemplate (full replacement).
+     *
+     * <p>
+     * All fields except {@code name} are nullable — null clears the field on the stored template.
+     * {@code createdBy} is intentionally absent — authorship is immutable after creation.
+     *
+     * @param name                       required; must be unique across all templates
+     * @param description                optional free-text description
+     * @param category                   optional process classification
+     * @param priority                   optional default priority (LOW/MEDIUM/HIGH/URGENT)
+     * @param candidateGroups            optional comma-separated group IDs
+     * @param candidateUsers             optional comma-separated user IDs
+     * @param requiredCapabilities       optional comma-separated capability tags
+     * @param defaultExpiryHours         optional completion deadline in calendar hours
+     * @param defaultClaimHours          optional claim deadline in calendar hours
+     * @param defaultExpiryBusinessHours optional completion deadline in business hours
+     * @param defaultClaimBusinessHours  optional claim deadline in business hours
+     * @param defaultPayload             optional default JSON payload for instantiated WorkItems
+     * @param labelPaths                 optional comma-separated label paths to auto-apply
+     * @param instanceCount              optional total instance count for multi-instance templates
+     * @param requiredCount              optional M-of-N threshold for multi-instance completion
+     * @param parentRole                 optional role label for the coordinator WorkItem
+     * @param assignmentStrategy         optional instance assignment strategy name
+     * @param onThresholdReached         optional action when M-of-N threshold met (KEEP/CANCEL)
+     * @param allowSameAssignee          optional whether the same person may claim multiple instances
+     * @param outcomes                   optional named outcomes constraining how instances are resolved
+     * @param inputDataSchema            optional JSON Schema (draft-07) for payload validation
+     * @param outputDataSchema           optional JSON Schema (draft-07) for resolution validation
+     * @param excludedUsers              optional comma-separated user IDs excluded from claiming
+     */
+    public record UpdateTemplateRequest(
+            String name,
+            String description,
+            String category,
+            String priority,
+            String candidateGroups,
+            String candidateUsers,
+            String requiredCapabilities,
+            Integer defaultExpiryHours,
+            Integer defaultClaimHours,
+            Integer defaultExpiryBusinessHours,
+            Integer defaultClaimBusinessHours,
+            String defaultPayload,
+            String labelPaths,
+            Integer instanceCount,
+            Integer requiredCount,
+            String parentRole,
+            String assignmentStrategy,
+            String onThresholdReached,
+            Boolean allowSameAssignee,
+            List<Outcome> outcomes,
+            JsonNode inputDataSchema,
+            JsonNode outputDataSchema,
+            String excludedUsers) {
+    }
+
+    /**
      * Create a new WorkItemTemplate.
      *
      * @param request the template definition; {@code name} and {@code createdBy} are required
@@ -175,7 +234,12 @@ public class WorkItemTemplateResource {
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.excludedUsers = request.excludedUsers();
         t.createdBy = request.createdBy();
-        WorkItemTemplateValidationService.validate(t);
+        try {
+            WorkItemTemplateValidationService.validate(t);
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage())).build();
+        }
         t.persist();
 
         return Response.status(Response.Status.CREATED).entity(toResponse(t)).build();
@@ -223,6 +287,86 @@ public class WorkItemTemplateResource {
                 ? Response.noContent().build()
                 : Response.status(Response.Status.NOT_FOUND)
                         .entity(Map.of("error", "Template not found")).build();
+    }
+
+    /**
+     * Update an existing WorkItemTemplate (full replacement).
+     *
+     * <p>
+     * All mutable fields are overwritten with the request values. Null clears the field.
+     * WorkItems previously instantiated from this template are unaffected — they snapshot
+     * the template state at instantiation time.
+     *
+     * @param id      the template UUID
+     * @param request the new template state; {@code name} is required
+     * @return 200 OK with the updated template, 400 if validation fails,
+     *         404 if not found, 409 if name conflicts with another template
+     */
+    @PUT
+    @Path("/{id}")
+    @Transactional
+    public Response updateTemplate(@PathParam("id") final UUID id, final UpdateTemplateRequest request) {
+        if (request == null || request.name() == null || request.name().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "name is required")).build();
+        }
+        if (request.inputDataSchema() != null && !request.inputDataSchema().isObject()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "inputDataSchema must be a JSON object (Schema), not a "
+                            + request.inputDataSchema().getNodeType().name().toLowerCase())).build();
+        }
+        if (request.outputDataSchema() != null && !request.outputDataSchema().isObject()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "outputDataSchema must be a JSON object (Schema), not a "
+                            + request.outputDataSchema().getNodeType().name().toLowerCase())).build();
+        }
+
+        final WorkItemTemplate t = templateService.findById(id).orElse(null);
+        if (t == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(Map.of("error", "Template not found")).build();
+        }
+
+        if (!request.name().equals(t.name)) {
+            if (templateService.findByName(request.name()).isPresent()) {
+                return Response.status(Response.Status.CONFLICT)
+                        .entity(Map.of("error", "template with name '" + request.name() + "' already exists")).build();
+            }
+        }
+
+        t.name = request.name();
+        t.description = request.description();
+        t.category = request.category();
+        t.priority = request.priority() != null
+                ? io.casehub.work.runtime.model.WorkItemPriority.valueOf(request.priority())
+                : null;
+        t.candidateGroups = request.candidateGroups();
+        t.candidateUsers = request.candidateUsers();
+        t.requiredCapabilities = request.requiredCapabilities();
+        t.defaultExpiryHours = request.defaultExpiryHours();
+        t.defaultClaimHours = request.defaultClaimHours();
+        t.defaultExpiryBusinessHours = request.defaultExpiryBusinessHours();
+        t.defaultClaimBusinessHours = request.defaultClaimBusinessHours();
+        t.defaultPayload = request.defaultPayload();
+        t.labelPaths = request.labelPaths();
+        t.instanceCount = request.instanceCount();
+        t.requiredCount = request.requiredCount();
+        t.parentRole = request.parentRole();
+        t.assignmentStrategy = request.assignmentStrategy();
+        t.onThresholdReached = request.onThresholdReached();
+        t.allowSameAssignee = request.allowSameAssignee();
+        t.outcomes = WorkItemTemplateService.encodeOutcomes(request.outcomes());
+        t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
+        t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
+        t.excludedUsers = request.excludedUsers();
+        try {
+            WorkItemTemplateValidationService.validate(t);
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage())).build();
+        }
+
+        return Response.ok(toResponse(t)).build();
     }
 
     /**
