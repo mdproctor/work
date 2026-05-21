@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -774,7 +775,7 @@ class WorkItemResourceTest {
                 .get("/workitems")
                 .then()
                 .statusCode(200)
-                .body("findAll { it.outcome == 'approved' }.size()", greaterThanOrEqualTo(1))
+                .body("every { it.outcome == 'approved' }", is(true))
                 .extract().jsonPath().getList("id");
         assertThat(returnedIds).contains(id);
     }
