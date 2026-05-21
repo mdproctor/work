@@ -20,10 +20,10 @@ import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.model.WorkItemQueueState;
 import io.casehub.work.runtime.api.AuditEntryResponse;
-import io.casehub.work.runtime.api.WorkItemLabelResponse;
+import io.casehub.work.runtime.model.WorkItemLabelRequest;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.AuditEntry;
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemPriority;
@@ -113,7 +113,7 @@ public class QueueModuleScenario {
                 .requiredCapabilities("contract-review,nda")
                 .createdBy(ACTOR_CREATOR)
                 .payload("{\"contractRef\": \"TECHPARTNER-NDA-2026-Q2\"}")
-                .labels(List.of(new WorkItemLabelResponse("contract-review/nda", LabelPersistence.MANUAL, ACTOR_CREATOR)))
+                .labels(List.of(new WorkItemLabelRequest("contract-review/nda", LabelPersistence.MANUAL, ACTOR_CREATOR)))
                 .build());
         steps.add(new StepLog(1, description1, wiA.id));
 
@@ -130,7 +130,7 @@ public class QueueModuleScenario {
                 .requiredCapabilities("compliance,gdpr")
                 .createdBy(ACTOR_CREATOR)
                 .payload("{\"contractRef\": \"EU-DPA-2026-0031\"}")
-                .labels(List.of(new WorkItemLabelResponse("compliance/gdpr", LabelPersistence.MANUAL, ACTOR_CREATOR)))
+                .labels(List.of(new WorkItemLabelRequest("compliance/gdpr", LabelPersistence.MANUAL, ACTOR_CREATOR)))
                 .build());
         steps.add(new StepLog(2, description2, wiB.id));
 
@@ -147,7 +147,7 @@ public class QueueModuleScenario {
                 .requiredCapabilities("contract-review,ip-licensing")
                 .createdBy(ACTOR_CREATOR)
                 .payload("{\"contractRef\": \"RESEARCHCO-IP-2026-Q2\"}")
-                .labels(List.of(new WorkItemLabelResponse("contract-review/ip", LabelPersistence.MANUAL, ACTOR_CREATOR)))
+                .labels(List.of(new WorkItemLabelRequest("contract-review/ip", LabelPersistence.MANUAL, ACTOR_CREATOR)))
                 .build());
         steps.add(new StepLog(3, description3, wiC.id));
 

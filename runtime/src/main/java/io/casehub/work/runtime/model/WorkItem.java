@@ -226,8 +226,8 @@ public class WorkItem extends PanacheEntityBase {
 
     /**
      * Labels attached to this WorkItem.
-     * {@link LabelPersistence#MANUAL} labels are applied by humans.
-     * {@link LabelPersistence#INFERRED} labels are maintained by the filter engine.
+     * {@link io.casehub.work.api.LabelPersistence#MANUAL} labels are applied by humans.
+     * {@link io.casehub.work.api.LabelPersistence#INFERRED} labels are maintained by the filter engine.
      */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "work_item_label", joinColumns = @JoinColumn(name = "work_item_id"))

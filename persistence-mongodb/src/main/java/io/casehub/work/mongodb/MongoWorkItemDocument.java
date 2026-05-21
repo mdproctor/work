@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 import org.bson.codecs.pojo.annotations.BsonId;
 
 import io.casehub.work.runtime.model.DelegationState;
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemLabel;
 import io.casehub.work.runtime.model.WorkItemPriority;

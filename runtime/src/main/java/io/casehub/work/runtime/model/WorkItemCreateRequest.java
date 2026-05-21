@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-import io.casehub.work.runtime.api.WorkItemLabelResponse;
 
 public final class WorkItemCreateRequest {
 
@@ -23,7 +22,7 @@ public final class WorkItemCreateRequest {
     public final Instant claimDeadline;
     public final Instant expiresAt;
     public final Instant followUpDate;
-    public final List<WorkItemLabelResponse> labels;
+    public final List<WorkItemLabelRequest> labels;
     public final Double confidenceScore;
     public final String callerRef;
     public final Integer claimDeadlineBusinessHours;
@@ -132,7 +131,7 @@ public final class WorkItemCreateRequest {
         private Instant claimDeadline;
         private Instant expiresAt;
         private Instant followUpDate;
-        private List<WorkItemLabelResponse> labels;
+        private List<WorkItemLabelRequest> labels;
         private Double confidenceScore;
         private String callerRef;
         private Integer claimDeadlineBusinessHours;
@@ -186,7 +185,7 @@ public final class WorkItemCreateRequest {
         public Builder claimDeadline(final Instant v)                 { this.claimDeadline = v; return this; }
         public Builder expiresAt(final Instant v)                     { this.expiresAt = v; return this; }
         public Builder followUpDate(final Instant v)                  { this.followUpDate = v; return this; }
-        public Builder labels(final List<WorkItemLabelResponse> v)    { this.labels = v; return this; }
+        public Builder labels(final List<WorkItemLabelRequest> v)    { this.labels = v; return this; }
         public Builder confidenceScore(final Double v)                { this.confidenceScore = v; return this; }
         public Builder callerRef(final String v)                      { this.callerRef = v; return this; }
         public Builder claimDeadlineBusinessHours(final Integer v)    { this.claimDeadlineBusinessHours = v; return this; }

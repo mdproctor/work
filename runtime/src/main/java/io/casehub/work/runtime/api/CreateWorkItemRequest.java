@@ -3,6 +3,7 @@ package io.casehub.work.runtime.api;
 import java.time.Instant;
 import java.util.List;
 
+import io.casehub.work.runtime.model.WorkItemLabelRequest;
 import io.casehub.work.runtime.model.WorkItemPriority;
 
 public record CreateWorkItemRequest(
@@ -20,7 +21,7 @@ public record CreateWorkItemRequest(
         Instant claimDeadline,
         Instant expiresAt,
         Instant followUpDate,
-        List<WorkItemLabelResponse> labels,
+        List<WorkItemLabelRequest> labels,
         Double confidenceScore,
         String callerRef,
         Integer claimDeadlineBusinessHours,
@@ -47,7 +48,7 @@ public record CreateWorkItemRequest(
         private Instant claimDeadline;
         private Instant expiresAt;
         private Instant followUpDate;
-        private List<WorkItemLabelResponse> labels;
+        private List<WorkItemLabelRequest> labels;
         private Double confidenceScore;
         private String callerRef;
         private Integer claimDeadlineBusinessHours;
@@ -68,7 +69,7 @@ public record CreateWorkItemRequest(
         public Builder claimDeadline(final Instant v)                 { this.claimDeadline = v; return this; }
         public Builder expiresAt(final Instant v)                     { this.expiresAt = v; return this; }
         public Builder followUpDate(final Instant v)                  { this.followUpDate = v; return this; }
-        public Builder labels(final List<WorkItemLabelResponse> v)    { this.labels = v; return this; }
+        public Builder labels(final List<WorkItemLabelRequest> v)    { this.labels = v; return this; }
         public Builder confidenceScore(final Double v)                { this.confidenceScore = v; return this; }
         public Builder callerRef(final String v)                      { this.callerRef = v; return this; }
         public Builder claimDeadlineBusinessHours(final Integer v)    { this.claimDeadlineBusinessHours = v; return this; }

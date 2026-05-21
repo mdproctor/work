@@ -20,7 +20,7 @@ class FilterEngineTest {
 
     // Simulates the multi-pass re-evaluation loop
     static void evaluate(WorkItem wi, List<TestFilter> filters) {
-        wi.labels.removeIf(l -> l.persistence == LabelPersistence.INFERRED);
+        wi.labels.removeIf(l -> l.persistence == io.casehub.work.api.LabelPersistence.INFERRED);
         boolean changed = true;
         int passes = 0;
         while (changed && passes < 10) {
@@ -32,7 +32,7 @@ class FilterEngineTest {
                         if ("APPLY_LABEL".equals(a.type())) {
                             boolean exists = wi.labels.stream().anyMatch(l -> l.path.equals(a.labelPath()));
                             if (!exists) {
-                                wi.labels.add(new WorkItemLabel(a.labelPath(), LabelPersistence.INFERRED, "test"));
+                                wi.labels.add(new WorkItemLabel(a.labelPath(), io.casehub.work.api.LabelPersistence.INFERRED, "test"));
                                 changed = true;
                             }
                         }
@@ -60,7 +60,7 @@ class FilterEngineTest {
         evaluate(wi, List.of(new TestFilter("HIGH", List.of(FilterAction.applyLabel("priority/high")))));
         assertThat(wi.labels).extracting(l -> l.path).contains("priority/high");
         assertThat(wi.labels).filteredOn(l -> l.path.equals("priority/high"))
-                .extracting(l -> l.persistence).containsOnly(LabelPersistence.INFERRED);
+                .extracting(l -> l.persistence).containsOnly(io.casehub.work.api.LabelPersistence.INFERRED);
     }
 
     @Test
@@ -75,8 +75,8 @@ class FilterEngineTest {
     void stripsExistingInferredLabels_beforeEval() {
         var wi = new WorkItem();
         wi.priority = WorkItemPriority.MEDIUM;
-        wi.labels.add(new WorkItemLabel("old/inferred", LabelPersistence.INFERRED, "old"));
-        wi.labels.add(new WorkItemLabel("manual/keep", LabelPersistence.MANUAL, "alice"));
+        wi.labels.add(new WorkItemLabel("old/inferred", io.casehub.work.api.LabelPersistence.INFERRED, "old"));
+        wi.labels.add(new WorkItemLabel("manual/keep", io.casehub.work.api.LabelPersistence.MANUAL, "alice"));
         evaluate(wi, List.of());
         assertThat(wi.labels).extracting(l -> l.path).doesNotContain("old/inferred");
         assertThat(wi.labels).extracting(l -> l.path).contains("manual/keep");
