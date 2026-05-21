@@ -10,6 +10,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -114,6 +115,37 @@ public class WorkItemTemplateResource {
      * @param createdBy who or what is triggering the instantiation (required)
      */
     public record InstantiateRequest(String title, String assigneeId, String createdBy) {
+    }
+
+    /**
+     * Request body for updating an existing WorkItemTemplate.
+     * All fields except {@code name} are nullable — null clears the field.
+     * {@code createdBy} is intentionally absent — authorship is immutable after creation.
+     */
+    public record UpdateTemplateRequest(
+            String name,
+            String description,
+            String category,
+            String priority,
+            String candidateGroups,
+            String candidateUsers,
+            String requiredCapabilities,
+            Integer defaultExpiryHours,
+            Integer defaultClaimHours,
+            Integer defaultExpiryBusinessHours,
+            Integer defaultClaimBusinessHours,
+            String defaultPayload,
+            String labelPaths,
+            Integer instanceCount,
+            Integer requiredCount,
+            String parentRole,
+            String assignmentStrategy,
+            String onThresholdReached,
+            Boolean allowSameAssignee,
+            List<Outcome> outcomes,
+            JsonNode inputDataSchema,
+            JsonNode outputDataSchema,
+            String excludedUsers) {
     }
 
     /**
@@ -223,6 +255,82 @@ public class WorkItemTemplateResource {
                 ? Response.noContent().build()
                 : Response.status(Response.Status.NOT_FOUND)
                         .entity(Map.of("error", "Template not found")).build();
+    }
+
+    /**
+     * Update an existing WorkItemTemplate (full replacement).
+     *
+     * <p>
+     * All mutable fields are overwritten with the request values. Null clears the field.
+     * WorkItems previously instantiated from this template are unaffected — they snapshot
+     * the template state at instantiation time.
+     *
+     * @param id      the template UUID
+     * @param request the new template state; {@code name} is required
+     * @return 200 OK with the updated template, 400 if validation fails,
+     *         404 if not found, 409 if name conflicts with another template
+     */
+    @PUT
+    @Path("/{id}")
+    @Transactional
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response updateTemplate(@PathParam("id") final UUID id, final UpdateTemplateRequest request) {
+        if (request == null || request.name() == null || request.name().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "name is required")).build();
+        }
+        if (request.inputDataSchema() != null && !request.inputDataSchema().isObject()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "inputDataSchema must be a JSON object (Schema), not a "
+                            + request.inputDataSchema().getNodeType().name().toLowerCase())).build();
+        }
+        if (request.outputDataSchema() != null && !request.outputDataSchema().isObject()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "outputDataSchema must be a JSON object (Schema), not a "
+                            + request.outputDataSchema().getNodeType().name().toLowerCase())).build();
+        }
+
+        final WorkItemTemplate t = templateService.findById(id).orElse(null);
+        if (t == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(Map.of("error", "Template not found")).build();
+        }
+
+        if (!request.name().equals(t.name)) {
+            if (templateService.findByName(request.name()).isPresent()) {
+                return Response.status(Response.Status.CONFLICT)
+                        .entity(Map.of("error", "template with name '" + request.name() + "' already exists")).build();
+            }
+        }
+
+        t.name = request.name();
+        t.description = request.description();
+        t.category = request.category();
+        t.priority = request.priority() != null
+                ? io.casehub.work.runtime.model.WorkItemPriority.valueOf(request.priority())
+                : null;
+        t.candidateGroups = request.candidateGroups();
+        t.candidateUsers = request.candidateUsers();
+        t.requiredCapabilities = request.requiredCapabilities();
+        t.defaultExpiryHours = request.defaultExpiryHours();
+        t.defaultClaimHours = request.defaultClaimHours();
+        t.defaultExpiryBusinessHours = request.defaultExpiryBusinessHours();
+        t.defaultClaimBusinessHours = request.defaultClaimBusinessHours();
+        t.defaultPayload = request.defaultPayload();
+        t.labelPaths = request.labelPaths();
+        t.instanceCount = request.instanceCount();
+        t.requiredCount = request.requiredCount();
+        t.parentRole = request.parentRole();
+        t.assignmentStrategy = request.assignmentStrategy();
+        t.onThresholdReached = request.onThresholdReached();
+        t.allowSameAssignee = request.allowSameAssignee();
+        t.outcomes = WorkItemTemplateService.encodeOutcomes(request.outcomes());
+        t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
+        t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
+        t.excludedUsers = request.excludedUsers();
+        WorkItemTemplateValidationService.validate(t);
+
+        return Response.ok(toResponse(t)).build();
     }
 
     /**
