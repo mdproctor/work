@@ -102,7 +102,7 @@ public class WebhookEventHandler {
         switch (event.normativeResolution()) {
             case DONE -> workItemService.complete(workItemId, event.actor(), null);
             case DECLINE -> workItemService.cancel(workItemId, event.actor(), null);
-            case FAILURE -> workItemService.reject(workItemId, event.actor(), null);
+            case FAILURE -> workItemService.reject(workItemId, event.actor(), null, null);
         }
     }
 

@@ -130,7 +130,7 @@ class LedgerIntegrationTest {
     void reject_writesLedgerEntry() {
         final var item = workItemService.create(basicRequest("Reject test"));
         workItemService.claim(item.id, "alice");
-        workItemService.reject(item.id, "alice", "Not my responsibility");
+        workItemService.reject(item.id, "alice", "Not my responsibility", null);
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         assertThat(entries).hasSize(3);
@@ -412,7 +412,8 @@ class LedgerIntegrationTest {
 
         workItemService.reject(item.id, "alice",
                 "Content violates guidelines",
-                "Context review: satire, not hate speech");
+                "Context review: satire, not hate speech",
+                null);
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         final WorkItemLedgerEntry rejectionEntry = entries.stream()

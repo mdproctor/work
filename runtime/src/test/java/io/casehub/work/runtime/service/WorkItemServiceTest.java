@@ -420,7 +420,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        wi = service.reject(wi.id, "alice", "Not my responsibility");
+        wi = service.reject(wi.id, "alice", "Not my responsibility", null);
         assertThat(wi.status).isEqualTo(WorkItemStatus.REJECTED);
     }
 
@@ -429,7 +429,7 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        wi = service.reject(wi.id, "alice", "Out of scope");
+        wi = service.reject(wi.id, "alice", "Out of scope", null);
         assertThat(wi.completedAt).isNotNull();
     }
 
@@ -437,7 +437,7 @@ class WorkItemServiceTest {
     void reject_fromAssigned_isValid() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.reject(wi.id, "alice", "Wrong team");
+        wi = service.reject(wi.id, "alice", "Wrong team", null);
         assertThat(wi.status).isEqualTo(WorkItemStatus.REJECTED);
     }
 
@@ -445,7 +445,7 @@ class WorkItemServiceTest {
     void reject_writesRejectedAuditEntry() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        service.reject(wi.id, "alice", "Not applicable");
+        service.reject(wi.id, "alice", "Not applicable", null);
         List<AuditEntry> trail = auditStore.findByWorkItemId(wi.id);
         assertThat(trail.get(trail.size() - 1).event).isEqualTo("REJECTED");
     }
@@ -867,7 +867,7 @@ class WorkItemServiceTest {
     @Test
     void reject_fromPending_throwsIllegalStateException() {
         WorkItem wi = service.create(basicRequest());
-        assertThatThrownBy(() -> service.reject(wi.id, "alice", "reason"))
+        assertThatThrownBy(() -> service.reject(wi.id, "alice", "reason", null))
                 .isInstanceOf(IllegalStateException.class);
     }
 

@@ -80,11 +80,11 @@ class MultiInstanceCoordinatorTest {
         // 2 rejections — remaining(1) < needed(2), group fails
         inTx(() -> workItemService.claim(childIds.get(0), "alice"));
         inTx(() -> workItemService.start(childIds.get(0), "alice"));
-        inTx(() -> workItemService.reject(childIds.get(0), "alice", "denied"));
+        inTx(() -> workItemService.reject(childIds.get(0), "alice", "denied", null));
 
         inTx(() -> workItemService.claim(childIds.get(1), "bob"));
         inTx(() -> workItemService.start(childIds.get(1), "bob"));
-        inTx(() -> workItemService.reject(childIds.get(1), "bob", "denied"));
+        inTx(() -> workItemService.reject(childIds.get(1), "bob", "denied", null));
 
         Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             WorkItem parent = inTx(() -> WorkItem.findById(parentId));

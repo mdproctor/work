@@ -141,7 +141,8 @@ public class ContentModerationScenario {
                 wi.id,
                 ACTOR_MODERATOR,
                 "Content violates community guidelines",
-                "Context review: satire, not hate speech");
+                "Context review: satire, not hate speech",
+                null);
         steps.add(new StepLog(4, description4, wi.id));
 
         // Add ENDORSED attestation from compliance bot (AGENT) on the rejection entry
