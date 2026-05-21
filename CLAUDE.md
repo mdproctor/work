@@ -54,7 +54,7 @@ Before any git operation, run `git rev-parse --show-toplevel` to confirm which r
 |------------|-------------|-------|
 | adr        | project     | lands in `docs/adr/` — promoted at epic close |
 | specs      | project     | lands in `docs/specs/` — promoted at epic close |
-| blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
+| blog       | workspace   | staged here; published via publish-blog (destination in ~/.claude/blog-routing.yaml) |
 | plans      | workspace   | stay in workspace permanently |
 | design     | workspace   | epic journal stays in workspace |
 | snapshots  | workspace   | stay in workspace permanently |
@@ -473,6 +473,8 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 - `ExclusionPolicy.check()` returns `PolicyDecision`, not `boolean` — `isExcluded()` was removed in #186. The status guard in `claim()` and `delegate()` must fire BEFORE the exclusion check, not after: if the exclusion check fires first on an already-claimed or completed WorkItem, a phantom `CLAIM_DENIED`/`DELEGATE_DENIED` audit entry is written for an operation that the status guard would have rejected anyway. Correct order: status guard → exclusion check → audit → throw. `BlockedAttemptAuditService.record()` uses `@Transactional(REQUIRES_NEW)` and always returns normally — never throws — so that a transient datasource failure does not convert a policy rejection 409 into a 500.
 - `git cherry-pick -X ours` when merging concurrent epic branches silently drops feature code from conflicting files — service-layer changes in non-conflicting files survive, but REST surface / mapping / response changes in conflicting files are replaced by the existing branch's version. No git warning is emitted, and the commit appears in `git log`. Run `git diff main..<branch> -- <key-files>` after any cherry-pick with a conflict resolution strategy to confirm all additions are present. See also: `git log main..<branch> --oneline` to verify expected commits reached main.
 - `WorkItemCreateRequest` is a `final class` with an enforced builder — use `WorkItemCreateRequest.builder().title("x").createdBy("system").build()`. There is no positional constructor; `new WorkItemCreateRequest(...)` will not compile. `toBuilder()` produces a copy-with-overrides builder. `CreateWorkItemRequest` (HTTP DTO record) also has an inner `Builder` for test construction but retains its record canonical constructor for Jackson deserialization. (#182)
+- `casehub.work.routing.strategy=round-robin` activates `RoundRobinStrategy` — requires the `routing_cursor` table (V29 Flyway migration). When adding a new built-in strategy, update three places atomically: `WorkItemAssignmentService.activeStrategy()` switch, the `@Alternative` exclusion filter in the same method, and `WorkItemsConfig.RoutingConfig.strategy()` Javadoc (see protocol PP-20260521-903472).
+- `reject()` accepts a named `outcome` parameter (5-arg overload: `id, actorId, reason, outcome, rationale`) — note `outcome` comes before `rationale`, matching `complete()` ordering. `rejectFromSystem()` deliberately bypasses outcome validation (#176).
 
 ---
 
@@ -560,9 +562,10 @@ CI must use `server-id: github` + `GITHUB_TOKEN` in `actions/setup-java`.
 
 **SNAPSHOT API drift:** CI pulls the latest `casehub-ledger:0.2-SNAPSHOT` from GitHub Packages; local builds use the cached jar. When `casehub-ledger` adds new abstract methods to `LedgerEntryRepository`, CI breaks but local passes silently. Before concluding a build is stable, refresh the local cache: `JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn install -DskipTests -f ~/claude/casehub/ledger/pom.xml` and re-run the affected module tests.
 
-**Git workflow — fork and PR:** All development is done on a personal fork of this repository. Push to your fork and open pull requests targeting `casehubio/work` main. Do not push directly to the `casehubio` org remote. Recommended remote setup:
-```bash
-origin   → your fork   (git@github.com:<you>/work.git)
-upstream → casehubio   (git@github.com:casehubio/work.git)
+**Git workflow — fork model:**
 ```
+origin   → personal fork   (git remote get-url origin)
+upstream → casehubio       (git remote get-url upstream)
+```
+Before starting any branch: `git fetch upstream && git rebase upstream/main` to sync local main with casehubio. At work-end: rebase the branch onto local main, push to `origin main`. PRs to `upstream` are created separately, on demand — never automatically at work-end.
 
