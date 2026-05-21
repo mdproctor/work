@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 
 /**

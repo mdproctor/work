@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemLabel;
 

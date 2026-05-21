@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.work.api.LabelPersistence;
+
 class WorkItemLabelTest {
 
     @Test

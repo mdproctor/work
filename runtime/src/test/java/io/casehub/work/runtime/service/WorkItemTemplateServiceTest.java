@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemPriority;
 import io.casehub.work.runtime.model.WorkItemTemplate;

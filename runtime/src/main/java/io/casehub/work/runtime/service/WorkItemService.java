@@ -22,7 +22,7 @@ import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.AuditEntry;
 import io.casehub.work.runtime.model.DelegationState;
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemLabel;

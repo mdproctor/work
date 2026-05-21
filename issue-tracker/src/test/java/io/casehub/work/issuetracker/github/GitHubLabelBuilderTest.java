@@ -165,9 +165,9 @@ class GitHubLabelBuilderTest {
     void workItemLabels_addedToManagedLabels() {
         final WorkItem wi = workItem(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
         wi.labels.add(new WorkItemLabel("legal/contracts/nda",
-                io.casehub.work.runtime.model.LabelPersistence.MANUAL, "alice"));
+                                        io.casehub.work.api.LabelPersistence.MANUAL, "alice"));
         wi.labels.add(new WorkItemLabel("finance/approval",
-                io.casehub.work.runtime.model.LabelPersistence.INFERRED, "filter-1"));
+                                        io.casehub.work.api.LabelPersistence.INFERRED, "filter-1"));
 
         final List<String> labels = provider.labels(wi);
 

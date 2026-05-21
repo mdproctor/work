@@ -6,7 +6,7 @@ import java.util.Map;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import io.casehub.work.runtime.filter.FilterAction;
-import io.casehub.work.runtime.model.LabelPersistence;
+import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemLabel;
 
