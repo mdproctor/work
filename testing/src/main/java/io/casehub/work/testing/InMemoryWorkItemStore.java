@@ -151,6 +151,9 @@ public class InMemoryWorkItemStore implements WorkItemStore {
         if (q.category() != null && !q.category().equals(wi.category)) {
             return false;
         }
+        if (q.outcome() != null && !q.outcome().equals(wi.outcome)) {
+            return false;
+        }
         if (q.followUpBefore() != null && (wi.followUpDate == null || wi.followUpDate.isAfter(q.followUpBefore()))) {
             return false;
         }

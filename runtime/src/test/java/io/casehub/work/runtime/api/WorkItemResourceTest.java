@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -739,5 +740,58 @@ class WorkItemResourceTest {
                 .post("/workitems")
                 .then().statusCode(201)
                 .body("confidenceScore", equalTo(0.95f));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /workitems?outcome= — outcome filter (Issue #178)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void listAll_filterByOutcome_returnsMatchingItems() {
+        // Create a WorkItem and complete it with outcome "approved"
+        final String id = given().contentType(ContentType.JSON)
+                .body("{\"title\":\"Outcome Test\",\"createdBy\":\"system\"}")
+                .post("/workitems")
+                .then().statusCode(201).extract().path("id");
+
+        given().put("/workitems/" + id + "/claim?claimant=alice")
+                .then().statusCode(200);
+        given().put("/workitems/" + id + "/start?actor=alice")
+                .then().statusCode(200);
+        given().contentType(ContentType.JSON)
+                .body("{\"outcome\":\"approved\"}")
+                .put("/workitems/" + id + "/complete?actor=alice")
+                .then().statusCode(200);
+
+        // Create a second item with no outcome (stays PENDING)
+        given().contentType(ContentType.JSON)
+                .body("{\"title\":\"No Outcome\",\"createdBy\":\"system\"}")
+                .post("/workitems")
+                .then().statusCode(201);
+
+        // Filter by outcome=approved — must include the completed one and exclude the pending one
+        final List<String> returnedIds = given()
+                .queryParam("outcome", "approved")
+                .get("/workitems")
+                .then()
+                .statusCode(200)
+                .body("every { it.outcome == 'approved' }", is(true))
+                .extract().jsonPath().getList("id");
+        assertThat(returnedIds).contains(id);
+    }
+
+    @Test
+    void listAll_filterByOutcome_noMatch_returnsEmpty() {
+        given().contentType(ContentType.JSON)
+                .body("{\"title\":\"Pending Item\",\"createdBy\":\"system\"}")
+                .post("/workitems")
+                .then().statusCode(201);
+
+        given()
+                .queryParam("outcome", "nonexistent-outcome")
+                .get("/workitems")
+                .then()
+                .statusCode(200)
+                .body("size()", equalTo(0));
     }
 }

@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -82,12 +83,23 @@ public class WorkItemResource {
     }
 
     @GET
-    public List<WorkItemResponse> listAll(@QueryParam("label") final String label) {
+    public List<WorkItemResponse> listAll(
+            @QueryParam("label") final String label,
+            @QueryParam("outcome") final String outcome) {
+        Stream<WorkItem> stream;
         if (label != null && !label.isBlank()) {
-            return workItemStore.scan(WorkItemQuery.byLabelPattern(label)).stream()
-                    .map(WorkItemMapper::toResponse).toList();
+            stream = workItemStore.scan(WorkItemQuery.byLabelPattern(label)).stream();
+        } else {
+            final WorkItemQuery.Builder qb = WorkItemQuery.builder();
+            if (outcome != null && !outcome.isBlank()) qb.outcome(outcome);
+            stream = workItemStore.scan(qb.build()).stream();
         }
-        return workItemStore.scan(WorkItemQuery.all()).stream().map(WorkItemMapper::toResponse).toList();
+        // byLabelPattern bypasses the query builder; post-filter by outcome when both are present
+        if (label != null && !label.isBlank() && outcome != null && !outcome.isBlank()) {
+            final String outcomeFilter = outcome;
+            stream = stream.filter(wi -> outcomeFilter.equals(wi.outcome));
+        }
+        return stream.map(WorkItemMapper::toResponse).toList();
     }
 
     /**
