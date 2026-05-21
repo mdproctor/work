@@ -108,6 +108,7 @@ public final class WorkItemCreateRequest {
                 templateId, permittedOutcomes, inputDataSchema, outputDataSchema, excludedUsers);
     }
 
+    /** Intentionally omits payload, schemas, callerRef, and credentials — log-safety. */
     @Override
     public String toString() {
         return "WorkItemCreateRequest{title='" + title + "', category='" + category
