@@ -1,32 +1,25 @@
 package io.casehub.work.queues.service;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.BooleanNode;
 
+import io.casehub.platform.expression.JQEvaluator;
 import io.casehub.work.runtime.model.WorkItem;
-import net.thisptr.jackson.jq.BuiltinFunctionLoader;
-import net.thisptr.jackson.jq.JsonQuery;
-import net.thisptr.jackson.jq.Scope;
-import net.thisptr.jackson.jq.Versions;
 
 @ApplicationScoped
 public class JqConditionEvaluator implements WorkItemExpressionEvaluator {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Scope ROOT_SCOPE;
 
-    static {
-        ROOT_SCOPE = Scope.newEmptyScope();
-        BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, ROOT_SCOPE);
-    }
+    @Inject
+    JQEvaluator jqEvaluator;
 
     @Override
     public String language() {
@@ -38,27 +31,16 @@ public class JqConditionEvaluator implements WorkItemExpressionEvaluator {
         if (descriptor == null || descriptor.expression() == null || descriptor.expression().isBlank()) {
             return false;
         }
-        try {
-            final JsonNode input = MAPPER.valueToTree(toMap(wi));
-            final JsonQuery q = JsonQuery.compile(descriptor.expression(), Versions.JQ_1_6);
-            final Scope scope = Scope.newChildScope(ROOT_SCOPE);
-            final var results = new ArrayList<JsonNode>();
-            q.apply(scope, input, results::add);
-            if (results.isEmpty()) {
-                return false;
-            }
-            final JsonNode first = results.get(0);
-            return first instanceof BooleanNode && first.asBoolean();
-        } catch (Exception e) {
-            return false;
-        }
+        final JsonNode input = MAPPER.valueToTree(toMap(wi));
+        return jqEvaluator.eval(descriptor.expression(), input).isTrue();
     }
 
     private Map<String, Object> toMap(final WorkItem wi) {
-        var map = new HashMap<String, Object>();
+        final var map = new HashMap<String, Object>();
         map.put("status", wi.status != null ? wi.status.name() : null);
         map.put("priority", wi.priority != null ? wi.priority.name() : null);
         map.put("assigneeId", wi.assigneeId);
+        map.put("candidateGroups", wi.candidateGroups);
         map.put("category", wi.category);
         map.put("title", wi.title);
         map.put("description", wi.description);

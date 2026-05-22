@@ -129,6 +129,12 @@ CaseHub platform module — human-scale WorkItem lifecycle management with optio
         <artifactId>commons-jexl3</artifactId>
         <version>3.4.0</version>
       </dependency>
+      <!-- Not yet in casehub-parent BOM (platform#23 landed after last BOM release) -->
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-platform-expression</artifactId>
+        <version>0.2-SNAPSHOT</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
