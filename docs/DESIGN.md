@@ -90,7 +90,7 @@ Three tiers:
 | runtime | 722 |
 | work-flow | 32 |
 | casehub-work-ledger | 76 |
-| casehub-work-queues | 82 |
+| casehub-work-queues | 83 |
 | casehub-work-ai | 77 |
 | casehub-work-examples | 18 |
 | casehub-work-queues-examples | 37 |

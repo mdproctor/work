@@ -2,7 +2,8 @@ package io.casehub.work.queues.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.BeforeEach;
+import jakarta.inject.Inject;
+
 import org.junit.jupiter.api.Test;
 
 import io.casehub.work.api.LabelPersistence;
@@ -10,14 +11,16 @@ import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemLabel;
 import io.casehub.work.runtime.model.WorkItemPriority;
 import io.casehub.work.runtime.model.WorkItemStatus;
+import io.casehub.platform.expression.JQEvaluator;
+import io.casehub.platform.expression.MockConfigManager;
+import io.casehub.platform.expression.MockSecretManager;
+import io.quarkus.test.component.QuarkusComponentTest;
 
+@QuarkusComponentTest({ JqConditionEvaluator.class, JQEvaluator.class, MockSecretManager.class, MockConfigManager.class })
 class JqConditionEvaluatorTest {
-    private JqConditionEvaluator evaluator;
 
-    @BeforeEach
-    void setup() {
-        evaluator = new JqConditionEvaluator();
-    }
+    @Inject
+    JqConditionEvaluator evaluator;
 
     @Test
     void language_isJq() {
@@ -26,44 +29,54 @@ class JqConditionEvaluatorTest {
 
     @Test
     void evaluate_priorityHigh_matchesHigh() {
-        var wi = wi(WorkItemStatus.PENDING, WorkItemPriority.HIGH, null);
-        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of(evaluator.language(), ".priority == \"HIGH\""))).isTrue();
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.HIGH, null);
+        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of("jq", ".priority == \"HIGH\""))).isTrue();
     }
 
     @Test
     void evaluate_priorityHigh_notNormal() {
-        var wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
-        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of(evaluator.language(), ".priority == \"HIGH\""))).isFalse();
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
+        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of("jq", ".priority == \"HIGH\""))).isFalse();
     }
 
     @Test
     void evaluate_statusPending() {
-        var wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
-        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of(evaluator.language(), ".status == \"PENDING\""))).isTrue();
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
+        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of("jq", ".status == \"PENDING\""))).isTrue();
     }
 
     @Test
     void evaluate_assigneeNull() {
-        var wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
-        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of(evaluator.language(), ".assigneeId == null"))).isTrue();
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
+        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of("jq", ".assigneeId == null"))).isTrue();
     }
 
     @Test
     void evaluate_malformed_returnsFalse() {
-        var wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
-        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of(evaluator.language(), "not valid jq @@@"))).isFalse();
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
+        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of("jq", "not valid jq @@@"))).isFalse();
+    }
+
+    @Test
+    void evaluate_candidateGroupsFilter_matchesGroup() {
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
+        wi.candidateGroups = "legal,finance";
+        assertThat(evaluator.evaluate(wi,
+                ExpressionDescriptor.of("jq", ".candidateGroups | contains(\"legal\")"))).isTrue();
+        assertThat(evaluator.evaluate(wi,
+                ExpressionDescriptor.of("jq", ".candidateGroups | contains(\"hr\")"))).isFalse();
     }
 
     @Test
     void evaluate_labelCheck_matchesWorkItemWithLabel() {
-        var wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
         wi.labels.add(new WorkItemLabel("legal/contracts", LabelPersistence.MANUAL, "alice"));
         assertThat(evaluator.evaluate(wi,
-                ExpressionDescriptor.of(evaluator.language(), ".labels | contains([\"legal/contracts\"])"))).isTrue();
+                ExpressionDescriptor.of("jq", ".labels | contains([\"legal/contracts\"])"))).isTrue();
     }
 
     private WorkItem wi(final WorkItemStatus s, final WorkItemPriority p, final String a) {
-        var wi = new WorkItem();
+        final WorkItem wi = new WorkItem();
         wi.status = s;
         wi.priority = p;
         wi.assigneeId = a;
