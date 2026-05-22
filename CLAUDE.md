@@ -3,6 +3,7 @@
 **Project repo:** /Users/mdproctor/claude/casehub/work
 **Workspace type:** public
 
+
 ## Session Start
 
 Run `add-dir /Users/mdproctor/claude/casehub/work` before any other work.
@@ -18,7 +19,7 @@ Run `add-dir /Users/mdproctor/claude/casehub/work` before any other work.
 | design-snapshot | `snapshots/` |
 | java-update-design / update-primary-doc | `design/JOURNAL.md` (created by `epic`) |
 | adr | `adr/` |
-| write-blog | `blog/` |
+| write-blog | `~/.claude/blog-routing.yaml` — resolved automatically; no workspace staging |
 
 ## Structure
 
@@ -28,13 +29,12 @@ Run `add-dir /Users/mdproctor/claude/casehub/work` before any other work.
 - `plans/` — implementation plans (superpowers output)
 - `snapshots/` — design snapshots with INDEX.md (auto-pruned, max 10)
 - `adr/` — architecture decision records with INDEX.md
-- `blog/` — project diary entries with INDEX.md
 - `design/` — epic journal (created by `epic` at branch start)
 
 ## Git Discipline
 
 Two git repositories are active in every session:
-- **Workspace** (`/Users/mdproctor/claude/public/casehub/work`) — methodology artifacts: handover, blog, specs, plans, ADRs
+- **Workspace** (`/Users/mdproctor/claude/public/casehub/work`) — methodology artifacts: handover, specs, plans, ADRs (blog is not staged here — goes directly to destination in blog-routing.yaml)
 - **Project repo** (`/Users/mdproctor/claude/casehub/work`) — source code
 
 Before any git operation, run `git rev-parse --show-toplevel` to confirm which repo is currently active. Do not assume — the session may have opened in either. cd to the correct repo before staging:
@@ -54,7 +54,7 @@ Before any git operation, run `git rev-parse --show-toplevel` to confirm which r
 |------------|-------------|-------|
 | adr        | project     | lands in `docs/adr/` — promoted at epic close |
 | specs      | project     | lands in `docs/specs/` — promoted at epic close |
-| blog       | workspace   | staged here; published via publish-blog (destination in ~/.claude/blog-routing.yaml) |
+| blog       | `~/.claude/blog-routing.yaml` | write-blog resolves destination from routing YAML — no workspace staging |
 | plans      | workspace   | stay in workspace permanently |
 | design     | workspace   | epic journal stays in workspace |
 | snapshots  | workspace   | stay in workspace permanently |
