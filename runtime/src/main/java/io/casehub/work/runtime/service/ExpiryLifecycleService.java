@@ -17,6 +17,7 @@ import org.jboss.logging.Logger;
 import io.casehub.platform.api.path.Path;
 import io.casehub.platform.api.preferences.PreferenceProvider;
 import io.casehub.platform.api.preferences.SettingsScope;
+import io.casehub.work.api.AssignmentTrigger;
 import io.casehub.work.api.BreachDecision;
 import io.casehub.work.api.BreachType;
 import io.casehub.work.api.BreachedTask;
@@ -68,6 +69,9 @@ public class ExpiryLifecycleService {
 
     @Inject
     WorkItemsConfig config;
+
+    @Inject
+    WorkItemAssignmentService assignmentService;
 
     /**
      * Marks all WorkItems whose {@code expiresAt} has passed and delegates the
@@ -155,7 +159,7 @@ public class ExpiryLifecycleService {
         item.completedAt = now;
         item.resolution = fail.reason();
         workItemStore.put(item);
-        writeAudit(item, "EXPIRED", now);
+        writeAudit(item, "EXPIRED", fail.reason(), now);
         fireLifecycleEvent("EXPIRED", item);
         return fail;
     }
@@ -177,8 +181,10 @@ public class ExpiryLifecycleService {
             item.claimDeadline = computeNewClaimDeadline(item, now);
         }
 
+        assignmentService.assign(item, AssignmentTrigger.SLA_ESCALATED);
+
         workItemStore.put(item);
-        writeAudit(item, "ESCALATED", now);
+        writeAudit(item, "ESCALATED", null, now);
         fireLifecycleEvent("ESCALATED", item);
         return escalate;
     }
@@ -192,7 +198,7 @@ public class ExpiryLifecycleService {
             item.claimDeadline = now.plus(extend.by());
         }
         workItemStore.put(item);
-        writeAudit(item, "SLA_EXTENDED", now);
+        writeAudit(item, "SLA_EXTENDED", null, now);
         // No lifecycle event — deadline extension is not a status transition
         return extend;
     }
@@ -226,11 +232,12 @@ public class ExpiryLifecycleService {
 
     // ── Audit and events ──────────────────────────────────────────────────────
 
-    private void writeAudit(final WorkItem item, final String event, final Instant now) {
+    private void writeAudit(final WorkItem item, final String event, final String detail, final Instant now) {
         final AuditEntry entry = new AuditEntry();
         entry.workItemId = item.id;
         entry.event = event;
         entry.actor = "system";
+        entry.detail = detail;
         entry.occurredAt = now;
         auditStore.append(entry);
     }

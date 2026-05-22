@@ -30,6 +30,11 @@ import io.casehub.work.api.ClaimSlaContext;
 import io.casehub.work.api.ClaimSlaPolicy;
 import io.casehub.work.api.SlaBreachContext;
 import io.casehub.work.api.SlaBreachPolicy;
+import io.casehub.work.api.AssignmentDecision;
+import io.casehub.work.api.PolicyDecision;
+import io.casehub.work.api.SelectionContext;
+import io.casehub.work.api.WorkerCandidate;
+import io.casehub.work.core.strategy.WorkBroker;
 import io.casehub.work.runtime.event.SlaBreachEvent;
 import io.casehub.work.runtime.model.AuditEntry;
 import io.casehub.work.runtime.model.WorkItem;
@@ -106,6 +111,19 @@ class ExpiryLifecycleServiceTest {
         }
     }
 
+    static class CapturingStrategy implements io.casehub.work.api.WorkerSelectionStrategy {
+        final List<SelectionContext> calls = new ArrayList<>();
+
+        @Override
+        public AssignmentDecision select(final SelectionContext ctx,
+                final java.util.List<WorkerCandidate> candidates) {
+            calls.add(ctx);
+            return candidates.isEmpty()
+                    ? AssignmentDecision.noChange()
+                    : AssignmentDecision.assignTo(candidates.get(0).id());
+        }
+    }
+
     /** Returns a configurable fixed decision. */
     static class TestSlaBreachPolicy implements SlaBreachPolicy {
         private BreachDecision decision = new BreachDecision.Fail("no-sla-breach-policy-configured");
@@ -155,6 +173,12 @@ class ExpiryLifecycleServiceTest {
         service.lifecycleEvent = null; // CDI event bus — not under test
         service.claimSlaPolicy = new FixedClaimSlaPolicy();
         service.config = WorkItemServiceTest.testConfig();
+        service.assignmentService = new WorkItemAssignmentService(
+                (ctx, candidates) -> AssignmentDecision.noChange(),
+                group -> java.util.List.of(),
+                id -> 0,
+                new WorkBroker(),
+                (userId, excluded) -> PolicyDecision.ALLOW);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -277,6 +301,51 @@ class ExpiryLifecycleServiceTest {
         service.checkExpired();
         assertThat(auditStore.findByWorkItemId(wi.id))
                 .anyMatch(e -> "ESCALATED".equals(e.event));
+    }
+
+    // ── checkExpired — audit detail ──────────────────────────────────────────
+
+    @Test
+    void checkExpired_withFailDecision_recordsReasonAsAuditEntryDetail() {
+        policy.willReturn(new BreachDecision.Fail("deadline-breach"));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        final AuditEntry entry = auditStore.findByWorkItemId(wi.id).stream()
+                .filter(e -> "EXPIRED".equals(e.event))
+                .findFirst().orElseThrow();
+        assertThat(entry.detail).isEqualTo("deadline-breach");
+    }
+
+    // ── checkExpired — EscalateTo auto-assignment ─────────────────────────────
+
+    @Test
+    void checkExpired_withEscalateToDecision_triggersAutoAssignmentWhenCandidatesAvailable() {
+        final CapturingStrategy capturing = new CapturingStrategy();
+        service.assignmentService = new WorkItemAssignmentService(
+                capturing,
+                group -> java.util.List.of(WorkerCandidate.of("escalation-worker")),
+                id -> 0,
+                new WorkBroker(),
+                (userId, excluded) -> PolicyDecision.ALLOW);
+
+        policy.willReturn(BreachDecision.EscalateTo.to("senior-reviewers"));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+
+        assertThat(capturing.calls).hasSize(1);
+        assertThat(store.get(wi.id).orElseThrow().assigneeId).isEqualTo("escalation-worker");
+        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.ASSIGNED);
+    }
+
+    @Test
+    void checkExpired_withEscalateToDecision_remainsPendingWhenNoWorkersAvailable() {
+        // The default service.assignmentService (wired in setUp) uses a no-op
+        // strategy that returns noChange() — item stays PENDING
+        policy.willReturn(BreachDecision.EscalateTo.to("senior-reviewers"));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.PENDING);
+        assertThat(store.get(wi.id).orElseThrow().assigneeId).isNull();
     }
 
     // ── checkExpired — Extend decision ────────────────────────────────────────
