@@ -140,9 +140,9 @@ Three systems in the Quarkus ecosystem define "task":
 |---|---|---|
 | `casehub.work.default-expiry-hours` | `24` | Completion deadline when none supplied at creation |
 | `casehub.work.default-claim-hours` | `4` | Claim deadline for unclaimed WorkItems. `0` = no deadline |
-| `casehub.work.escalation-policy` | `notify` | On `expiresAt` breach: `notify`, `reassign`, or `auto-reject` |
-| `casehub.work.claim-escalation-policy` | `notify` | On `claimDeadline` breach: `notify` or `reassign` |
 | `casehub.work.cleanup.expiry-check-seconds` | `60` | Polling interval for the expiry/claim-deadline job |
+
+SLA breach behaviour (what happens when `expiresAt` or `claimDeadline` is exceeded) is controlled by implementing the `SlaBreachPolicy` SPI — see `casehub-work-api`.
 
 ---
 

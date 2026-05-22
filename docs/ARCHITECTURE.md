@@ -233,7 +233,6 @@ Default JPA implementations are `@ApplicationScoped`. Alternatives override via 
 | `JpaWorkloadProvider` | `runtime.service` | Counts active WorkItems per worker; implements `WorkloadProvider` SPI |
 | `ExpiryCleanupJob` | `runtime.service` | `@Scheduled` — calls `ExpiryLifecycleService.checkExpired()` which invokes `SlaBreachPolicy` |
 | `SlaBreachPolicy` | `casehub-work-api` | SPI — `onBreach(SlaBreachContext) → BreachDecision`; expiry service executes decision, fires `SlaBreachEvent` CDI event |
-| `EscalationPolicy` | `casehub-work-api` | **@Deprecated** — replaced by `SlaBreachPolicy`; removal tracked in work#215 |
 
 ---
 

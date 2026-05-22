@@ -25,7 +25,7 @@ package io.casehub.work.api;
  * <p>Default implementation: {@code NoOpSlaBreachPolicy} returns
  * {@code Fail("no-sla-breach-policy-configured")}.
  *
- * <p>Replaces {@link EscalationPolicy}.
+ * <p>Replaces {@code EscalationPolicy}.
  */
 public interface SlaBreachPolicy {
 

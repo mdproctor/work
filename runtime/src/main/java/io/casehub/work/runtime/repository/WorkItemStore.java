@@ -17,7 +17,6 @@ import io.casehub.work.runtime.model.WorkItemRootView;
  * Backends translate {@code WorkItemQuery} to their native query language.
  *
  * <p>
- * <p>
  * <strong>CDI backend activation (three-tier priority ladder):</strong><br>
  * {@code @DefaultBean} (mock/in-memory) &lt; {@code @ApplicationScoped} (JPA/SQL primary) &lt;
  * {@code @Alternative @Priority(1)} (NoSQL secondary, beats JPA when co-deployed).
