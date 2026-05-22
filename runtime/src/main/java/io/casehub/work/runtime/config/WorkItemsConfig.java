@@ -177,5 +177,36 @@ public interface WorkItemsConfig {
          */
         @io.smallrye.config.WithDefault("least-loaded")
         String strategy();
+
+        /**
+         * Cursor TTL and GC configuration.
+         *
+         * @return the cursor configuration group
+         */
+        @io.smallrye.config.WithName("cursor")
+        CursorConfig cursor();
+    }
+
+    /**
+     * Configuration for {@code routing_cursor} row lifecycle management.
+     */
+    interface CursorConfig {
+
+        /**
+         * Number of days since last access after which a cursor row is eligible for deletion.
+         *
+         * @return TTL in days; defaults to {@code 30}
+         */
+        @io.smallrye.config.WithDefault("30")
+        int ttlDays();
+
+        /**
+         * Cron expression controlling when the cursor GC job runs.
+         * Set to {@code "disabled"} to skip scheduling entirely.
+         *
+         * @return cron expression; defaults to {@code "0 2 * * ?"} (daily at 02:00)
+         */
+        @io.smallrye.config.WithDefault("0 2 * * ?")
+        String cleanupCron();
     }
 }

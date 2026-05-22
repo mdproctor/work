@@ -17,6 +17,7 @@ import io.casehub.work.api.SelectionContext;
 import io.casehub.work.api.WorkerSelectionStrategy;
 import io.casehub.work.core.strategy.ClaimFirstStrategy;
 import io.casehub.work.core.strategy.LeastLoadedStrategy;
+import io.casehub.work.core.strategy.RoundRobinStrategy;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.model.WorkItem;
 
@@ -49,15 +50,19 @@ public class RoundRobinAssignmentStrategy implements InstanceAssignmentStrategy 
      * @param config the WorkItems configuration
      * @param claimFirst the built-in claim-first strategy
      * @param leastLoaded the built-in least-loaded strategy
+     * @param roundRobin the built-in round-robin strategy
      */
     @Inject
     public RoundRobinAssignmentStrategy(
             final WorkItemsConfig config,
             final ClaimFirstStrategy claimFirst,
-            final LeastLoadedStrategy leastLoaded) {
-        this.workerSelectionStrategy = "claim-first".equals(config.routing().strategy())
-                ? claimFirst
-                : leastLoaded;
+            final LeastLoadedStrategy leastLoaded,
+            final RoundRobinStrategy roundRobin) {
+        this.workerSelectionStrategy = switch (config.routing().strategy()) {
+            case "claim-first" -> claimFirst;
+            case "round-robin" -> roundRobin;
+            default -> leastLoaded;
+        };
     }
 
     /** Package-private constructor for unit tests. */

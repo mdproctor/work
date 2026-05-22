@@ -1,5 +1,7 @@
 package io.casehub.work.runtime.repository.jpa;
 
+import java.time.Instant;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
@@ -57,6 +59,7 @@ public class JpaRoutingCursorStore implements RoutingCursorStore {
         }
         final int next = (cursor.lastIndex + 1) % poolSize;
         cursor.lastIndex = next;
+        cursor.lastAccessed = Instant.now();
         return next;
     }
 }
