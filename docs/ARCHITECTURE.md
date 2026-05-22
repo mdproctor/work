@@ -31,7 +31,7 @@ Maven multi-module layout:
 | Module | Artifact | Purpose |
 |---|---|---|
 | Parent | `casehub-work-parent` | BOM, version management |
-| API | `casehub-work-api` | Pure Java SPI contracts — `WorkerCandidate`, `SelectionContext` (workItemId, title, description, category, requiredCapabilities, candidateUsers, candidateGroups), `AssignmentDecision`, `AssignmentTrigger`, `WorkerSelectionStrategy`, `WorkerRegistry`, `WorkEventType` (includes `SPAWNED`), `WorkLifecycleEvent`, `WorkloadProvider`, `EscalationPolicy`, `SkillProfile`, `SkillProfileProvider`, `SkillMatcher`. Spawn SPI: `SpawnPort`, `SpawnRequest`, `ChildSpec`, `SpawnResult`, `SpawnedChild`. groupId `io.casehub`. Zero runtime dependencies. CaseHub and other systems depend on this without pulling in the WorkItems stack. |
+| API | `casehub-work-api` | Pure Java SPI contracts — `WorkerCandidate`, `SelectionContext`, `AssignmentDecision`, `AssignmentTrigger`, `WorkerSelectionStrategy`, `WorkerRegistry`, `WorkEventType`, `WorkLifecycleEvent`, `WorkloadProvider`, `SlaBreachPolicy` (replaces `@Deprecated EscalationPolicy`), `SlaBreachContext`, `BreachDecision` (sealed: Fail/EscalateTo/Extend/Chained), `BreachType`, `BreachedTask`, `SkillProfile`, `SkillProfileProvider`, `SkillMatcher`. Spawn SPI: `SpawnPort`, `SpawnRequest`, `ChildSpec`, `SpawnResult`, `SpawnedChild`. groupId `io.casehub`. Depends on `casehub-platform-api` (for `Path`/`Preferences` in SlaBreachContext). |
 | Core | `casehub-work-core` | Generic work management implementations — `WorkBroker` (generic assignment orchestrator), `LeastLoadedStrategy`, `ClaimFirstStrategy`, `NoOpWorkerRegistry`, claim SLA policies. No JPA entities, no REST resources. CaseHub depends on this module directly. Jandex-indexed library, groupId `io.casehub`. |
 | Runtime | `casehub-work` | Core — WorkItem model, storage SPI, JPA defaults, service, REST API, lifecycle engine, labels, vocabulary. Includes `WorkItemContextBuilder`, `JpaWorkloadProvider`, runtime actions (`ApplyLabelAction`, `OverrideCandidateGroupsAction`, `SetPriorityAction`), filter engine (`FilterAction` SPI, `FilterRegistryEngine`, `JexlConditionEvaluator`, `PermanentFilterRegistry`, `DynamicFilterRegistry`, `FilterRule`, `FilterRuleResource`). Subprocess spawning: `WorkItemSpawnService` (implements `SpawnPort`), `WorkItemSpawnGroup` entity, `WorkItemSpawnResource`, `SpawnGroupResource`. |
 | Deployment | `casehub-work-deployment` | Build-time processor — feature registration, native config |
@@ -231,8 +231,9 @@ Default JPA implementations are `@ApplicationScoped`. Alternatives override via 
 | `LeastLoadedStrategy` | `casehub-work-core` | Pre-assigns to candidate with fewest active WorkItems |
 | `NoOpWorkerRegistry` | `casehub-work-core` | Default `WorkerRegistry` — returns empty list (groups stay claim-first) |
 | `JpaWorkloadProvider` | `runtime.service` | Counts active WorkItems per worker; implements `WorkloadProvider` SPI |
-| `ExpiryCleanupJob` | `runtime.service` | `@Scheduled` — marks expired WorkItems, fires `EscalationPolicy` |
-| `EscalationPolicy` | `casehub-work-api` | SPI — single `escalate(WorkLifecycleEvent)` method; pluggable: notify, reassign, auto-reject |
+| `ExpiryCleanupJob` | `runtime.service` | `@Scheduled` — calls `ExpiryLifecycleService.checkExpired()` which invokes `SlaBreachPolicy` |
+| `SlaBreachPolicy` | `casehub-work-api` | SPI — `onBreach(SlaBreachContext) → BreachDecision`; expiry service executes decision, fires `SlaBreachEvent` CDI event |
+| `EscalationPolicy` | `casehub-work-api` | **@Deprecated** — replaced by `SlaBreachPolicy`; removal tracked in work#215 |
 
 ---
 
