@@ -99,7 +99,7 @@ public class ContractReviewScenario {
         workItemService.claim(legalReview.id, "alice");
         workItemService.start(legalReview.id, "alice");
         workItemService.complete(legalReview.id, "alice",
-                "{\"approved\":true,\"notes\":\"Clauses acceptable. IP section revised.\"}");
+                "{\"approved\":true,\"notes\":\"Clauses acceptable. IP section revised.\"}", null);
         steps.add("Step 2 (legalReview): alice claimed from legal-team queue, approved with notes");
 
         // ── Step 3: Executive sign-off — workflow suspends again ─────────────
@@ -110,7 +110,7 @@ public class ContractReviewScenario {
         workItemService.claim(execSignOff.id, "exec-officer");
         workItemService.start(execSignOff.id, "exec-officer");
         workItemService.complete(execSignOff.id, "exec-officer",
-                "{\"signed\":true,\"authority\":\"CEO delegation ref CFO-2024-44\"}");
+                "{\"signed\":true,\"authority\":\"CEO delegation ref CFO-2024-44\"}", null);
         steps.add("Step 3 (executiveSignOff): exec-officer signed off with authority reference");
 
         // ── Step 4 is automated — countersign runs after exec approval ───────
