@@ -56,7 +56,7 @@ using casehub-work-queues. Each scenario runs via POST /queue-examples/{name}/ru
         <dependency>
       <groupId>io.casehub</groupId>
       <artifactId>casehub-platform</artifactId>
-      <scope>test</scope>
+      <scope>runtime</scope>
     </dependency>
 <dependency>
       <groupId>org.assertj</groupId>
