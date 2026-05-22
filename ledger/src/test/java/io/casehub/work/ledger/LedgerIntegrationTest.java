@@ -412,8 +412,8 @@ class LedgerIntegrationTest {
 
         workItemService.reject(item.id, "alice",
                 "Content violates guidelines",
-                "Context review: satire, not hate speech",
-                null);
+                null,
+                "Context review: satire, not hate speech");
 
         final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
         final WorkItemLedgerEntry rejectionEntry = entries.stream()
