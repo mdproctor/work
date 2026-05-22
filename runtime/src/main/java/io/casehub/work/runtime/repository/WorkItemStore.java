@@ -17,8 +17,14 @@ import io.casehub.work.runtime.model.WorkItemRootView;
  * Backends translate {@code WorkItemQuery} to their native query language.
  *
  * <p>
- * The default implementation uses Hibernate ORM with Panache. Alternatives
- * (MongoDB, Redis, in-memory) substitute via CDI {@code @Alternative @Priority(1)}.
+ * <p>
+ * <strong>CDI backend activation (three-tier priority ladder):</strong><br>
+ * {@code @DefaultBean} (mock/in-memory) &lt; {@code @ApplicationScoped} (JPA/SQL primary) &lt;
+ * {@code @Alternative @Priority(1)} (NoSQL secondary, beats JPA when co-deployed).
+ * Adding a backend module to the classpath activates it automatically — no consumer changes.
+ * See the platform
+ * <a href="https://github.com/casehubio/garden/blob/main/docs/protocols/universal/persistence-backend-cdi-priority.md">persistence-backend-cdi-priority</a>
+ * protocol.
  *
  * @see WorkItemQuery
  */
