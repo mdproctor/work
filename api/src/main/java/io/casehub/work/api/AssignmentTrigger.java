@@ -7,5 +7,7 @@ public enum AssignmentTrigger {
     /** WorkItem returned to pool by its assignee (release). */
     RELEASED,
     /** WorkItem delegated to a different pool or individual. */
-    DELEGATED
+    DELEGATED,
+    /** WorkItem returned to an escalation pool after an SLA breach. */
+    SLA_ESCALATED
 }
