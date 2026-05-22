@@ -1,6 +1,7 @@
 package io.casehub.work.api;
 
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Projection of a WorkItem that has breached its SLA deadline.
@@ -9,8 +10,7 @@ import java.util.Set;
  */
 public record BreachedTask(
 
-        /** WorkItem UUID as a string. */
-        String taskId,
+        UUID taskId,
 
         /**
          * Opaque caller reference echoed from WorkItem — format is {@code case:{id}/pi:{id}}

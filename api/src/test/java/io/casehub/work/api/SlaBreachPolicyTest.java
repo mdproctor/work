@@ -1,9 +1,15 @@
 package io.casehub.work.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+
+import io.casehub.platform.api.path.Path;
+import io.casehub.platform.api.preferences.MapPreferences;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +21,12 @@ class SlaBreachPolicyTest {
     void escalateTo_factoryCreatesCorrectGroups() {
         final BreachDecision.EscalateTo d = BreachDecision.EscalateTo.to("senior-reviewers", "tech-leads");
         assertThat(d.groups()).containsExactlyInAnyOrder("senior-reviewers", "tech-leads");
+    }
+
+    @Test
+    void escalateTo_factoryRejectsEmptyGroups() {
+        assertThatThrownBy(() -> BreachDecision.EscalateTo.to())
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -86,8 +98,9 @@ class SlaBreachPolicyTest {
 
     @Test
     void slaBreachContext_accessorsReturnConstructorArgs() {
-        final BreachedTask task = new BreachedTask("id1", "case:x/pi:y", "Review PR", Set.of("reviewers"));
-        assertThat(task.taskId()).isEqualTo("id1");
+        final UUID id = UUID.randomUUID();
+        final BreachedTask task = new BreachedTask(id, "case:x/pi:y", "Review PR", Set.of("reviewers"));
+        assertThat(task.taskId()).isEqualTo(id);
         assertThat(task.callerRef()).isEqualTo("case:x/pi:y");
         assertThat(task.title()).isEqualTo("Review PR");
         assertThat(task.candidateGroups()).containsExactly("reviewers");
@@ -115,14 +128,14 @@ class SlaBreachPolicyTest {
         };
 
         // First breach: escalate
-        final BreachedTask first = new BreachedTask("t1", null, "PR review", Set.of("reviewers"));
+        final BreachedTask first = new BreachedTask(UUID.randomUUID(), null, "PR review", Set.of("reviewers"));
         final BreachDecision d1 = policy.onBreach(makeCtx(BreachType.COMPLETION_EXPIRED, first));
         assertThat(d1).isInstanceOf(BreachDecision.EscalateTo.class);
         assertThat(((BreachDecision.EscalateTo) d1).groups()).containsExactly(escalationGroup);
         assertThat(((BreachDecision.EscalateTo) d1).deadline()).isEqualTo(Duration.ofHours(4));
 
         // Second breach: already at escalation group → terminal
-        final BreachedTask second = new BreachedTask("t1", null, "PR review", Set.of(escalationGroup));
+        final BreachedTask second = new BreachedTask(UUID.randomUUID(), null, "PR review", Set.of(escalationGroup));
         final BreachDecision d2 = policy.onBreach(makeCtx(BreachType.COMPLETION_EXPIRED, second));
         assertThat(d2).isInstanceOf(BreachDecision.Fail.class);
         assertThat(((BreachDecision.Fail) d2).reason()).isEqualTo("sla-exhausted");
@@ -131,6 +144,6 @@ class SlaBreachPolicyTest {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static SlaBreachContext makeCtx(final BreachType type, final BreachedTask task) {
-        return new SlaBreachContext(type, task, null, null); // scope/prefs not under test here
+        return new SlaBreachContext(type, task, Path.root(), new MapPreferences(Map.of()));
     }
 }

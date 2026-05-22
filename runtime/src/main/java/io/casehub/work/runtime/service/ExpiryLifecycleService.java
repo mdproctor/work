@@ -12,6 +12,8 @@ import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import org.jboss.logging.Logger;
+
 import io.casehub.platform.api.path.Path;
 import io.casehub.platform.api.preferences.PreferenceProvider;
 import io.casehub.platform.api.preferences.SettingsScope;
@@ -40,6 +42,8 @@ import io.casehub.work.runtime.repository.WorkItemStore;
  */
 @ApplicationScoped
 public class ExpiryLifecycleService {
+
+    private static final Logger LOG = Logger.getLogger(ExpiryLifecycleService.class);
 
     @Inject
     WorkItemStore workItemStore;
@@ -125,7 +129,16 @@ public class ExpiryLifecycleService {
             final SlaBreachContext ctx, final Instant now) {
         return switch (decision) {
             case BreachDecision.Fail fail -> executeFail(item, fail, now);
-            case BreachDecision.EscalateTo escalate -> executeEscalateTo(item, escalate, ctx, now);
+            case BreachDecision.EscalateTo escalate -> {
+                if (escalate.groups().isEmpty()) {
+                    // Belt-and-suspenders: factory should have rejected this, but protect
+                    // the @Transactional boundary even if the record was constructed directly.
+                    LOG.errorf("SlaBreachPolicy returned EscalateTo with empty groups for WorkItem %s" +
+                            " — applying Fail to avoid silent transaction rollback", item.id);
+                    yield executeFail(item, new BreachDecision.Fail("escalation-misconfigured"), now);
+                }
+                yield executeEscalateTo(item, escalate, ctx, now);
+            }
             case BreachDecision.Extend extend -> executeExtend(item, extend, ctx, now);
             case BreachDecision.Chained chained -> {
                 try {
@@ -150,9 +163,6 @@ public class ExpiryLifecycleService {
     private BreachDecision.EscalateTo executeEscalateTo(
             final WorkItem item, final BreachDecision.EscalateTo escalate,
             final SlaBreachContext ctx, final Instant now) {
-        if (escalate.groups().isEmpty()) {
-            throw new BreachExecutionFailed("EscalateTo with empty groups cannot be executed");
-        }
         item.candidateGroups = String.join(",", escalate.groups());
         item.assigneeId = null;
         item.status = WorkItemStatus.PENDING;
@@ -193,7 +203,7 @@ public class ExpiryLifecycleService {
         final Path scope = item.scope != null ? Path.parse(item.scope) : Path.root();
         final var prefs = preferenceProvider.resolve(new SettingsScope(scope, now));
         final Set<String> groups = parseCandidateGroups(item.candidateGroups);
-        final BreachedTask task = new BreachedTask(item.id.toString(), item.callerRef, item.title, groups);
+        final BreachedTask task = new BreachedTask(item.id, item.callerRef, item.title, groups);
         return new SlaBreachContext(type, task, scope, prefs);
     }
 

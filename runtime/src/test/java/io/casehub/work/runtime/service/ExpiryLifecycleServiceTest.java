@@ -310,14 +310,16 @@ class ExpiryLifecycleServiceTest {
     // ── checkExpired — Chained decision ───────────────────────────────────────
 
     @Test
-    void checkExpired_withChainedDecision_executesFailWhenEscalateToHasEmptyGroups() {
-        final BreachDecision chained = BreachDecision.EscalateTo.to()  // empty → cannot execute
-                .thenOnBreach(new BreachDecision.Fail("no-escalation-target"));
-        policy.willReturn(chained);
+    void checkExpired_withBareEmptyEscalateTo_convertsToFailWithoutThrowingOrRollingBack() {
+        // Fix B: executor converts EscalateTo(∅) to Fail instead of throwing BreachExecutionFailed.
+        // Bypasses factory validation (which would reject this at construction) to test the
+        // belt-and-suspenders protection at the executor level.
+        policy.willReturn(new BreachDecision.EscalateTo(java.util.Set.of(), null)); // bypass factory
         final WorkItem wi = expiredItem();
         service.checkExpired();
         assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.EXPIRED);
-        assertThat(store.get(wi.id).orElseThrow().resolution).isEqualTo("no-escalation-target");
+        assertThat(store.get(wi.id).orElseThrow().resolution).isEqualTo("escalation-misconfigured");
+        assertThat(breachEvents).hasSize(1);
     }
 
     // ── checkExpired — SlaBreachEvent ─────────────────────────────────────────
@@ -332,15 +334,14 @@ class ExpiryLifecycleServiceTest {
 
     @Test
     void checkExpired_slaBreachEventCarriesLeafDecision_notChainedWrapper() {
+        // Chained with non-empty primary: primary executes, event carries EscalateTo leaf (not Chained)
         final BreachDecision.Fail fallback = new BreachDecision.Fail("fallback-reason");
-        policy.willReturn(BreachDecision.EscalateTo.to().thenOnBreach(fallback)); // empty → fallback fires
+        policy.willReturn(BreachDecision.EscalateTo.to("escalation-group").thenOnBreach(fallback));
         expiredItem();
         service.checkExpired();
         assertThat(breachEvents).hasSize(1);
-        // event should carry the Fail leaf, not the Chained wrapper
-        assertThat(breachEvents.get(0).decision()).isInstanceOf(BreachDecision.Fail.class);
-        assertThat(((BreachDecision.Fail) breachEvents.get(0).decision()).reason())
-                .isEqualTo("fallback-reason");
+        // event should carry the EscalateTo leaf, not the Chained wrapper
+        assertThat(breachEvents.get(0).decision()).isInstanceOf(BreachDecision.EscalateTo.class);
     }
 
     @Test

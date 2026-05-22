@@ -37,8 +37,16 @@ public sealed interface BreachDecision
         /**
          * Creates an {@code EscalateTo} with no deadline override.
          * The runtime uses {@code config.defaultExpiryHours()} for the new completion window.
+         *
+         * @throws IllegalArgumentException if {@code groups} is empty — a policy returning
+         *         an empty EscalateTo from outside a {@link Chained} wrapper would cause
+         *         a silent transaction rollback in the expiry service.
          */
         public static EscalateTo to(final String... groups) {
+            if (groups.length == 0) {
+                throw new IllegalArgumentException(
+                    "EscalateTo requires at least one group — use Fail to terminate instead");
+            }
             return new EscalateTo(Set.of(groups), null);
         }
 
