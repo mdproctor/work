@@ -140,6 +140,11 @@ CaseHub platform module — human-scale WorkItem lifecycle management with optio
         <artifactId>casehub-platform-expression</artifactId>
         <version>0.2-SNAPSHOT</version>
       </dependency>
+      <dependency>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-platform</artifactId>
+        <version>0.2-SNAPSHOT</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

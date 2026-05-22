@@ -46,7 +46,12 @@ beyond the PostgreSQL datasource already required by the core extension.</descri
     </dependency>
 
     <!-- Testing -->
-    <dependency>
+        <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform</artifactId>
+      <scope>test</scope>
+    </dependency>
+<dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit</artifactId>
       <scope>test</scope>

@@ -75,8 +75,7 @@ class NotificationDeliveryTest {
                 .extract().path("id");
 
         given()
-                .contentType(ContentType.JSON)
-                .body(Map.of("claimantId", "alice"))
+                .queryParam("claimant", "alice")
                 .when().put("/workitems/" + id + "/claim")
                 .then().statusCode(200);
 

@@ -55,7 +55,12 @@ The core extension is unchanged whether this module is present or not.</descript
     </dependency>
 
     <!-- Testing -->
-    <dependency>
+        <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform</artifactId>
+      <scope>test</scope>
+    </dependency>
+<dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit</artifactId>
       <scope>test</scope>
