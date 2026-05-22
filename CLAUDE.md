@@ -55,7 +55,7 @@ Before any git operation, run `git rev-parse --show-toplevel` to confirm which r
 |------------|-------------|-------|
 | adr        | project     | lands in `docs/adr/` — promoted at epic close |
 | specs      | project     | lands in `docs/specs/` — promoted at epic close |
-| blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
+| blog       | workspace   | staged here; published via publish-blog |
 | plans      | workspace   | stay in workspace permanently |
 | design     | workspace   | epic journal stays in workspace |
 | snapshots  | workspace   | stay in workspace permanently |
@@ -566,9 +566,10 @@ CI must use `server-id: github` + `GITHUB_TOKEN` in `actions/setup-java`.
 
 **SNAPSHOT API drift:** CI pulls the latest `casehub-ledger:0.2-SNAPSHOT` from GitHub Packages; local builds use the cached jar. When `casehub-ledger` adds new abstract methods to `LedgerEntryRepository`, CI breaks but local passes silently. Before concluding a build is stable, refresh the local cache: `JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn install -DskipTests -f ~/claude/casehub/ledger/pom.xml` and re-run the affected module tests.
 
-**Git workflow — fork and PR:** All development is done on a personal fork of this repository. Push to your fork and open pull requests targeting `casehubio/work` main. Do not push directly to the `casehubio` org remote. Recommended remote setup:
-```bash
-origin   → your fork   (git@github.com:<you>/work.git)
-upstream → casehubio   (git@github.com:casehubio/work.git)
+**Git workflow — fork model:**
 ```
+origin   → personal fork   (git remote get-url origin)
+upstream → casehubio       (git remote get-url upstream)
+```
+Before starting any branch: `git fetch upstream && git rebase upstream/main` to sync local main with casehubio. At work-end: rebase the branch onto local main, push to `origin main`. PRs to `upstream` are created separately, on demand — never automatically at work-end.
 
