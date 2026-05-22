@@ -360,7 +360,7 @@ SLAs mean nothing if breaches go unnoticed until the next sprint review. When a 
 **What it demonstrates:**
 - WorkItem created with a very short `expiresAt` (set in the past)
 - Expiry cleanup job triggered programmatically
-- `EscalationPolicy.escalate(WorkLifecycleEvent)` called with `WorkEventType.EXPIRED`
+- `SlaBreachPolicy.onBreach(SlaBreachContext)` called with `BreachType.COMPLETION_EXPIRED`
 - Audit entry written with `actorType=SYSTEM` and event type `WorkItemExpired`
 - Observable escalation action recorded in the response
 
@@ -371,7 +371,7 @@ A production incident WorkItem is created with `expiresAt` set to one minute ago
 - `expiresAt` on WorkItem creation → defines when the expiry job notices the breach
 - `ExpiryCleanupJob.runCleanup()` → programmatic trigger (scheduler runs it automatically in production)
 - Audit entry: `event = "WorkItemExpired"`, `actor = "system:expiry-cleanup"`
-- `EscalationPolicy` SPI receives the `WorkLifecycleEvent` → plug in Slack, PagerDuty, email
+- `SlaBreachPolicy` SPI receives `SlaBreachContext` → return `EscalateTo`, `Extend`, or `Fail` decision → plug in Slack, PagerDuty, email
 - `casehub.work.cleanup.expiry-check-seconds` → controls scheduler interval
 
 **When to use this pattern:**

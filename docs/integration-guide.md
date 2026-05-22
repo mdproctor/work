@@ -237,50 +237,47 @@ CDI events are synchronous and fired within the same transaction as the status t
 
 ---
 
-## Section 4: Custom Escalation Policy
+## Section 4: Custom SLA Breach Policy
 
-The `EscalationPolicy` SPI has two methods: `onExpired()` called when a WorkItem's `expiresAt` passes, and `onUnclaimedPastDeadline()` called when `claimDeadline` passes without the item being claimed. The built-in policies (`notify`, `reassign`, `auto-reject`) cover common cases. Override with a custom bean for anything else.
+The `SlaBreachPolicy` SPI has one method: `onBreach(SlaBreachContext context)` returning a `BreachDecision`. It is called when a WorkItem's `expiresAt` passes (`BreachType.COMPLETION_EXPIRED`) or when `claimDeadline` passes without the item being claimed (`BreachType.CLAIM_EXPIRED`). The runtime executes the returned decision — the policy itself is pure and makes no state mutations.
 
-### Implementing EscalationPolicy
+### Implementing SlaBreachPolicy
 
 ```java
 @ApplicationScoped
-@Alternative
-@Priority(1)
-public class SlackEscalationPolicy implements EscalationPolicy {
+public class SlackSlaBreachPolicy implements SlaBreachPolicy {
 
     @Inject
     SlackClient slack;
 
     @Override
-    public void onExpired(WorkItem workItem) {
-        slack.sendMessage(
-            "#task-alerts",
-            String.format("WorkItem expired: *%s* (id=%s, assignee=%s, priority=%s)",
-                workItem.title, workItem.id, workItem.assigneeId, workItem.priority)
-        );
-        // Optionally also mutate the WorkItem status here, or delegate to another policy
-    }
-
-    @Override
-    public void onUnclaimedPastDeadline(WorkItem workItem) {
-        slack.sendMessage(
-            "#task-alerts",
-            String.format("WorkItem unclaimed past deadline: *%s* (id=%s, candidateGroups=%s)",
-                workItem.title, workItem.id, workItem.candidateGroups)
-        );
+    public BreachDecision onBreach(SlaBreachContext context) {
+        BreachedTask task = context.task();
+        if (context.breachType() == BreachType.COMPLETION_EXPIRED) {
+            slack.sendMessage(
+                "#task-alerts",
+                String.format("WorkItem expired: *%s* (id=%s, groups=%s)",
+                    task.title(), task.taskId(), task.candidateGroups())
+            );
+            // Escalate to a senior group with a 4-hour deadline, or fail if no candidates
+            return EscalateTo.to("senior-reviewers")
+                .withDeadline(Duration.ofHours(4))
+                .thenOnBreach(new BreachDecision.Fail("no-senior-reviewers-available"));
+        } else {
+            // CLAIM_EXPIRED — reassign from the pool
+            slack.sendMessage(
+                "#task-alerts",
+                String.format("Claim deadline missed: *%s* (id=%s)", task.title(), task.taskId())
+            );
+            return EscalateTo.to("on-call-team");
+        }
     }
 }
 ```
 
-`@Alternative @Priority(1)` causes CDI to select your bean over WorkItems's default implementation. No `application.properties` change is needed for the bean selection itself, but the `casehub.work.escalation-policy` property is still read by the built-in policies — set it to `notify` (or any value) so the config validation passes if the built-in beans are still on the classpath.
+No qualifier or `@Alternative` annotation is needed — the `SlaBreachPolicy` injection point is unambiguous. The default implementation (`NoOpSlaBreachPolicy`) returns `Fail("no-sla-breach-policy-configured")`, so override it by providing your own `@ApplicationScoped` bean.
 
-```properties
-casehub.work.escalation-policy=notify
-casehub.work.claim-escalation-policy=notify
-```
-
-The expiry cleanup job (`ExpiryCleanupJob`) runs on the schedule configured by `casehub.work.cleanup.expiry-check-seconds` (default 60s). It calls your `EscalationPolicy` bean once per breached WorkItem per scan.
+The expiry cleanup job (`ExpiryCleanupJob`) runs on the schedule configured by `casehub.work.cleanup.expiry-check-seconds` (default 60s). It calls your `SlaBreachPolicy` bean once per breached WorkItem per scan and executes the returned `BreachDecision` before marking the item as expired.
 
 ---
 
@@ -585,7 +582,7 @@ Both `requestApproval()` (direct assignee) and `requestGroupApproval()` (candida
 
 ### Why they exist
 
-WorkItems previously defined its own strategy and event interfaces inside the runtime module. Extracting them into `quarkus-work-api` lets CaseHub adopt the same `WorkerSelectionStrategy`, `WorkerRegistry`, `WorkloadProvider`, and `EscalationPolicy` SPIs without depending on WorkItems. Cross-domain tools like `quarkus-work-ai` implement the SPIs once and serve both domains.
+WorkItems previously defined its own strategy and event interfaces inside the runtime module. Extracting them into `quarkus-work-api` lets CaseHub adopt the same `WorkerSelectionStrategy`, `WorkerRegistry`, `WorkloadProvider`, and `SlaBreachPolicy` SPIs without depending on WorkItems. Cross-domain tools like `quarkus-work-ai` implement the SPIs once and serve both domains.
 
 ### Module layout
 
@@ -636,20 +633,22 @@ void onCreated(@Observes @WorkEventType(WorkEventType.CREATED) WorkLifecycleEven
 
 Call `event.source()` to get the `WorkItem` entity. Call `event.sourceUri()` to get the URI string — do not confuse the two: `source()` returns `Object` typed as the work unit, not a string.
 
-### EscalationPolicy — single-method interface
+### SlaBreachPolicy — decision-returning interface
 
-`EscalationPolicy` has one method: `escalate(WorkLifecycleEvent event)`. Check `event.eventType()` to distinguish expiry (`WorkEventType.EXPIRED`, fired by `ExpiryCleanupJob`) from claim deadline (`WorkEventType.CLAIM_EXPIRED`, fired by `ClaimDeadlineJob`):
+`SlaBreachPolicy` has one method: `onBreach(SlaBreachContext context)`. Check `context.breachType()` to distinguish completion expiry (`BreachType.COMPLETION_EXPIRED`, fired by `ExpiryCleanupJob`) from claim deadline (`BreachType.CLAIM_EXPIRED`, fired by `ClaimDeadlineJob`):
 
 ```java
 @ApplicationScoped
-public class PagerDutyEscalation implements EscalationPolicy {
+public class PagerDutyBreachPolicy implements SlaBreachPolicy {
 
     @Override
-    public void escalate(WorkLifecycleEvent event) {
-        if (event.eventType() == WorkEventType.EXPIRED) {
-            pagerDuty.alert("WorkItem expired: " + event.sourceUri());
-        } else if (event.eventType() == WorkEventType.CLAIM_EXPIRED) {
-            pagerDuty.alert("Claim deadline missed: " + event.sourceUri());
+    public BreachDecision onBreach(SlaBreachContext context) {
+        if (context.breachType() == BreachType.COMPLETION_EXPIRED) {
+            pagerDuty.alert("WorkItem expired: " + context.task().taskId());
+            return EscalateTo.to("on-call-team").withDeadline(Duration.ofHours(2));
+        } else {
+            pagerDuty.alert("Claim deadline missed: " + context.task().taskId());
+            return EscalateTo.to("on-call-team");
         }
     }
 }

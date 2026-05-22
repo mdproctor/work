@@ -40,7 +40,7 @@ When a GitHub Issue's implicit deadline passes: nothing. There is no event. Ther
 - A webhook listener to receive the response
 - Your own escalation logic, outside your application
 
-WorkItems has a built-in expiry job, three escalation policies (`notify`, `reassign`, `auto-reject`), and a pluggable `EscalationPolicy` SPI. It runs inside your JVM. It never hits a rate limit.
+WorkItems has a built-in expiry job and a pluggable `SlaBreachPolicy` SPI that returns a typed `BreachDecision` (`EscalateTo`, `Extend`, or `Fail`). It runs inside your JVM. It never hits a rate limit.
 
 ### 2. Your data cannot leave your database
 

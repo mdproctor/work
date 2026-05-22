@@ -150,7 +150,7 @@ A policy that satisfies neither test — no ordering imposed, no external contex
 
 Examples:
 - "When a WorkItem expires, mark it EXPIRED" — **lifecycle management, quarkus-work** ✓
-- "When a WorkItem expires, escalate it to a supervisor group" — **lifecycle management, quarkus-work** ✓ (EscalationPolicy)
+- "When a WorkItem expires, escalate it to a supervisor group" — **lifecycle management, quarkus-work** ✓ (SlaBreachPolicy)
 - "When M-of-N child instances complete (static M, static N, same template), complete the parent" — **group policy, quarkus-work** ✓ (no ordering, no external context)
 - "When the group can no longer reach M completions due to rejections, reject the parent" — **group policy, quarkus-work** ✓ (same rationale)
 - "When a spawn group is cancelled, cancel pending children" — **group policy, quarkus-work** ✓ (cascade cancel)

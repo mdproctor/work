@@ -492,6 +492,25 @@ class ExpiryLifecycleServiceTest {
         assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.PENDING);
     }
 
+    @Test
+    void checkClaimDeadlines_withEscalateToDecision_triggersAutoAssignmentWhenCandidatesAvailable() {
+        final CapturingStrategy capturing = new CapturingStrategy();
+        service.assignmentService = new WorkItemAssignmentService(
+                capturing,
+                group -> java.util.List.of(WorkerCandidate.of("escalation-worker")),
+                id -> 0,
+                new WorkBroker(),
+                (userId, excluded) -> PolicyDecision.ALLOW);
+
+        policy.willReturn(BreachDecision.EscalateTo.to("senior-reviewers"));
+        final WorkItem wi = claimExpiredItem();
+        service.checkClaimDeadlines();
+
+        assertThat(capturing.calls).hasSize(1);
+        assertThat(store.get(wi.id).orElseThrow().assigneeId).isEqualTo("escalation-worker");
+        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.ASSIGNED);
+    }
+
     // ── checkClaimDeadlines — Extend decision ─────────────────────────────────
 
     @Test
