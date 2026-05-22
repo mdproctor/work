@@ -150,16 +150,6 @@ class DefaultBusinessCalendarTest {
         }
 
         @Override
-        public String escalationPolicy() {
-            return "notify";
-        }
-
-        @Override
-        public String claimEscalationPolicy() {
-            return "notify";
-        }
-
-        @Override
         public CleanupConfig cleanup() {
             return () -> 60;
         }

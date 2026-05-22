@@ -25,16 +25,6 @@ class WorkItemsConfigDefaultsTest {
     }
 
     @Test
-    void escalationPolicyIsNotify() {
-        assertThat(config.escalationPolicy()).isEqualTo("notify");
-    }
-
-    @Test
-    void claimEscalationPolicyIsNotify() {
-        assertThat(config.claimEscalationPolicy()).isEqualTo("notify");
-    }
-
-    @Test
     void cleanupExpiryCheckSecondsIs60() {
         assertThat(config.cleanup().expiryCheckSeconds()).isEqualTo(60);
     }

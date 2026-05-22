@@ -12,7 +12,6 @@ import io.smallrye.config.WithDefault;
  *
  * <pre>
  * casehub.work.default-expiry-hours=48
- * casehub.work.escalation-policy=reassign
  * casehub.work.cleanup.expiry-check-seconds=30
  * </pre>
  */
@@ -37,26 +36,6 @@ public interface WorkItemsConfig {
      */
     @WithDefault("4")
     int defaultClaimHours();
-
-    /**
-     * Escalation policy applied when a WorkItem's completion deadline ({@code expiresAt})
-     * passes without resolution.
-     * Accepted values: {@code notify}, {@code reassign}, {@code auto-reject}.
-     *
-     * @return policy name; defaults to {@code "notify"}
-     */
-    @WithDefault("notify")
-    String escalationPolicy();
-
-    /**
-     * Escalation policy applied when a WorkItem's claim deadline passes without
-     * the item being claimed.
-     * Accepted values: {@code notify}, {@code reassign}.
-     *
-     * @return policy name; defaults to {@code "notify"}
-     */
-    @WithDefault("notify")
-    String claimEscalationPolicy();
 
     /**
      * Expiry and claim-deadline cleanup job configuration.

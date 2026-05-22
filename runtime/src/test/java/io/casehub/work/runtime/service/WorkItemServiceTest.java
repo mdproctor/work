@@ -165,16 +165,6 @@ class WorkItemServiceTest {
             }
 
             @Override
-            public String escalationPolicy() {
-                return "notify";
-            }
-
-            @Override
-            public String claimEscalationPolicy() {
-                return "notify";
-            }
-
-            @Override
             public CleanupConfig cleanup() {
                 return () -> 60;
             }
@@ -1033,16 +1023,6 @@ class WorkItemServiceTest {
             @Override
             public int defaultClaimHours() {
                 return 0;
-            }
-
-            @Override
-            public String escalationPolicy() {
-                return "notify";
-            }
-
-            @Override
-            public String claimEscalationPolicy() {
-                return "notify";
             }
 
             @Override
