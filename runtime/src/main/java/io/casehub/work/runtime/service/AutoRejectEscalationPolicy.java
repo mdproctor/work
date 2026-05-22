@@ -14,7 +14,10 @@ import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.repository.AuditEntryStore;
 import io.casehub.work.runtime.repository.WorkItemStore;
 
+/** @deprecated Implement {@link io.casehub.work.api.SlaBreachPolicy} instead. Removal tracked in work#215. */
+@Deprecated
 @ApplicationScoped
+@SuppressWarnings("deprecation")
 public class AutoRejectEscalationPolicy implements EscalationPolicy {
 
     @Inject

@@ -59,5 +59,6 @@ public record WorkItemWithAuditResponse(
         String inputDataSchema,
         /** JSON Schema for resolution; snapshotted from template at instantiation. Null if unconstrained. */
         String outputDataSchema,
-        String excludedUsers) {
+        String excludedUsers,
+        String scope) {
 }

@@ -11,8 +11,12 @@
   <groupId>io.casehub</groupId>
   <artifactId>casehub-work-api</artifactId>
   <name>Quarkus Work - API (Shared SPI)</name>
-  <description>Pure Java shared SPI contracts for work management. Zero runtime dependencies. CaseHub and quarkus-work depend on this without pulling in implementation details.</description>
+  <description>Pure Java shared SPI contracts for work management. Depends on casehub-platform-api for Path and Preferences in SPI signatures. CaseHub and quarkus-work depend on this without pulling in Quarkus or JPA.</description>
   <dependencies>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform-api</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>

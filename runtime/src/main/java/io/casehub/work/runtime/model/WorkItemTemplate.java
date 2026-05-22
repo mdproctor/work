@@ -144,6 +144,13 @@ public class WorkItemTemplate extends PanacheEntityBase {
     public String excludedUsers;
 
     /**
+     * Hierarchical scope path in slash-separated form — e.g. {@code "casehubio/devtown/pr-review"}.
+     * Snapshotted onto {@link WorkItem#scope} at instantiation. Null means unscoped.
+     */
+    @Column(name = "scope")
+    public String scope;
+
+    /**
      * JSON Schema (draft-07) validating {@link WorkItem#payload} at instantiation.
      * Null means no input constraint. Snapshotted onto {@link WorkItem#inputDataSchema}
      * at instantiation time.

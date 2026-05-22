@@ -266,6 +266,15 @@ public class WorkItem extends PanacheEntityBase {
     @Column(name = "parent_id")
     public UUID parentId;
 
+    /**
+     * Hierarchical scope path in slash-separated form — e.g. {@code "casehubio/devtown/pr-review"}.
+     * Null means unscoped (root); the expiry service falls back to {@code Path.root()}.
+     * Set by the caller at creation time; snapshotted from the template if present.
+     * See engine#330 for engine-side propagation.
+     */
+    @Column(name = "scope")
+    public String scope;
+
     // -------------------------------------------------------------------------
     // Named outcomes (Refs #169)
     // -------------------------------------------------------------------------

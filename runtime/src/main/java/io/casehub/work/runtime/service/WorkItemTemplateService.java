@@ -242,6 +242,7 @@ public class WorkItemTemplateService {
                 .inputDataSchema(template.inputDataSchema)
                 .outputDataSchema(template.outputDataSchema)
                 .excludedUsers(template.excludedUsers)
+                .scope(template.scope)
                 .build();
     }
 

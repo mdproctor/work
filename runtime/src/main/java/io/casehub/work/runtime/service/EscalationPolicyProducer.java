@@ -7,7 +7,14 @@ import jakarta.inject.Inject;
 import io.casehub.work.api.EscalationPolicy;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 
+/**
+ * @deprecated Produces {@link io.casehub.work.api.EscalationPolicy} beans which are no longer injected.
+ * The config keys {@code casehub.work.escalation-policy} and {@code casehub.work.claim-escalation-policy}
+ * have no effect — migrate to {@link io.casehub.work.api.SlaBreachPolicy}. Removal tracked in work#215.
+ */
+@Deprecated
 @ApplicationScoped
+@SuppressWarnings("deprecation")
 public class EscalationPolicyProducer {
 
     @Inject

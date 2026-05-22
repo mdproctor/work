@@ -172,7 +172,12 @@ casehub-work/
 │       ├── WorkEventType.java             — enum: CREATED|ASSIGNED|EXPIRED|CLAIM_EXPIRED|SPAWNED|...
 │       ├── WorkLifecycleEvent.java        — base lifecycle event (source, eventType, sourceUri)
 │       ├── WorkloadProvider.java          — SPI: active workload count per worker
-│       ├── EscalationPolicy.java          — SPI: escalate(WorkLifecycleEvent)
+│       ├── EscalationPolicy.java          — @Deprecated SPI: replaced by SlaBreachPolicy (#212)
+│       ├── SlaBreachPolicy.java           — SPI: onBreach(SlaBreachContext) → BreachDecision
+│       ├── SlaBreachContext.java          — record: breachType, task, scope (Path), preferences
+│       ├── BreachDecision.java            — sealed: Fail(reason) | EscalateTo(groups,deadline) | Extend(by) | Chained(primary,fallback)
+│       ├── BreachType.java                — enum: CLAIM_EXPIRED | COMPLETION_EXPIRED
+│       ├── BreachedTask.java              — record: taskId, callerRef, title, candidateGroups
 │       ├── SkillProfile.java              — record: narrative + attributes
 │       ├── SkillProfileProvider.java      — SPI: getProfile(workerId, capabilities)
 │       ├── SkillMatcher.java              — SPI: score(SkillProfile, SelectionContext)
@@ -479,6 +484,10 @@ Each module owns its own version range. Flyway enforces uniqueness across all mo
 - `WorkItemsConfig.RoutingConfig` adding `CursorConfig cursor()` (an abstract method) breaks any existing test that used `RoutingConfig` as a single-abstract-method (functional) interface via lambda `() -> "least-loaded"`. Replace lambdas with anonymous inner classes that implement both `strategy()` and `cursor()`. (#202)
 - `casehub.work.routing.strategy=round-robin` activates `RoundRobinStrategy` for single-item routing AND `RoundRobinAssignmentStrategy` uses the same config to select its inner per-batch strategy. V29 adds `routing_cursor` table; V30 adds `last_accessed` column for TTL-based GC (`casehub.work.routing.cursor.ttl-days`, default 30 days; `casehub.work.routing.cursor.cleanup-cron`, default `"0 2 * * ?"`; set `"disabled"` to skip scheduling). Protocol PP-20260521-903472 governs three-place atomicity for strategy registration.
 - `@QuarkusComponentTest` in Quarkus 3.31+ auto-stubs any CDI dependency not discovered in the local module — external `@ApplicationScoped` beans (e.g. `JQEvaluator` from `casehub-platform-expression`) get a null-returning stub by default. To wire real beans from other modules, list them explicitly in the annotation's `value` attribute: `@QuarkusComponentTest({ MyBean.class, ExternalBean.class, MockDep.class })`. The renamed artifact is `quarkus-junit-component` (was `quarkus-junit5-component` before Quarkus 3.31 — use `quarkus-junit` for the test runner itself). (#207)
+- `@QuarkusComponentTest` auto-stubs `com.fasterxml.jackson.databind.ObjectMapper` — any bean with `@Inject ObjectMapper` will receive null. Fix: add an `@ApplicationScoped` inner class that `@Produces @Singleton @DefaultBean ObjectMapper objectMapper() { return new ObjectMapper(); }` and list it in the annotation's value array. Applies whenever you switch a class from `private static final ObjectMapper MAPPER = new ObjectMapper()` to `@Inject ObjectMapper mapper`. (#210)
+- `casehub-platform` (the mock runtime module, not `casehub-platform-api`) must be added as a `<scope>test</scope>` dependency to any module whose `@QuarkusTest` boots CDI after `casehub-work-api` gained a `casehub-platform-api` compile dep. Without it, Quarkus fails at augmentation: `Unsatisfied dependency for type PreferenceProvider`. Also requires `io.smallrye:jandex-maven-plugin:3.3.1` in `casehub-platform/pom.xml` so its beans are discoverable when consumed as a JAR (not just during its own test run). (#212)
+- `Path.of()` in `casehub-platform-api` throws `IllegalArgumentException` on zero arguments — there is no zero-segment root path factory. Use `Path.root()` (static factory added in casehub-platform commit `d8d8461`) for the org-wide fallback when a WorkItem has no assigned scope. `Path.parse("")` also throws. (#213)
+- `SlaBreachPolicy` replaces `EscalationPolicy` as the canonical breach-handling SPI. Returns `BreachDecision` (sealed: `Fail` / `EscalateTo` / `Extend` / `Chained`) instead of `void`. The expiry service calls `onBreach()` BEFORE marking the WorkItem as EXPIRED — the decision determines what happens. `SlaBreachEvent` CDI event carries the *leaf* decision (never the `Chained` wrapper) so observers can pattern-match directly. `EscalateTo.deadline` applies to `COMPLETION_EXPIRED` only — `CLAIM_EXPIRED` always uses `ClaimSlaPolicy` regardless. `EscalationPolicy`, `@ExpiryEscalation`, `@ClaimEscalation` are `@Deprecated`; removal tracked in work#215. (#212, #213)
 
 ---
 

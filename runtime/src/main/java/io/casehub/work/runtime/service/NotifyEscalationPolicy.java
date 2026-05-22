@@ -11,7 +11,10 @@ import io.casehub.work.api.WorkEventType;
 import io.casehub.work.api.WorkLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
 
+/** @deprecated Implement {@link io.casehub.work.api.SlaBreachPolicy} instead. Removal tracked in work#215. */
+@Deprecated
 @ApplicationScoped
+@SuppressWarnings("deprecation")
 public class NotifyEscalationPolicy implements EscalationPolicy {
 
     private static final Logger LOG = Logger.getLogger(NotifyEscalationPolicy.class);

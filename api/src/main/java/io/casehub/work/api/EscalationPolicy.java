@@ -3,16 +3,12 @@ package io.casehub.work.api;
 /**
  * SPI for escalation behaviour when work stalls past a deadline.
  *
- * <p>
- * Implementations in quarkus-work cast {@code event.source()} to {@code WorkItem}
- * and can inspect {@code event.eventType()} to distinguish between
- * {@link WorkEventType#EXPIRED} (completion deadline missed) and
- * {@link WorkEventType#CLAIM_EXPIRED} (claim deadline missed without assignment).
- *
- * <p>
- * Implementations are qualified with {@code @ExpiryEscalation} or
- * {@code @ClaimEscalation} in quarkus-work to distinguish the two injection points.
+ * @deprecated Replaced by {@link SlaBreachPolicy}, which returns a {@link BreachDecision}
+ *             instead of void — allowing the runtime to control execution. Migrate
+ *             implementations to {@link SlaBreachPolicy#onBreach(SlaBreachContext)}.
+ *             Will be removed once all known consumers have migrated.
  */
+@Deprecated
 public interface EscalationPolicy {
 
     /**

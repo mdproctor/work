@@ -27,7 +27,9 @@ public record CreateWorkItemRequest(
         Integer claimDeadlineBusinessHours,
         Integer expiresAtBusinessHours,
         /** Comma-separated user IDs excluded from claiming this WorkItem; null = no exclusion. */
-        String excludedUsers) {
+        String excludedUsers,
+        /** Hierarchical scope path e.g. {@code "casehubio/devtown/pr-review"}; null = root scope. */
+        String scope) {
 
     public static Builder builder() {
         return new Builder();
@@ -54,6 +56,7 @@ public record CreateWorkItemRequest(
         private Integer claimDeadlineBusinessHours;
         private Integer expiresAtBusinessHours;
         private String excludedUsers;
+        private String scope;
 
         public Builder title(final String v)                          { this.title = v; return this; }
         public Builder description(final String v)                    { this.description = v; return this; }
@@ -75,13 +78,14 @@ public record CreateWorkItemRequest(
         public Builder claimDeadlineBusinessHours(final Integer v)    { this.claimDeadlineBusinessHours = v; return this; }
         public Builder expiresAtBusinessHours(final Integer v)        { this.expiresAtBusinessHours = v; return this; }
         public Builder excludedUsers(final String v)                  { this.excludedUsers = v; return this; }
+        public Builder scope(final String v)                          { this.scope = v; return this; }
 
         public CreateWorkItemRequest build() {
             return new CreateWorkItemRequest(title, description, category, formKey,
                     priority, assigneeId, candidateGroups, candidateUsers,
                     requiredCapabilities, createdBy, payload, claimDeadline,
                     expiresAt, followUpDate, labels, confidenceScore, callerRef,
-                    claimDeadlineBusinessHours, expiresAtBusinessHours, excludedUsers);
+                    claimDeadlineBusinessHours, expiresAtBusinessHours, excludedUsers, scope);
         }
     }
 }

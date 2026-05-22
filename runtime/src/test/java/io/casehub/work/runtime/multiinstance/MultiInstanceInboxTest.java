@@ -39,7 +39,7 @@ class MultiInstanceInboxTest {
         item.createdBy = "test";
         item.persist();
 
-        List<WorkItemRootView> roots = store.scanRoots("alice-inbox-test", List.of());
+        List<WorkItemRootView> roots = store.scanRoots("alice-inbox-test", null, List.of());
         assertThat(roots).anyMatch(r -> r.workItem().id.equals(item.id)
                 && r.childCount() == 0
                 && r.completedCount() == null
@@ -58,7 +58,7 @@ class MultiInstanceInboxTest {
         t.persist();
 
         WorkItem parent = templateService.instantiate(t, null, null, "test");
-        List<WorkItemRootView> roots = store.scanRoots(null, List.of(t.candidateGroups));
+        List<WorkItemRootView> roots = store.scanRoots(null, null, List.of(t.candidateGroups));
 
         assertThat(roots).anyMatch(r -> r.workItem().id.equals(parent.id)
                 && r.childCount() == 3
@@ -83,7 +83,7 @@ class MultiInstanceInboxTest {
         WorkItem parent = templateService.instantiate(t, null, null, "test");
 
         // User in child-group has visibility into children, not coordinator parent directly
-        List<WorkItemRootView> roots = store.scanRoots(null, List.of(uniqueGroup));
+        List<WorkItemRootView> roots = store.scanRoots(null, null, List.of(uniqueGroup));
 
         assertThat(roots).anyMatch(r -> r.workItem().id.equals(parent.id));
     }
@@ -102,7 +102,7 @@ class MultiInstanceInboxTest {
 
         templateService.instantiate(t, null, null, "test");
 
-        List<WorkItemRootView> roots = store.scanRoots(null, List.of(uniqueGroup));
+        List<WorkItemRootView> roots = store.scanRoots(null, null, List.of(uniqueGroup));
 
         // All returned items must have parentId == null
         assertThat(roots).allMatch(r -> r.workItem().parentId == null);

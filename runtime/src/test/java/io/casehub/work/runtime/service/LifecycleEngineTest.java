@@ -181,10 +181,11 @@ class LifecycleEngineTest {
     @Test
     void claimDeadline_pendingItemPastDeadline_jobRuns() {
         WorkItem wi = createPastClaimDeadlineItem();
-        // Notify policy is the default — no status change expected, but job must not throw
+        // NoOpSlaBreachPolicy returns Fail — item transitions to EXPIRED when claim deadline passes.
+        // Applications configure SlaBreachPolicy to keep items active (EscalateTo, Extend).
         assertThatCode(() -> claimDeadlineJob.checkUnclaimedPastDeadline()).doesNotThrowAnyException();
         WorkItem reloaded = workItemStore.get(wi.id).orElseThrow();
-        assertThat(reloaded.status).isEqualTo(WorkItemStatus.PENDING);
+        assertThat(reloaded.status).isEqualTo(WorkItemStatus.EXPIRED);
     }
 
     @Test

@@ -100,6 +100,13 @@
     </dependency>
 
     <!-- Testing -->
+    <!-- Provides MockPreferenceProvider @DefaultBean so @QuarkusTest can satisfy PreferenceProvider injection -->
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-platform</artifactId>
+      <version>0.2-SNAPSHOT</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit</artifactId>

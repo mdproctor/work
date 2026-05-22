@@ -328,6 +328,23 @@ class WorkItemServiceTest {
         assertThat(wi.candidateGroups).isEqualTo("team-a,team-b");
     }
 
+    @Test
+    void create_withScope_copiesScopeToWorkItem() {
+        WorkItemCreateRequest req = WorkItemCreateRequest.builder()
+                .title("Scoped item")
+                .createdBy("system")
+                .scope("casehubio/devtown/pr-review")
+                .build();
+        WorkItem wi = service.create(req);
+        assertThat(wi.scope).isEqualTo("casehubio/devtown/pr-review");
+    }
+
+    @Test
+    void create_withNullScope_workItemScopeIsNull() {
+        WorkItem wi = service.create(basicRequest());
+        assertThat(wi.scope).isNull();
+    }
+
     // -------------------------------------------------------------------------
     // Happy paths — claim
     // -------------------------------------------------------------------------

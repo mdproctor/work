@@ -252,7 +252,9 @@ class WorkItemEventTest {
     }
 
     @Test
-    void expiryJob_emitsEscalatedEventAfterExpired() {
+    void expiryJob_emitsExpiredEvent_withNoOpPolicy() {
+        // NoOpSlaBreachPolicy returns Fail — only EXPIRED event fires (no ESCALATED).
+        // Applications configure SlaBreachPolicy to control the lifecycle event outcome.
         WorkItem wi = new WorkItem();
         wi.title = "Past expiry escalate";
         wi.status = WorkItemStatus.PENDING;
@@ -266,9 +268,7 @@ class WorkItemEventTest {
         expiryCleanupJob.checkExpired();
 
         List<WorkItemLifecycleEvent> expiredEvents = observer.ofType("expired");
-        List<WorkItemLifecycleEvent> escalatedEvents = observer.ofType("escalated");
         assertThat(expiredEvents).anyMatch(e -> e.workItemId().equals(wi.id));
-        assertThat(escalatedEvents).anyMatch(e -> e.workItemId().equals(wi.id));
     }
 
     @Test

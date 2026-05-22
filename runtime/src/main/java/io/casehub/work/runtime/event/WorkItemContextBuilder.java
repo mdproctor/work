@@ -72,6 +72,7 @@ public final class WorkItemContextBuilder {
         map.put("inputDataSchema", workItem.inputDataSchema);
         map.put("outputDataSchema", workItem.outputDataSchema);
         map.put("excludedUsers", workItem.excludedUsers);
+        map.put("scope", workItem.scope);
         return map;
     }
 }

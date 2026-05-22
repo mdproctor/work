@@ -64,6 +64,21 @@ class WorkItemTemplateServiceTest {
     }
 
     @Test
+    void toCreateRequest_copiesScope() {
+        final WorkItemTemplate t = template("T");
+        t.scope = "casehubio/devtown/pr-review";
+        final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
+        assertThat(req.scope).isEqualTo("casehubio/devtown/pr-review");
+    }
+
+    @Test
+    void toCreateRequest_scopeIsNullWhenTemplateHasNoScope() {
+        final WorkItemTemplate t = template("T");
+        final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "system");
+        assertThat(req.scope).isNull();
+    }
+
+    @Test
     void toCreateRequest_setsCreatedBy() {
         final WorkItemTemplate t = template("T");
         final WorkItemCreateRequest req = WorkItemTemplateService.toCreateRequest(t, null, null, "finance-bot");

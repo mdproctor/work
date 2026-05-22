@@ -33,6 +33,9 @@ public final class WorkItemCreateRequest {
     public final String outputDataSchema;
     public final String excludedUsers;
 
+    /** Hierarchical scope path e.g. {@code "casehubio/devtown/pr-review"}; null means root scope. */
+    public final String scope;
+
     private WorkItemCreateRequest(final Builder b) {
         this.title                      = b.title;
         this.description                = b.description;
@@ -58,6 +61,7 @@ public final class WorkItemCreateRequest {
         this.inputDataSchema            = b.inputDataSchema;
         this.outputDataSchema           = b.outputDataSchema;
         this.excludedUsers              = b.excludedUsers;
+        this.scope                      = b.scope;
     }
 
     public static Builder builder() {
@@ -95,7 +99,8 @@ public final class WorkItemCreateRequest {
                 && Objects.equals(permittedOutcomes, r.permittedOutcomes)
                 && Objects.equals(inputDataSchema, r.inputDataSchema)
                 && Objects.equals(outputDataSchema, r.outputDataSchema)
-                && Objects.equals(excludedUsers, r.excludedUsers);
+                && Objects.equals(excludedUsers, r.excludedUsers)
+                && Objects.equals(scope, r.scope);
     }
 
     @Override
@@ -104,7 +109,7 @@ public final class WorkItemCreateRequest {
                 assigneeId, candidateGroups, candidateUsers, requiredCapabilities,
                 createdBy, payload, claimDeadline, expiresAt, followUpDate, labels,
                 confidenceScore, callerRef, claimDeadlineBusinessHours, expiresAtBusinessHours,
-                templateId, permittedOutcomes, inputDataSchema, outputDataSchema, excludedUsers);
+                templateId, permittedOutcomes, inputDataSchema, outputDataSchema, excludedUsers, scope);
     }
 
     /** Intentionally omits payload, schemas, callerRef, and credentials — log-safety. */
@@ -141,6 +146,7 @@ public final class WorkItemCreateRequest {
         private String inputDataSchema;
         private String outputDataSchema;
         private String excludedUsers;
+        private String scope;
 
         private Builder() {}
 
@@ -169,6 +175,7 @@ public final class WorkItemCreateRequest {
             this.inputDataSchema            = src.inputDataSchema;
             this.outputDataSchema           = src.outputDataSchema;
             this.excludedUsers              = src.excludedUsers;
+            this.scope                      = src.scope;
         }
 
         public Builder title(final String v)                          { this.title = v; return this; }
@@ -195,6 +202,7 @@ public final class WorkItemCreateRequest {
         public Builder inputDataSchema(final String v)                { this.inputDataSchema = v; return this; }
         public Builder outputDataSchema(final String v)               { this.outputDataSchema = v; return this; }
         public Builder excludedUsers(final String v)                  { this.excludedUsers = v; return this; }
+        public Builder scope(final String v)                          { this.scope = v; return this; }
 
         public WorkItemCreateRequest build() {
             if (title == null || title.isBlank())

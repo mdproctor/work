@@ -29,7 +29,8 @@ public final class WorkItemMapper {
                 OutcomeCodecs.decodePermittedOutcomes(wi.permittedOutcomes),
                 wi.inputDataSchema,
                 wi.outputDataSchema,
-                wi.excludedUsers);
+                wi.excludedUsers,
+                wi.scope);
     }
 
     public static AuditEntryResponse toAuditResponse(final AuditEntry e) {
@@ -56,7 +57,8 @@ public final class WorkItemMapper {
                 OutcomeCodecs.decodePermittedOutcomes(wi.permittedOutcomes),
                 wi.inputDataSchema,
                 wi.outputDataSchema,
-                wi.excludedUsers);
+                wi.excludedUsers,
+                wi.scope);
     }
 
     public static WorkItemCreateRequest toServiceRequest(final CreateWorkItemRequest req) {
@@ -81,6 +83,7 @@ public final class WorkItemMapper {
                 .claimDeadlineBusinessHours(req.claimDeadlineBusinessHours())
                 .expiresAtBusinessHours(req.expiresAtBusinessHours())
                 .excludedUsers(req.excludedUsers())
+                .scope(req.scope())
                 // templateId, permittedOutcomes, inputDataSchema, outputDataSchema intentionally
                 // omitted — populated from a WorkItemTemplate at instantiation time, not on direct REST creation
                 .build();

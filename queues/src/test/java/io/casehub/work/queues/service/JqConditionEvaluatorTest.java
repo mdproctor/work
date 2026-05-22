@@ -2,22 +2,38 @@ package io.casehub.work.queues.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import org.junit.jupiter.api.Test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.casehub.platform.expression.JQEvaluator;
+import io.casehub.platform.expression.MockConfigManager;
+import io.casehub.platform.expression.MockSecretManager;
 import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemLabel;
 import io.casehub.work.runtime.model.WorkItemPriority;
 import io.casehub.work.runtime.model.WorkItemStatus;
-import io.casehub.platform.expression.JQEvaluator;
-import io.casehub.platform.expression.MockConfigManager;
-import io.casehub.platform.expression.MockSecretManager;
+import io.quarkus.arc.DefaultBean;
 import io.quarkus.test.component.QuarkusComponentTest;
 
-@QuarkusComponentTest({ JqConditionEvaluator.class, JQEvaluator.class, MockSecretManager.class, MockConfigManager.class })
+@QuarkusComponentTest({ JqConditionEvaluator.class, JQEvaluator.class, MockSecretManager.class, MockConfigManager.class,
+        JqConditionEvaluatorTest.ObjectMapperProducer.class })
 class JqConditionEvaluatorTest {
+
+    /** Provides a real ObjectMapper — @QuarkusComponentTest auto-stubs it otherwise (returns null). */
+    @ApplicationScoped
+    static class ObjectMapperProducer {
+        @Produces @Singleton @DefaultBean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
+    }
 
     @Inject
     JqConditionEvaluator evaluator;
@@ -73,6 +89,15 @@ class JqConditionEvaluatorTest {
         wi.labels.add(new WorkItemLabel("legal/contracts", LabelPersistence.MANUAL, "alice"));
         assertThat(evaluator.evaluate(wi,
                 ExpressionDescriptor.of("jq", ".labels | contains([\"legal/contracts\"])"))).isTrue();
+    }
+
+    @Test
+    void evaluate_nonBooleanJqOutput_returnsFalse() {
+        // A JQ expression that returns a String (not boolean true) must return false.
+        // ValidationResult.isTrue() requires literal JSON `true`.
+        final WorkItem wi = wi(WorkItemStatus.PENDING, WorkItemPriority.MEDIUM, null);
+        wi.title = "My PR";
+        assertThat(evaluator.evaluate(wi, ExpressionDescriptor.of("jq", ".title"))).isFalse();
     }
 
     private WorkItem wi(final WorkItemStatus s, final WorkItemPriority p, final String a) {

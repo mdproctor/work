@@ -84,16 +84,23 @@ public interface WorkItemStore {
     }
 
     /**
-     * Return root WorkItems (parentId IS NULL) visible to the given user,
-     * enriched with aggregate stats. Visible = directly assigned to user,
-     * in candidateGroups/Users, OR user has visibility into at least one descendant.
-     * Default returns empty list — override in JPA store.
+     * Return root WorkItems (parentId IS NULL) visible to the caller, enriched with aggregate stats.
      *
-     * @param userId the user to check visibility for; may be null
+     * <p>Visibility is an OR across all provided dimensions:
+     * <ul>
+     *   <li>{@code assignee} — matches {@code assigneeId = assignee}
+     *   <li>{@code candidateUser} — matches {@code candidateUsers CONTAINS candidateUser}
+     *   <li>{@code candidateGroups} — matches any group in the comma-separated {@code candidateGroups} field
+     * </ul>
+     *
+     * <p>Any null parameter is skipped; if all are null/empty, returns an empty list.
+     *
+     * @param assignee the worker currently assigned; may be null
+     * @param candidateUser a user eligible to claim the WorkItem; may be null
      * @param candidateGroups the groups to check visibility for; may be null or empty
      * @return list of root WorkItems enriched with child stats; never null
      */
-    default List<WorkItemRootView> scanRoots(String userId, List<String> candidateGroups) {
+    default List<WorkItemRootView> scanRoots(String assignee, String candidateUser, List<String> candidateGroups) {
         return java.util.Collections.emptyList();
     }
 }

@@ -95,6 +95,7 @@ public class WorkItemService {
         item.inputDataSchema = request.inputDataSchema;
         item.outputDataSchema = request.outputDataSchema;
         item.excludedUsers = request.excludedUsers;
+        item.scope = request.scope;
 
         final Instant now = Instant.now();
         item.createdAt = now;

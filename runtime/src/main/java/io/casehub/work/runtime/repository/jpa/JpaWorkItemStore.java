@@ -163,18 +163,21 @@ public class JpaWorkItemStore implements WorkItemStore {
     }
 
     @Override
-    public List<WorkItemRootView> scanRoots(final String userId, final List<String> userGroups) {
-        // Build visibility predicate using named params (same pattern as scan())
+    public List<WorkItemRootView> scanRoots(
+            final String assignee, final String candidateUser, final List<String> userGroups) {
+        // Build visibility predicate using named params (same pattern as scan()).
+        // Each non-null dimension is an independent OR predicate.
         final StringBuilder pred = new StringBuilder();
         final Map<String, Object> params = new HashMap<>();
 
-        if (userId != null && !userId.isBlank()) {
-            if (!pred.isEmpty()) {
-                pred.append(" OR ");
-            }
-            pred.append("assigneeId = :assigneeId OR candidateUsers LIKE :userIdLike");
-            params.put("assigneeId", userId);
-            params.put("userIdLike", "%" + userId + "%");
+        if (assignee != null && !assignee.isBlank()) {
+            pred.append("assigneeId = :assigneeId");
+            params.put("assigneeId", assignee);
+        }
+        if (candidateUser != null && !candidateUser.isBlank()) {
+            if (!pred.isEmpty()) pred.append(" OR ");
+            pred.append("candidateUsers LIKE :candidateUserLike");
+            params.put("candidateUserLike", "%" + candidateUser + "%");
         }
         if (userGroups != null) {
             int gi = 0;

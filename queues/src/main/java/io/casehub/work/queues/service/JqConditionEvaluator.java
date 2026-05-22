@@ -16,7 +16,8 @@ import io.casehub.work.runtime.model.WorkItem;
 @ApplicationScoped
 public class JqConditionEvaluator implements WorkItemExpressionEvaluator {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    @Inject
+    ObjectMapper mapper;
 
     @Inject
     JQEvaluator jqEvaluator;
@@ -31,7 +32,7 @@ public class JqConditionEvaluator implements WorkItemExpressionEvaluator {
         if (descriptor == null || descriptor.expression() == null || descriptor.expression().isBlank()) {
             return false;
         }
-        final JsonNode input = MAPPER.valueToTree(toMap(wi));
+        final JsonNode input = mapper.valueToTree(toMap(wi));
         return jqEvaluator.eval(descriptor.expression(), input).isTrue();
     }
 

@@ -80,5 +80,7 @@ public record WorkItemResponse(
          */
         String outputDataSchema,
         /** Comma-separated user IDs excluded from this WorkItem; null = unconstrained. */
-        String excludedUsers) {
+        String excludedUsers,
+        /** Hierarchical scope path e.g. {@code "casehubio/devtown/pr-review"}; null = root scope. */
+        String scope) {
 }

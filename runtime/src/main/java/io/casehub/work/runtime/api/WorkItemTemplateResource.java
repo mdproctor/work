@@ -105,6 +105,8 @@ public class WorkItemTemplateResource {
             JsonNode outputDataSchema,
             /** Comma-separated user IDs excluded from claiming instances; null = no exclusion. */
             String excludedUsers,
+            /** Hierarchical scope path e.g. {@code "casehubio/devtown/pr-review"}; null = root scope. */
+            String scope,
             String createdBy) {
     }
 
@@ -172,7 +174,8 @@ public class WorkItemTemplateResource {
             List<Outcome> outcomes,
             JsonNode inputDataSchema,
             JsonNode outputDataSchema,
-            String excludedUsers) {
+            String excludedUsers,
+            String scope) {
     }
 
     /**
@@ -233,6 +236,7 @@ public class WorkItemTemplateResource {
         t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.excludedUsers = request.excludedUsers();
+        t.scope = request.scope();
         t.createdBy = request.createdBy();
         try {
             WorkItemTemplateValidationService.validate(t);
@@ -359,6 +363,7 @@ public class WorkItemTemplateResource {
         t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.excludedUsers = request.excludedUsers();
+        t.scope = request.scope();
         try {
             WorkItemTemplateValidationService.validate(t);
         } catch (final IllegalArgumentException e) {
@@ -430,6 +435,7 @@ public class WorkItemTemplateResource {
         m.put("inputDataSchema", t.inputDataSchema);
         m.put("outputDataSchema", t.outputDataSchema);
         m.put("excludedUsers", t.excludedUsers);
+        m.put("scope", t.scope);
         m.put("createdBy", t.createdBy);
         m.put("createdAt", t.createdAt);
         return m;

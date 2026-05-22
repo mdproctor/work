@@ -165,8 +165,7 @@ public class WorkItemResource {
             @QueryParam("category") final String category,
             @QueryParam("followUp") final Boolean followUp,
             @QueryParam("outcome") final String outcome) {
-        Stream<WorkItemRootView> stream = workItemStore.scanRoots(
-                assignee != null ? assignee : candidateUser, candidateGroups).stream();
+        Stream<WorkItemRootView> stream = workItemStore.scanRoots(assignee, candidateUser, candidateGroups).stream();
         if (status != null)   stream = stream.filter(v -> Objects.equals(v.workItem().status, status));
         if (priority != null) stream = stream.filter(v -> Objects.equals(v.workItem().priority, priority));
         if (category != null) stream = stream.filter(v -> category.equals(v.workItem().category));
