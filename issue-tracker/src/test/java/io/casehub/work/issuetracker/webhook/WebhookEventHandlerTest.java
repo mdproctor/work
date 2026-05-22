@@ -68,7 +68,7 @@ class WebhookEventHandlerTest {
                 "github", "owner/repo#42", WebhookEventKind.CLOSED,
                 "alice", NormativeResolution.DONE, null, null, null, null, null));
 
-        verify(workItemService).complete(workItemId, "alice", null);
+        verify(workItemService).completeFromSystem(workItemId, "alice", null);
     }
 
     @Test
@@ -120,8 +120,8 @@ class WebhookEventHandlerTest {
                 "github", "owner/repo#42", WebhookEventKind.CLOSED,
                 "alice", NormativeResolution.DONE, null, null, null, null, null));
 
-        verify(workItemService).complete(wid1, "alice", null);
-        verify(workItemService).complete(wid2, "alice", null);
+        verify(workItemService).completeFromSystem(wid1, "alice", null);
+        verify(workItemService).completeFromSystem(wid2, "alice", null);
     }
 
     @Test
@@ -144,13 +144,13 @@ class WebhookEventHandlerTest {
         when(workItemStore.get(wid1)).thenReturn(Optional.of(wi1));
         when(workItemStore.get(wid2)).thenReturn(Optional.of(wi2));
         doThrow(new RuntimeException("service error"))
-                .when(workItemService).complete(eq(wid1), any(), any());
+                .when(workItemService).completeFromSystem(eq(wid1), any(), any());
 
         assertThatNoException().isThrownBy(() -> handler.handle(new WebhookEvent(
                 "github", "owner/repo#42", WebhookEventKind.CLOSED,
                 "alice", NormativeResolution.DONE, null, null, null, null, null)));
 
-        verify(workItemService).complete(wid2, "alice", null);
+        verify(workItemService).completeFromSystem(wid2, "alice", null);
     }
 
     // ── applyTransition / handle(UUID, WorkItem, WebhookEvent) ───────────────
@@ -161,7 +161,7 @@ class WebhookEventHandlerTest {
                 "github", "owner/repo#42", WebhookEventKind.CLOSED,
                 "alice", NormativeResolution.DONE, null, null, null, null, null));
 
-        verify(workItemService).complete(workItemId, "alice", null);
+        verify(workItemService).completeFromSystem(workItemId, "alice", null);
     }
 
     @Test
@@ -307,7 +307,7 @@ class WebhookEventHandlerTest {
     @Test
     void transitionFailure_swallowed() {
         doThrow(new IllegalStateException("wrong status"))
-                .when(workItemService).complete(any(), any(), any());
+                .when(workItemService).completeFromSystem(any(), any(), any());
 
         assertThatNoException().isThrownBy(() -> handler.handle(workItemId, activeWorkItem(),
                 new WebhookEvent("github", "owner/repo#42", WebhookEventKind.CLOSED,

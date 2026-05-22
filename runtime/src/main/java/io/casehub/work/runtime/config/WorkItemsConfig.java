@@ -183,9 +183,9 @@ public interface WorkItemsConfig {
          * Cron expression controlling when the cursor GC job runs.
          * Set to {@code "disabled"} to skip scheduling entirely.
          *
-         * @return cron expression; defaults to {@code "0 2 * * ?"} (daily at 02:00)
+         * @return cron expression; defaults to {@code "0 0 2 * * ?"} (daily at 02:00, Quartz 6-field format)
          */
-        @io.smallrye.config.WithDefault("0 2 * * ?")
+        @io.smallrye.config.WithDefault("0 0 2 * * ?")
         String cleanupCron();
     }
 }
