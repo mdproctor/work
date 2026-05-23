@@ -3,7 +3,7 @@ package io.casehub.work.ledger.api.dto;
 import java.time.Instant;
 import java.util.UUID;
 
-import io.casehub.ledger.api.model.ActorType;
+import io.casehub.platform.api.identity.ActorType;
 import io.casehub.ledger.api.model.AttestationVerdict;
 
 /**
