@@ -10,7 +10,7 @@ import io.casehub.work.api.SlaBreachContext;
  * <p>{@code decision} is the <em>leaf</em> that actually executed — never a
  * {@link BreachDecision.Chained} wrapper. Observers can pattern-match directly:
  * <pre>
- * void onBreach(@ObservesAsync SlaBreachEvent e) {
+ * void onBreach(@Observes SlaBreachEvent e) {
  *     switch (e.decision()) {
  *         case Fail f    -> notify("task expired: " + f.reason());
  *         case EscalateTo et -> notify("task escalated to " + et.groups());
