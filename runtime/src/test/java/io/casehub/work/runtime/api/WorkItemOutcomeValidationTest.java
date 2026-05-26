@@ -7,6 +7,8 @@ import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.work.runtime.model.AuditEntry;
+import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -25,6 +27,8 @@ class WorkItemOutcomeValidationTest {
     @BeforeEach
     @Transactional
     void clearTemplates() {
+        AuditEntry.deleteAll();
+        WorkItem.deleteAll();
         WorkItemTemplate.deleteAll();
     }
 
