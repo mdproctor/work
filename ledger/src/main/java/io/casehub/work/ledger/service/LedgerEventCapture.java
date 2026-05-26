@@ -18,6 +18,7 @@ import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.model.LedgerMerkleFrontier;
 import io.casehub.ledger.runtime.model.supplement.ComplianceSupplement;
+import io.casehub.ledger.runtime.model.supplement.ProvenanceSupplement;
 import io.casehub.ledger.runtime.service.LedgerMerkleTree;
 import io.casehub.work.ledger.model.WorkItemLedgerEntry;
 import io.casehub.work.ledger.repository.WorkItemLedgerEntryRepository;
@@ -111,6 +112,26 @@ public class LedgerEventCapture {
             compliance.decisionContext = buildDecisionContext(workItemOpt.get());
         }
         entry.attach(compliance);
+
+        // Provenance: link case-orchestrated WorkItems to their originating case.
+        // Only written on the creation entry — provenance is an origin property, not per-event.
+        // callerRef (format: "case:{caseId}/pi:{planItemId}") is set by casehub-engine via the
+        // work-adapter and stored opaquely on WorkItem — work does not own this format (PP-20260526-6d39e5).
+        // We store it unchanged as sourceEntityId rather than parsing out the caseId UUID: parsing
+        // here would couple casehub-work-ledger to an engine-internal format. Consumers needing
+        // the constituent caseId/planItemId must parse it themselves; sourceEntityType and
+        // sourceEntitySystem provide the lookup context.
+        if ("created".equals(suffix)) {
+            workItemOpt.ifPresent(wi -> {
+                if (wi.callerRef != null && !wi.callerRef.isBlank()) {
+                    final var prov = new ProvenanceSupplement();
+                    prov.sourceEntityId     = wi.callerRef;
+                    prov.sourceEntityType   = "CaseHub:CaseInstance";
+                    prov.sourceEntitySystem = "casehub-engine";
+                    entry.attach(prov);
+                }
+            });
+        }
 
         // Merkle leaf hash (chain integrity maintained by LedgerMerkleFrontier MMR)
         if (config.hashChain().enabled()) {

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.casehub.platform.api.identity.ActorType;
 import io.casehub.ledger.api.model.AttestationVerdict;
 import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.runtime.model.supplement.ProvenanceSupplement;
 import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.service.LedgerMerkleTree;
 import io.casehub.work.ledger.model.WorkItemLedgerEntry;
@@ -516,5 +517,45 @@ class LedgerIntegrationTest {
         assertThat(childCreated.causedByEntryId)
                 .as("child CREATED causedByEntryId should point to parent SPAWNED entry")
                 .isEqualTo(parentSpawned.id);
+    }
+
+    // -------------------------------------------------------------------------
+    // Provenance supplement — case-orchestrated WorkItems (work#223)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void create_withCallerRef_attachesProvenanceOnCreationEntryOnly() {
+        final String callerRef = "case:" + UUID.randomUUID() + "/pi:binding-1";
+        final var item = workItemService.create(WorkItemCreateRequest.builder()
+                .title("Provenance test")
+                .priority(WorkItemPriority.MEDIUM)
+                .createdBy("system")
+                .callerRef(callerRef)
+                .build());
+        workItemService.claim(item.id, "alice");
+
+        final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
+        assertThat(entries).hasSize(2);
+
+        // Creation entry: provenance supplement present with opaque callerRef
+        final WorkItemLedgerEntry created = entries.get(0);
+        assertThat(created.provenance()).isPresent();
+        final ProvenanceSupplement prov = created.provenance().get();
+        assertThat(prov.sourceEntityId).isEqualTo(callerRef);
+        assertThat(prov.sourceEntityType).isEqualTo("CaseHub:CaseInstance");
+        assertThat(prov.sourceEntitySystem).isEqualTo("casehub-engine");
+
+        // Subsequent entries: no provenance supplement
+        final WorkItemLedgerEntry claimed = entries.get(1);
+        assertThat(claimed.provenance()).isEmpty();
+    }
+
+    @Test
+    void create_withoutCallerRef_noProvenanceSupplement() {
+        final var item = workItemService.create(basicRequest("No provenance test"));
+
+        final List<WorkItemLedgerEntry> entries = ledgerRepo.findByWorkItemId(item.id);
+        assertThat(entries).hasSize(1);
+        assertThat(entries.get(0).provenance()).isEmpty();
     }
 }
