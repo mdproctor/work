@@ -60,6 +60,41 @@ class InboxFilterTest {
     }
 
     @Test
+    void inbox_outcomeFilter_returnsCompletedItemMatchingOutcome() {
+        final String user = uniqueUser();
+        final String workItemId = given().contentType(ContentType.JSON)
+                .body("""
+                        {"title":"Outcome item","createdBy":"test",\
+                        "candidateUsers":"%s","assigneeId":"%s"}
+                        """.formatted(user, user))
+                .post("/workitems")
+                .then().statusCode(201).extract().path("id");
+
+        given().put("/workitems/" + workItemId + "/start?actor=" + user).then().statusCode(200);
+        given().contentType(ContentType.JSON)
+                .body("{\"outcome\":\"approved\"}")
+                .put("/workitems/" + workItemId + "/complete?actor=" + user)
+                .then().statusCode(200);
+
+        // completed item IS returned when filtering by its outcome
+        given().queryParam("assignee", user)
+                .queryParam("outcome", "approved")
+                .get("/workitems/inbox")
+                .then()
+                .statusCode(200)
+                .body("$", hasSize(1))
+                .body("[0].item.outcome", equalTo("approved"));
+
+        // completed item is NOT returned when filtering by a different outcome
+        given().queryParam("assignee", user)
+                .queryParam("outcome", "rejected")
+                .get("/workitems/inbox")
+                .then()
+                .statusCode(200)
+                .body("$", hasSize(0));
+    }
+
+    @Test
     void inbox_priorityFilter_returnsOnlyMatchingItems() {
         final String user = uniqueUser();
         createItem(user, """
