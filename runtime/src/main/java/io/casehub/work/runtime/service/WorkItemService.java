@@ -521,6 +521,29 @@ public class WorkItemService {
     }
 
     @Transactional
+    public WorkItem extend(final UUID id, final Instant newExpiresAt, final String actorId) {
+        if (newExpiresAt == null) {
+            throw new IllegalArgumentException("newExpiresAt is required");
+        }
+        final WorkItem item = requireWorkItem(id);
+        if (item.status.isTerminal()) {
+            throw new IllegalStateException("Cannot extend WorkItem in status: " + item.status);
+        }
+        if (item.expiresAt != null && !newExpiresAt.isAfter(item.expiresAt)) {
+            throw new IllegalArgumentException(
+                    "newExpiresAt must be after current expiresAt (" + item.expiresAt + ")");
+        }
+        item.expiresAt = newExpiresAt;
+        item.updatedAt = Instant.now();
+        final WorkItem saved = workItemStore.put(item);
+        audit(saved.id, "DEADLINE_EXTENDED", actorId, null);
+        if (lifecycleEvent != null) {
+            lifecycleEvent.fire(WorkItemLifecycleEvent.of("DEADLINE_EXTENDED", saved, actorId, null));
+        }
+        return saved;
+    }
+
+    @Transactional
     public WorkItem addLabel(final UUID workItemId, final String path, final String appliedBy) {
         final WorkItem item = workItemStore.get(workItemId)
                 .orElseThrow(() -> new WorkItemNotFoundException(workItemId));

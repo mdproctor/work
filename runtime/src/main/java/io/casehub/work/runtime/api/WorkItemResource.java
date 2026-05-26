@@ -289,6 +289,22 @@ public class WorkItemResource {
         return WorkItemMapper.toResponse(workItemService.cancel(id, actor, body != null ? body.reason() : null));
     }
 
+    @PUT
+    @Path("/{id}/extend")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response extend(@PathParam("id") final UUID id,
+            @QueryParam("actor") final String actor,
+            final ExtendRequest body) {
+        try {
+            return Response.ok(WorkItemMapper.toResponse(
+                    workItemService.extend(id, body != null ? body.newExpiresAt() : null, actor))).build();
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
+    }
+
     @POST
     @Path("/{id}/labels")
     @Consumes(MediaType.APPLICATION_JSON)
