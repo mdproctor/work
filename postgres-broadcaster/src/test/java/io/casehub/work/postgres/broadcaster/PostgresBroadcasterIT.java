@@ -103,17 +103,28 @@ class PostgresBroadcasterIT {
 
     @Test
     void stream_filterByWorkItemId_onlyTargetIdDelivered() {
-        final WorkItem target = createWorkItem("Target item");
-        final List<WorkItemLifecycleEvent> received = new CopyOnWriteArrayList<>();
+        // Warm-up: subscribe to the unfiltered stream before creating the target,
+        // then wait for the target's CREATED event to arrive. This confirms the
+        // LISTEN channel is established and the async notify→receive path is working
+        // before we subscribe to the filtered stream and assert on it.
+        // Without this, @PostConstruct startListening() may not have completed its
+        // async LISTEN command in CI before the test fires events.
+        final List<WorkItemLifecycleEvent> warmup = new CopyOnWriteArrayList<>();
+        broadcaster.stream(null, null).subscribe().with(warmup::add);
 
+        final WorkItem target = createWorkItem("Target item");
+        Awaitility.await().atMost(Duration.ofSeconds(10))
+                .until(() -> warmup.stream().anyMatch(e -> target.id.equals(e.workItemId())));
+
+        // LISTEN channel confirmed active. Now subscribe to the filtered stream.
+        final List<WorkItemLifecycleEvent> received = new CopyOnWriteArrayList<>();
         broadcaster.stream(target.id, null).subscribe().with(received::add);
 
         createWorkItem("Noise item 1");
         createWorkItem("Noise item 2");
 
-        // Wait for noise to clear, then fire a known event on the target
-        final WorkItem claimed = claimWorkItem(target, "alice");
-        Awaitility.await().atMost(Duration.ofSeconds(5))
+        claimWorkItem(target, "alice");
+        Awaitility.await().atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
                     assertThat(received).isNotEmpty();
                     assertThat(received).allMatch(e -> target.id.equals(e.workItemId()));
