@@ -2,16 +2,11 @@ package io.casehub.work.deployment;
 
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.NativeImageResourcePatternsBuildItem;
 
 /**
  * Quarkus build-time processor for the WorkItems extension.
- * Registers the "workitems" feature so it appears in the startup log:
- * INFO features: [agroal, cdi, flyway, hibernate-orm, scheduler, workitems, ...]
- *
- * Additional @BuildStep methods to add as the extension matures:
- * - Native image reflection configuration for WorkItem, WorkItemStatus, etc.
- * - Registration of the escalation policy SPI for native
- * - Flyway migration resource registration for native builds
+ * Registers the "workitems" feature and SQL migration resources for native image.
  */
 class WorkItemsProcessor {
 
@@ -20,5 +15,12 @@ class WorkItemsProcessor {
     @BuildStep
     FeatureBuildItem feature() {
         return new FeatureBuildItem(FEATURE);
+    }
+
+    @BuildStep
+    NativeImageResourcePatternsBuildItem registerMigrationResources() {
+        return NativeImageResourcePatternsBuildItem.builder()
+                .includeGlob("db/work/migration/*.sql")
+                .build();
     }
 }
