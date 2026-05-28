@@ -62,6 +62,13 @@ Configuration properties: [`README.md`](../README.md#configuration)
 | *(none)* | casehub-work-postgres-broadcaster | No schema changes — uses the datasource already managed by the core extension |
 | *(none)* | casehub-work-queues-postgres-broadcaster | No schema changes — reuses datasource from `casehub-work-queues` |
 
+**work#229 (2026-05-28):** Renamed all module migration paths from `db/migration/` to
+`db/work/migration/` (PP-20260525-607b33 compliance). All Quarkus consumers must configure
+`quarkus.flyway.locations=classpath:db/work/migration`. Added `WorkItemsMigrationCustomizer`
+(FlywayConfigurationCustomizer — effective for non-Quarkus only; see
+PP-20260528-flyway-ext-reg for Quarkus limitation). Protocol
+`PP-20260528-flyway-ext-reg` written to casehub-parent.
+
 See CLAUDE.md **Flyway Migration Conventions** for the version-range allocation rule.
 
 ---

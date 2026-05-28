@@ -4,6 +4,31 @@ Read this before adding any database migration to this project.
 
 ---
 
+## Migration Path and Consumer Configuration
+
+casehub-work migrations live at `classpath:db/work/migration` (per platform protocol
+PP-20260525-607b33 — repo-scoped migration paths).
+
+**Consumer requirement (Quarkus):** Any Quarkus application embedding casehub-work must
+configure `quarkus.flyway.locations` explicitly:
+
+```properties
+quarkus.flyway.locations=classpath:db/work/migration
+```
+
+**Why explicit config is required:** Quarkus pre-registers migration file lists at build
+time from `quarkus.flyway.locations`. There is no runtime auto-registration — see
+`WorkItemsMigrationCustomizer` in the runtime module — effective in plain Flyway embedders; silently no-op in Quarkus due to build-time scanner pre-registration.
+
+**With casehub-ledger integration:** Until casehub-ledger implements its own
+`FlywayConfigurationCustomizer`, add both paths:
+
+```properties
+quarkus.flyway.locations=classpath:db/work/migration,classpath:db/ledger/migration
+```
+
+---
+
 ## Version Range Ownership
 
 Each module owns its own version range. Flyway enforces uniqueness across all modules loaded into the same application — a duplicate version number causes a startup failure.
@@ -51,7 +76,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn install -DskipTests -f ~/claude/ca
 `casehub-ledger#95` moved base ledger migrations (`ledger_entry`, `ledger_attestation`, `actor_trust_score` tables) from `classpath:db/migration` to `classpath:db/ledger/migration`. Any module consuming `casehub-ledger` or `casehub-work-ledger` must declare both paths in test `application.properties`:
 
 ```properties
-quarkus.flyway.locations=db/migration,db/ledger/migration
+quarkus.flyway.locations=classpath:db/work/migration,classpath:db/ledger/migration
 ```
 
 Missing the ledger path causes `FlywayMigrateException: Table "LEDGER_ENTRY" not found` on V2001+ migrations.
