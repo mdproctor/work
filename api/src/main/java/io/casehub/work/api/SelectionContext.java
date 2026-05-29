@@ -1,17 +1,16 @@
 package io.casehub.work.api;
 
+import java.util.Set;
+
 /**
  * Minimal WorkItem context passed to {@link WorkerSelectionStrategy#select}.
  *
- * <p>
- * Decouples strategies from the WorkItem JPA entity. CaseHub constructs this from
- * {@code TaskRequest}; WorkItems constructs it from the {@code WorkItem} entity.
+ * <p>Decouples strategies from the WorkItem JPA entity.
  *
  * @param category WorkItem category (may be null)
  * @param priority WorkItemPriority name e.g. "HIGH" (may be null)
- * @param requiredCapabilities comma-separated capability tags (may be null); matched
- *     against worker capability tags using exact case-sensitive string equality — no
- *     normalisation, aliasing, or prefix matching is applied
+ * @param requiredCapabilities capabilities the assignee must possess (empty set = no requirement);
+ *     matched against worker capability tags using exact case-sensitive equality
  * @param candidateGroups comma-separated group names (may be null)
  * @param candidateUsers comma-separated user IDs (may be null)
  * @param title work item title — used by semantic matchers (may be null)
@@ -21,7 +20,7 @@ package io.casehub.work.api;
 public record SelectionContext(
         String category,
         String priority,
-        String requiredCapabilities,
+        Set<Capability> requiredCapabilities,
         String candidateGroups,
         String candidateUsers,
         String title,

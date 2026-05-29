@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.work.api.AssignmentDecision;
 import io.casehub.work.api.AssignmentTrigger;
+import io.casehub.work.api.Capability;
 import io.casehub.work.api.SelectionContext;
 import io.casehub.work.api.WorkerCandidate;
 import io.casehub.work.api.WorkerSelectionStrategy;
@@ -23,7 +24,7 @@ class WorkBrokerTest {
         broker = new WorkBroker();
     }
 
-    private SelectionContext ctx(final String caps) {
+    private SelectionContext ctx(final Set<Capability> caps) {
         return new SelectionContext("finance", "HIGH", caps, null, "alice,bob", null, null, null);
     }
 
@@ -41,17 +42,21 @@ class WorkBrokerTest {
             }
         };
         final var cands = List.of(WorkerCandidate.of("alice"), WorkerCandidate.of("bob"));
-        final var result = broker.apply(ctx(null), AssignmentTrigger.RELEASED, cands, onlyCreated);
+        final var result = broker.apply(ctx(Set.of()), AssignmentTrigger.RELEASED, cands, onlyCreated);
         assertThat(result.isNoOp()).isTrue();
     }
 
     @Test
     void filtersOutCandidatesLackingRequiredCapabilities() {
         final WorkerSelectionStrategy strategy = (c, cands) -> AssignmentDecision.assignTo(cands.get(0).id());
-        final var alice = new WorkerCandidate("alice", Set.of("approval", "legal"), 0);
-        final var bob = new WorkerCandidate("bob", Set.of("approval"), 0);
+        final var alice = new WorkerCandidate("alice",
+                Set.of(Capability.of("approval"), Capability.of("legal")), 0);
+        final var bob = new WorkerCandidate("bob",
+                Set.of(Capability.of("approval")), 0);
         // require both approval + legal — only alice qualifies
-        final var result = broker.apply(ctx("approval,legal"), AssignmentTrigger.CREATED,
+        final var result = broker.apply(
+                ctx(Set.of(Capability.of("approval"), Capability.of("legal"))),
+                AssignmentTrigger.CREATED,
                 List.of(alice, bob), strategy);
         assertThat(result.assigneeId()).isEqualTo("alice");
     }
@@ -64,7 +69,7 @@ class WorkBrokerTest {
             return AssignmentDecision.noChange();
         };
         final var cands = List.of(WorkerCandidate.of("alice"), WorkerCandidate.of("bob"));
-        broker.apply(ctx(null), AssignmentTrigger.CREATED, cands, strategy);
+        broker.apply(ctx(Set.of()), AssignmentTrigger.CREATED, cands, strategy);
         assertThat(callCount[0]).isEqualTo(2);
     }
 
@@ -75,19 +80,22 @@ class WorkBrokerTest {
             callCount[0] = cands.size();
             return AssignmentDecision.noChange();
         };
-        final var alice = new WorkerCandidate("alice", Set.of("approval"), 0); // missing "legal"
-        broker.apply(ctx("approval,legal"), AssignmentTrigger.CREATED, List.of(alice), strategy);
+        final var alice = new WorkerCandidate("alice",
+                Set.of(Capability.of("approval")), 0); // missing "legal"
+        broker.apply(
+                ctx(Set.of(Capability.of("approval"), Capability.of("legal"))),
+                AssignmentTrigger.CREATED, List.of(alice), strategy);
         assertThat(callCount[0]).isZero();
     }
 
     @Test
-    void blankCapabilities_treatedAsNoFilter() {
+    void emptyRequiredCapabilities_treatedAsNoFilter() {
         final int[] callCount = { 0 };
         final WorkerSelectionStrategy strategy = (c, cands) -> {
             callCount[0] = cands.size();
             return AssignmentDecision.noChange();
         };
-        broker.apply(ctx("  "), AssignmentTrigger.CREATED, List.of(WorkerCandidate.of("alice")), strategy);
+        broker.apply(ctx(Set.of()), AssignmentTrigger.CREATED, List.of(WorkerCandidate.of("alice")), strategy);
         assertThat(callCount[0]).isEqualTo(1);
     }
 }

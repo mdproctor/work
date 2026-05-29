@@ -1,9 +1,6 @@
 package io.casehub.work.core.strategy;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -16,14 +13,12 @@ import io.casehub.work.api.WorkerSelectionStrategy;
 /**
  * Generic work assignment broker.
  *
- * <p>
- * Applies trigger gating, capability filtering, and strategy dispatch.
+ * <p>Applies trigger gating, capability filtering, and strategy dispatch.
  * Does not know about any specific work-unit type — all domain-specific
  * logic (candidate resolution, workload counting, decision application)
  * belongs in the caller (e.g. {@code WorkItemAssignmentService}).
  *
- * <p>
- * CaseHub replaces its {@code TaskBroker} by delegating to this bean.
+ * <p>CaseHub replaces its {@code TaskBroker} by delegating to this bean.
  */
 @ApplicationScoped
 public class WorkBroker {
@@ -53,20 +48,17 @@ public class WorkBroker {
     /**
      * Filters candidates to those possessing all required capabilities.
      *
-     * <p>Capability matching is exact and case-sensitive: {@code "legal-review"} and
-     * {@code "Legal-Review"} are distinct. No normalisation, aliasing, or prefix matching
-     * is applied. Engine case definitions and worker registrations must use identical strings.
+     * <p>Capability matching is exact and case-sensitive — enforced by the
+     * {@link io.casehub.work.api.Capability} constructor. Engine case definitions and
+     * worker registrations must use identical {@link io.casehub.work.api.Capability} values.
      */
     private List<WorkerCandidate> filterByCapabilities(
             final SelectionContext context, final List<WorkerCandidate> candidates) {
-        if (context.requiredCapabilities() == null || context.requiredCapabilities().isBlank()) {
+        if (context.requiredCapabilities().isEmpty()) {
             return candidates;
         }
-        final Set<String> required = Arrays.stream(context.requiredCapabilities().split(","))
-                .map(String::trim).filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
         return candidates.stream()
-                .filter(c -> c.capabilities().containsAll(required))
+                .filter(c -> c.capabilities().containsAll(context.requiredCapabilities()))
                 .toList();
     }
 }

@@ -18,9 +18,11 @@ class WorkerCandidateTest {
 
     @Test
     void fullConstructor_setsAllFields() {
-        final WorkerCandidate c = new WorkerCandidate("bob", Set.of("finance", "legal"), 3);
+        final WorkerCandidate c = new WorkerCandidate(
+                "bob", Set.of(Capability.of("finance"), Capability.of("legal")), 3);
         assertThat(c.id()).isEqualTo("bob");
-        assertThat(c.capabilities()).containsExactlyInAnyOrder("finance", "legal");
+        assertThat(c.capabilities()).containsExactlyInAnyOrder(
+                Capability.of("finance"), Capability.of("legal"));
         assertThat(c.activeWorkItemCount()).isEqualTo(3);
     }
 
