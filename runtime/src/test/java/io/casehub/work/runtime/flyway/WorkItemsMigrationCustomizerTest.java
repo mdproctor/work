@@ -17,13 +17,13 @@ class WorkItemsMigrationCustomizerTest {
     @Test
     void addsWorkMigrationPathToConfiguredLocations() {
         FluentConfiguration config = new FluentConfiguration();
-        config.locations("classpath:db/migration");
+        config.locations("classpath:db/some-other-module/migration");
 
         customizer.customize(config);
 
         assertThat(config.getLocations())
                 .extracting(Location::getPath)
-                .containsExactlyInAnyOrder("db/migration", WORK_PATH);
+                .containsExactlyInAnyOrder("db/some-other-module/migration", WORK_PATH);
     }
 
     @Test

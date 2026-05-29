@@ -6,7 +6,6 @@ import org.flywaydb.core.api.Location;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -28,7 +27,7 @@ public class WorkItemsMigrationCustomizer implements FlywayConfigurationCustomiz
     @Override
     public void customize(FluentConfiguration configuration) {
         Location target = new Location("classpath:db/work/migration");
-        List<Location> locations = new ArrayList<>(Arrays.asList(configuration.getLocations()));
+        List<Location> locations = new ArrayList<>(List.of(configuration.getLocations()));
         // Location.getPath() strips the classpath: prefix — comparison is prefix-agnostic
         // e.g. new Location("classpath:db/work/migration").getPath() == "db/work/migration"
         if (locations.stream().noneMatch(l -> l.getPath().equals(target.getPath()))) {
