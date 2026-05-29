@@ -50,6 +50,13 @@ public class WorkBroker {
         return strategy.select(context, filtered);
     }
 
+    /**
+     * Filters candidates to those possessing all required capabilities.
+     *
+     * <p>Capability matching is exact and case-sensitive: {@code "legal-review"} and
+     * {@code "Legal-Review"} are distinct. No normalisation, aliasing, or prefix matching
+     * is applied. Engine case definitions and worker registrations must use identical strings.
+     */
     private List<WorkerCandidate> filterByCapabilities(
             final SelectionContext context, final List<WorkerCandidate> candidates) {
         if (context.requiredCapabilities() == null || context.requiredCapabilities().isBlank()) {

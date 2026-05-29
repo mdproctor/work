@@ -9,7 +9,9 @@ package io.casehub.work.api;
  *
  * @param category WorkItem category (may be null)
  * @param priority WorkItemPriority name e.g. "HIGH" (may be null)
- * @param requiredCapabilities comma-separated capability tags (may be null)
+ * @param requiredCapabilities comma-separated capability tags (may be null); matched
+ *     against worker capability tags using exact case-sensitive string equality — no
+ *     normalisation, aliasing, or prefix matching is applied
  * @param candidateGroups comma-separated group names (may be null)
  * @param candidateUsers comma-separated user IDs (may be null)
  * @param title work item title — used by semantic matchers (may be null)
