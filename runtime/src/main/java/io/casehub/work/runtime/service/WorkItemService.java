@@ -141,9 +141,14 @@ public class WorkItemService {
             }
         }
 
+        // Pre-generate ID so CREATE_DENIED audit can reference it even if the WorkItem is never persisted.
+        // @PrePersist guards with if (id == null) so this is safe.
+        item.id = UUID.randomUUID();
+
         if (request.assigneeId != null) {
             final PolicyDecision createDecision = exclusionPolicy.check(request.assigneeId, item.excludedUsers);
             if (createDecision.denied()) {
+                blockedAuditService.record(item.id, "CREATE_DENIED", request.createdBy, createDecision.reason());
                 throw new IllegalArgumentException(createDecision.reason());
             }
         }

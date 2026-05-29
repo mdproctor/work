@@ -174,6 +174,31 @@ class WorkItemExcludedUsersTest {
                 .then().statusCode(200);
     }
 
+    // ── CREATE_DENIED audit ───────────────────────────────────────────────
+
+    @Test
+    void createWorkItem_withExcludedAssigneeId_createsDeniedAuditEntry() {
+        // The WorkItem is never persisted, but the CREATE_DENIED audit entry must survive.
+        // Use a distinct actor so the /audit query is unambiguous across parallel tests.
+        final String actor = "denied-create-actor-" + System.nanoTime();
+
+        given().contentType(ContentType.JSON)
+                .body("{\"title\":\"Conflict task\",\"candidateGroups\":\"ops\"," +
+                      "\"assigneeId\":\"alice\",\"excludedUsers\":\"alice\",\"createdBy\":\"" + actor + "\"}")
+                .post("/workitems")
+                .then()
+                .statusCode(400);
+
+        given().queryParam("event", "CREATE_DENIED")
+                .queryParam("actorId", actor)
+                .get("/audit")
+                .then()
+                .statusCode(200)
+                .body("entries.size()", org.hamcrest.Matchers.greaterThan(0))
+                .body("entries[0].actor", equalTo(actor))
+                .body("entries[0].detail", notNullValue());
+    }
+
     // ── Audit trail for blocked attempts ──────────────────────────────────
 
     @Test
