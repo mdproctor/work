@@ -20,7 +20,7 @@ class CapabilityValidatorTest {
             () -> Set.of(WorkCapabilities.LEGAL_REVIEW);
 
     private CapabilityValidator validatorWith(ValidationMode mode, CapabilityRegistry registry) {
-        return CapabilityValidator.forTest(mode, registry);
+        return new CapabilityValidator(mode, registry);
     }
 
     @Test

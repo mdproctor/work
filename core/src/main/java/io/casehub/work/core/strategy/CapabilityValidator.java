@@ -19,27 +19,22 @@ public class CapabilityValidator {
 
     private static final Logger LOG = Logger.getLogger(CapabilityValidator.class);
 
-    private final ValidationMode validationMode;
-    private final CapabilityRegistry registry;
+    @Inject
+    @ConfigProperty(name = "casehub.work.capability-validation",
+                    defaultValue = "PERMISSIVE")
+    private ValidationMode validationMode;
 
     @Inject
-    public CapabilityValidator(
-            @ConfigProperty(name = "casehub.work.capability-validation",
-                            defaultValue = "PERMISSIVE") ValidationMode validationMode,
-            CapabilityRegistry registry) {
-        this.validationMode = validationMode;
-        this.registry = registry;
-    }
+    private CapabilityRegistry registry;
 
-    private CapabilityValidator(ValidationMode validationMode, CapabilityRegistry registry,
-            @SuppressWarnings("unused") Void unused) {
-        this.validationMode = validationMode;
-        this.registry = registry;
+    public CapabilityValidator() {
+        // CDI no-arg constructor — fields injected above
     }
 
     /** For unit tests — bypasses CDI and config. */
-    static CapabilityValidator forTest(ValidationMode validationMode, CapabilityRegistry registry) {
-        return new CapabilityValidator(validationMode, registry, null);
+    CapabilityValidator(ValidationMode validationMode, CapabilityRegistry registry) {
+        this.validationMode = validationMode;
+        this.registry = registry;
     }
 
     /**
