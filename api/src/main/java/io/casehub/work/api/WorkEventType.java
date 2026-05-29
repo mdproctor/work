@@ -22,5 +22,7 @@ public enum WorkEventType {
     SPAWNED,
     ESCALATED,
     /** expiresAt deadline was extended forward by an actor or breach policy. */
-    DEADLINE_EXTENDED
+    DEADLINE_EXTENDED,
+    /** An external signal was received and routed to this work unit. */
+    SIGNAL_RECEIVED
 }
