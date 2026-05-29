@@ -2,6 +2,8 @@ package io.casehub.work.ai.skill;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,6 +14,7 @@ import org.jboss.logging.Logger;
 
 import io.casehub.work.ai.config.WorkItemsAiConfig;
 import io.casehub.work.api.AssignmentDecision;
+import io.casehub.work.api.Capability;
 import io.casehub.work.api.SelectionContext;
 import io.casehub.work.api.SkillMatcher;
 import io.casehub.work.api.SkillProfile;
@@ -80,8 +83,10 @@ public class SemanticWorkerSelectionStrategy implements WorkerSelectionStrategy 
         try {
             return candidates.stream()
                     .map(c -> {
+                        final Set<String> capabilityIds = c.capabilities().stream()
+                                .map(Capability::id).collect(Collectors.toSet());
                         final SkillProfile profile = profileProvider.getProfile(
-                                c.id(), c.capabilities());
+                                c.id(), capabilityIds);
                         final double score = matcher.score(profile, context);
                         return new CandidateScore(c, score);
                     })

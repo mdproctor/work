@@ -19,6 +19,13 @@ public class CapabilityValidator {
 
     private static final Logger LOG = Logger.getLogger(CapabilityValidator.class);
 
+    /**
+     * Injected via MicroProfile Config — the value is sourced from
+     * {@code casehub.work.capability-validation} which is declared in
+     * {@code WorkItemsConfig} (a {@code @ConfigMapping}) so SmallRye tracks it.
+     * The {@code @ConfigProperty} injection here reads the same key; the mapping
+     * ensures strict-mode validation doesn't reject it as unmapped.
+     */
     @Inject
     @ConfigProperty(name = "casehub.work.capability-validation",
                     defaultValue = "PERMISSIVE")

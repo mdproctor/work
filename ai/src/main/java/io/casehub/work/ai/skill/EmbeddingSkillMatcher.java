@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import io.casehub.work.api.Capability;
 import io.casehub.work.api.SelectionContext;
 import io.casehub.work.api.SkillMatcher;
 import io.casehub.work.api.SkillProfile;
@@ -68,7 +69,10 @@ public class EmbeddingSkillMatcher implements SkillMatcher {
     }
 
     private String requirementText(final SelectionContext ctx) {
-        return Stream.of(ctx.title(), ctx.description(), ctx.requiredCapabilities(), ctx.category())
+        final String capabilitiesText = ctx.requiredCapabilities() == null || ctx.requiredCapabilities().isEmpty()
+                ? null
+                : ctx.requiredCapabilities().stream().map(Capability::id).collect(Collectors.joining(" "));
+        return Stream.of(ctx.title(), ctx.description(), capabilitiesText, ctx.category())
                 .filter(s -> s != null && !s.isBlank())
                 .collect(Collectors.joining(" "));
     }
