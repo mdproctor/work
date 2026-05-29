@@ -17,6 +17,8 @@ import org.junit.jupiter.api.Test;
 
 import io.casehub.work.api.AssignmentDecision;
 import io.casehub.work.api.PolicyDecision;
+import io.casehub.work.api.ValidationMode;
+import io.casehub.work.core.strategy.CapabilityValidator;
 import io.casehub.work.core.strategy.WorkBroker;
 import io.casehub.work.runtime.model.WorkItemLabelRequest;
 import io.casehub.work.runtime.config.WorkItemsConfig;
@@ -240,7 +242,8 @@ class WorkItemServiceTest {
                         (userId, excluded) -> PolicyDecision.ALLOW),
                 new io.casehub.work.core.policy.ContinuationPolicy(),
                 (userId, excluded) -> PolicyDecision.ALLOW,
-                new BlockedAttemptAuditService(auditStore));
+                new BlockedAttemptAuditService(auditStore),
+                new CapabilityValidator(ValidationMode.PERMISSIVE, () -> java.util.Set.of()));
     }
 
     private WorkItemCreateRequest basicRequest() {
@@ -1087,7 +1090,8 @@ class WorkItemServiceTest {
                         (userId, excluded) -> PolicyDecision.ALLOW),
                 new io.casehub.work.core.policy.ContinuationPolicy(),
                 (userId, excluded) -> PolicyDecision.ALLOW,
-                new BlockedAttemptAuditService(auditStore));
+                new BlockedAttemptAuditService(auditStore),
+                new CapabilityValidator(ValidationMode.PERMISSIVE, () -> java.util.Set.of()));
         WorkItem wi = svc.create(basicRequest());
         assertThat(wi.claimDeadline).isNull();
     }

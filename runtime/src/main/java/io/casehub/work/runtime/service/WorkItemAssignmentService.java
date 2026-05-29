@@ -131,7 +131,7 @@ public class WorkItemAssignmentService {
         final SelectionContext context = new SelectionContext(
                 workItem.category,
                 workItem.priority != null ? workItem.priority.name() : null,
-                workItem.requiredCapabilities,
+                CapabilityParser.parseLenient(workItem.requiredCapabilities),
                 workItem.candidateGroups,
                 workItem.candidateUsers,
                 workItem.title,

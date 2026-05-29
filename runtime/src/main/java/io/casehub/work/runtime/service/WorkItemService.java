@@ -18,6 +18,7 @@ import io.casehub.work.api.ClaimSlaContext;
 import io.casehub.work.api.ClaimSlaPolicy;
 import io.casehub.work.api.ExclusionPolicy;
 import io.casehub.work.api.PolicyDecision;
+import io.casehub.work.core.strategy.CapabilityValidator;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.AuditEntry;
@@ -42,6 +43,7 @@ public class WorkItemService {
     private final ClaimSlaPolicy claimSlaPolicy;
     private final ExclusionPolicy exclusionPolicy;
     private final BlockedAttemptAuditService blockedAuditService;
+    private final CapabilityValidator capabilityValidator;
 
     @Inject
     EntityManager em;
@@ -62,7 +64,8 @@ public class WorkItemService {
             final WorkItemAssignmentService assignmentService,
             final ClaimSlaPolicy claimSlaPolicy,
             final ExclusionPolicy exclusionPolicy,
-            final BlockedAttemptAuditService blockedAuditService) {
+            final BlockedAttemptAuditService blockedAuditService,
+            final CapabilityValidator capabilityValidator) {
         this.workItemStore = workItemStore;
         this.auditStore = auditStore;
         this.config = config;
@@ -70,10 +73,12 @@ public class WorkItemService {
         this.claimSlaPolicy = claimSlaPolicy;
         this.exclusionPolicy = exclusionPolicy;
         this.blockedAuditService = blockedAuditService;
+        this.capabilityValidator = capabilityValidator;
     }
 
     @Transactional
     public WorkItem create(final WorkItemCreateRequest request) {
+        capabilityValidator.validate(CapabilityParser.parse(request.requiredCapabilities));
         final WorkItem item = new WorkItem();
         item.status = WorkItemStatus.PENDING;
         item.title = request.title;

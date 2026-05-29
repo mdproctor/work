@@ -32,7 +32,7 @@ public class CapabilityValidator {
     }
 
     /** For unit tests — bypasses CDI and config. */
-    CapabilityValidator(ValidationMode validationMode, CapabilityRegistry registry) {
+    public CapabilityValidator(ValidationMode validationMode, CapabilityRegistry registry) {
         this.validationMode = validationMode;
         this.registry = registry;
     }

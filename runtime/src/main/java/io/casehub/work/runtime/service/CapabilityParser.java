@@ -16,7 +16,7 @@ import io.casehub.work.api.MalformedCapabilityException;
  * <p>Two modes: {@link #parse} (strict — throws on bad format, for new input)
  * and {@link #parseLenient} (skips bad tokens with a warning, for existing DB rows).
  */
-final class CapabilityParser {
+public final class CapabilityParser {
 
     private static final Logger LOG = Logger.getLogger(CapabilityParser.class);
 
@@ -26,7 +26,7 @@ final class CapabilityParser {
      * Strict parse — throws {@link MalformedCapabilityException} on any malformed token.
      * Use for new user input (WorkItem creation).
      */
-    static Set<Capability> parse(String raw) {
+    public static Set<Capability> parse(String raw) {
         if (raw == null || raw.isBlank()) {
             return Set.of();
         }
@@ -41,7 +41,7 @@ final class CapabilityParser {
      * Lenient parse — skips malformed tokens with a WARN log entry.
      * Use when reading existing DB rows to build {@link io.casehub.work.api.SelectionContext}.
      */
-    static Set<Capability> parseLenient(String raw) {
+    public static Set<Capability> parseLenient(String raw) {
         if (raw == null || raw.isBlank()) {
             return Set.of();
         }

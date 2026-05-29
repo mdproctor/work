@@ -20,6 +20,7 @@ import io.casehub.work.core.strategy.LeastLoadedStrategy;
 import io.casehub.work.core.strategy.RoundRobinStrategy;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.model.WorkItem;
+import io.casehub.work.runtime.service.CapabilityParser;
 
 /**
  * Distributes instances across workers using the active {@link WorkerSelectionStrategy},
@@ -96,7 +97,7 @@ public class RoundRobinAssignmentStrategy implements InstanceAssignmentStrategy 
             final SelectionContext selCtx = new SelectionContext(
                     child.category,
                     child.priority != null ? child.priority.name() : null,
-                    child.requiredCapabilities,
+                    CapabilityParser.parseLenient(child.requiredCapabilities),
                     parent.candidateGroups,
                     filteredUsers,
                     child.title,

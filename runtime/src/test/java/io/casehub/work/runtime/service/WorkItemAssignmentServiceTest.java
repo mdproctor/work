@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.casehub.work.api.AssignmentDecision;
+import io.casehub.work.api.Capability;
 import io.casehub.work.api.PolicyDecision;
 import io.casehub.work.api.AssignmentTrigger;
 import io.casehub.work.api.SelectionContext;
@@ -137,8 +138,8 @@ class WorkItemAssignmentServiceTest {
     @Test
     void assign_filtersOut_candidatesFromRegistry_withoutRequiredCapabilities() {
         when(workerRegistry.resolveGroup("team")).thenReturn(List.of(
-                new WorkerCandidate("alice", Set.of("audit", "legal"), 0),
-                new WorkerCandidate("bob", Set.of("sales"), 0)));
+                new WorkerCandidate("alice", Set.of(Capability.of("audit"), Capability.of("legal")), 0),
+                new WorkerCandidate("bob", Set.of(Capability.of("sales")), 0)));
         final WorkItem wi = workItem(null, "team", null);
         wi.requiredCapabilities = "audit";
         service.assign(wi, AssignmentTrigger.CREATED);
@@ -148,7 +149,7 @@ class WorkItemAssignmentServiceTest {
     @Test
     void assign_returnsNoChange_whenAllCandidatesLackRequiredCapabilities() {
         when(workerRegistry.resolveGroup("team")).thenReturn(List.of(
-                new WorkerCandidate("alice", Set.of("sales"), 0)));
+                new WorkerCandidate("alice", Set.of(Capability.of("sales")), 0)));
         final WorkItem wi = workItem(null, "team", null);
         wi.requiredCapabilities = "audit";
         service.assign(wi, AssignmentTrigger.CREATED);
