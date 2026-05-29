@@ -215,6 +215,44 @@ class LabelEndpointTest {
     }
 
     @Test
+    void vocabulary_addDefinition_wildcardPath_returns400() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"path\": \"legal/*\", \"addedBy\": \"alice\"}")
+                .post("/vocabulary/GLOBAL")
+                .then()
+                .statusCode(400)
+                .body("error", org.hamcrest.Matchers.containsString("wildcard"));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"path\": \"legal/?\", \"addedBy\": \"alice\"}")
+                .post("/vocabulary/GLOBAL")
+                .then()
+                .statusCode(400)
+                .body("error", org.hamcrest.Matchers.containsString("wildcard"));
+    }
+
+    @Test
+    void vocabulary_addDefinition_pathStoredAndRetrievableByPath() {
+        String uniquePath = "test/converter-round-trip-99";
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"path\": \"" + uniquePath + "\", \"description\": \"converter test\", \"addedBy\": \"alice\"}")
+                .post("/vocabulary/GLOBAL")
+                .then()
+                .statusCode(201)
+                .body("path", equalTo(uniquePath));
+
+        given()
+                .get("/vocabulary")
+                .then()
+                .statusCode(200)
+                .body("path", org.hamcrest.Matchers.hasItem(uniquePath));
+    }
+
+    @Test
     void vocabulary_addDefinition_emptyPath_returns400() {
         given()
                 .contentType(ContentType.JSON)

@@ -6,6 +6,7 @@ import java.util.UUID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
+import io.casehub.platform.api.path.Path;
 import io.casehub.work.runtime.model.LabelDefinition;
 import io.casehub.work.runtime.model.LabelVocabulary;
 import io.casehub.work.runtime.model.VocabularyScope;
@@ -56,7 +57,7 @@ public class LabelVocabularyService {
      * Scope enforcement is deferred — any declared path is currently accepted.
      */
     @Transactional
-    public boolean isDeclared(final String path) {
+    public boolean isDeclared(final Path path) {
         return !LabelDefinition.findByPath(path).isEmpty();
     }
 
@@ -64,7 +65,7 @@ public class LabelVocabularyService {
      * Add a new label definition to the given vocabulary.
      */
     @Transactional
-    public LabelDefinition addDefinition(final UUID vocabularyId, final String path,
+    public LabelDefinition addDefinition(final UUID vocabularyId, final Path path,
             final String description, final String createdBy) {
         final LabelDefinition def = new LabelDefinition();
         def.path = path;

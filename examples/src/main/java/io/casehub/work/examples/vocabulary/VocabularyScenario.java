@@ -88,11 +88,11 @@ public class VocabularyScenario {
         final LabelVocabulary vocab = vocabularyService.findOrCreateVocabulary(
                 VocabularyScope.TEAM, TEAM_ID, "HR Team Leave Vocabulary");
 
-        vocabularyService.addDefinition(vocab.id, "leave/annual",
+        vocabularyService.addDefinition(vocab.id, io.casehub.platform.api.path.Path.parse("leave/annual"),
                 "Standard annual leave entitlement", ACTOR_ADMIN);
-        vocabularyService.addDefinition(vocab.id, "leave/sick",
+        vocabularyService.addDefinition(vocab.id, io.casehub.platform.api.path.Path.parse("leave/sick"),
                 "Sick leave — self-certified or GP-certified", ACTOR_ADMIN);
-        vocabularyService.addDefinition(vocab.id, "leave/parental",
+        vocabularyService.addDefinition(vocab.id, io.casehub.platform.api.path.Path.parse("leave/parental"),
                 "Parental leave — maternity, paternity, or shared", ACTOR_ADMIN);
 
         // Count all definitions in this vocabulary

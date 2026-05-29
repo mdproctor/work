@@ -5,11 +5,13 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
+import io.casehub.platform.api.path.Path;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 
 /**
@@ -26,9 +28,10 @@ public class LabelDefinition extends PanacheEntityBase {
     @Id
     public UUID id;
 
-    /** The full label path, e.g. {@code legal/contracts/nda}. */
+    /** The full label path, e.g. {@code legal/contracts/nda}. NOT NULL enforced at DB level — converter null path is unreachable. */
     @Column(nullable = false, length = 500)
-    public String path;
+    @Convert(converter = PathAttributeConverter.class)
+    public Path path;
 
     /** The vocabulary this definition belongs to. */
     @Column(name = "vocabulary_id", nullable = false)
@@ -60,7 +63,7 @@ public class LabelDefinition extends PanacheEntityBase {
     }
 
     /** Find by exact path across all vocabularies. */
-    public static List<LabelDefinition> findByPath(final String path) {
+    public static List<LabelDefinition> findByPath(final Path path) {
         return find("path", path).list();
     }
 }

@@ -38,7 +38,7 @@ public class VocabularyResource {
         return vocabularyService.listAccessible(VocabularyScope.PERSONAL).stream()
                 .map(d -> Map.<String, Object> of(
                         "id", d.id,
-                        "path", d.path,
+                        "path", d.path.value(),
                         "vocabularyId", d.vocabularyId,
                         "description", d.description != null ? d.description : "",
                         "createdBy", d.createdBy,
@@ -58,6 +58,19 @@ public class VocabularyResource {
         if (request == null || request.path() == null || request.path().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of("error", "path is required"))
+                    .build();
+        }
+        if (request.path().contains("*") || request.path().contains("?")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "path must not contain wildcard characters"))
+                    .build();
+        }
+        final io.casehub.platform.api.path.Path labelPath;
+        try {
+            labelPath = io.casehub.platform.api.path.Path.parse(request.path());
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "invalid path: " + e.getMessage()))
                     .build();
         }
 
@@ -94,11 +107,11 @@ public class VocabularyResource {
         }
 
         final LabelDefinition def = vocabularyService.addDefinition(
-                vocab.id, request.path(), request.description(),
+                vocab.id, labelPath, request.description(),
                 request.addedBy() != null ? request.addedBy() : "unknown");
 
         return Response.status(Response.Status.CREATED)
-                .entity(Map.of("id", def.id, "path", def.path, "scope", scope))
+                .entity(Map.of("id", def.id, "path", def.path.value(), "scope", scope))
                 .build();
     }
 }
