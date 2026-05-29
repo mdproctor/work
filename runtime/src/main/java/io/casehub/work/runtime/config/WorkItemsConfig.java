@@ -126,6 +126,20 @@ public interface WorkItemsConfig {
     }
 
     /**
+     * Capability vocabulary validation mode.
+     *
+     * <ul>
+     * <li>{@code STRICT} — reject WorkItem creation if any required capability is unknown
+     * <li>{@code WARN} — log a warning but proceed
+     * <li>{@code PERMISSIVE} — no registry check (default)
+     * </ul>
+     *
+     * @return validation mode; defaults to {@code PERMISSIVE}
+     */
+    @WithDefault("PERMISSIVE")
+    io.casehub.work.api.ValidationMode capabilityValidation();
+
+    /**
      * Worker selection strategy configuration.
      *
      * @return the routing configuration group

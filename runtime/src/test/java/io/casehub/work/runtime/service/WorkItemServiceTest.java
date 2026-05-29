@@ -172,6 +172,11 @@ class WorkItemServiceTest {
             }
 
             @Override
+            public io.casehub.work.api.ValidationMode capabilityValidation() {
+                return io.casehub.work.api.ValidationMode.PERMISSIVE;
+            }
+
+            @Override
             public RoutingConfig routing() {
                 return new RoutingConfig() {
                     @Override public String strategy() { return "least-loaded"; }
@@ -1031,6 +1036,11 @@ class WorkItemServiceTest {
             @Override
             public CleanupConfig cleanup() {
                 return () -> 60;
+            }
+
+            @Override
+            public io.casehub.work.api.ValidationMode capabilityValidation() {
+                return io.casehub.work.api.ValidationMode.PERMISSIVE;
             }
 
             @Override

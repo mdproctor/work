@@ -73,6 +73,9 @@ public class WorkItemResource {
             final WorkItem created = workItemService.create(WorkItemMapper.toServiceRequest(request));
             final URI location = URI.create("/workitems/" + created.id);
             return Response.created(location).entity(WorkItemMapper.toResponse(created)).build();
+        } catch (io.casehub.work.api.MalformedCapabilityException | io.casehub.work.api.UnknownCapabilityException e) {
+            // Let the dedicated @Provider mappers handle these — do not swallow them here.
+            throw e;
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of("error", e.getMessage()))

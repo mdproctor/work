@@ -155,6 +155,11 @@ class DefaultBusinessCalendarTest {
         }
 
         @Override
+        public io.casehub.work.api.ValidationMode capabilityValidation() {
+            return io.casehub.work.api.ValidationMode.PERMISSIVE;
+        }
+
+        @Override
         public RoutingConfig routing() {
             return new RoutingConfig() {
                 @Override public String strategy() { return "least-loaded"; }
