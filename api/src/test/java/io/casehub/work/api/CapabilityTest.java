@@ -16,11 +16,17 @@ class CapabilityTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Legal-Review", "legal_review", "legal-", "a--b", "3legal", "-legal", ""})
+    @ValueSource(strings = {"Legal-Review", "legal_review", "legal-", "a--b", "3legal", "-legal"})
     void of_rejectsInvalidFormat(String id) {
         assertThatThrownBy(() -> Capability.of(id))
                 .isInstanceOf(MalformedCapabilityException.class)
-                .hasMessageContaining(id.isEmpty() ? "" : id);
+                .hasMessageContaining(id);
+    }
+
+    @Test
+    void of_rejectsEmptyString() {
+        assertThatThrownBy(() -> Capability.of(""))
+                .isInstanceOf(MalformedCapabilityException.class);
     }
 
     @Test

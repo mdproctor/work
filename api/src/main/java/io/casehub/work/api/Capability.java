@@ -1,6 +1,7 @@
 package io.casehub.work.api;
 
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * A validated capability name. Format: lowercase kebab-case only ([a-z][a-z0-9]*(-[a-z0-9]+)*).
@@ -8,9 +9,11 @@ import java.util.Objects;
  */
 public record Capability(String id) {
 
+    private static final Pattern KEBAB_CASE = Pattern.compile("[a-z][a-z0-9]*(-[a-z0-9]+)*");
+
     public Capability {
         Objects.requireNonNull(id);
-        if (!id.matches("[a-z][a-z0-9]*(-[a-z0-9]+)*")) {
+        if (!KEBAB_CASE.matcher(id).matches()) {
             throw new MalformedCapabilityException(id);
         }
     }
