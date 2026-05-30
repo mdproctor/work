@@ -40,6 +40,11 @@ public class JpaWorkItemStore implements WorkItemStore {
     }
 
     @Override
+    public Optional<WorkItem> findByCallerRef(final String callerRef) {
+        return WorkItem.find("callerRef = ?1", callerRef).firstResultOptional();
+    }
+
+    @Override
     public List<WorkItem> scan(final WorkItemQuery query) {
         final Map<String, Object> params = new HashMap<>();
         final StringBuilder jpql = new StringBuilder();

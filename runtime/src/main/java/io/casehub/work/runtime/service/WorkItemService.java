@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -635,6 +636,19 @@ public class WorkItemService {
         }
 
         return clone;
+    }
+
+    /**
+     * Finds a WorkItem by its callerRef. Used only during JVM startup recovery by
+     * casehub-engine's HumanTaskRecoveryService — not called on the hot path.
+     *
+     * @param callerRef the callerRef to match (format: "case:{caseId}/pi:{planItemId}")
+     * @return an Optional containing the WorkItem if found
+     */
+    public Optional<WorkItem> findByCallerRef(final String callerRef) {
+        return workItemStore.scanAll().stream()
+                .filter(w -> callerRef.equals(w.callerRef))
+                .findFirst();
     }
 
     private ClaimSlaContext buildClaimSlaContext(final WorkItem item, final Instant now) {

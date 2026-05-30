@@ -89,6 +89,27 @@ public interface WorkItemStore {
     }
 
     /**
+     * Find a WorkItem by its caller reference.
+     *
+     * <p>
+     * {@code callerRef} is the opaque string set by the caller when the WorkItem was created
+     * (e.g. {@code "case:{caseId}/pi:{planItemId}"}). At most one WorkItem should exist per
+     * callerRef; if multiple exist the first result is returned.
+     *
+     * <p>
+     * The default implementation performs a linear scan via {@link #scanAll()} — override in
+     * JPA/SQL stores for an indexed query.
+     *
+     * @param callerRef the caller reference to look up; must not be {@code null}
+     * @return an {@link Optional} containing the matching WorkItem, or empty if not found
+     */
+    default Optional<WorkItem> findByCallerRef(String callerRef) {
+        return scanAll().stream()
+                .filter(wi -> callerRef.equals(wi.callerRef))
+                .findFirst();
+    }
+
+    /**
      * Return root WorkItems (parentId IS NULL) visible to the caller, enriched with aggregate stats.
      *
      * <p>Visibility is an OR across all provided dimensions:
