@@ -11,7 +11,9 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.jboss.logging.Logger;
 import io.casehub.work.api.Outcome;
 import io.casehub.work.api.LabelPersistence;
@@ -219,9 +221,7 @@ public class WorkItemTemplateService {
                 ? titleOverride
                 : template.name;
 
-        final String payload = (payloadOverride != null && !payloadOverride.isBlank())
-                ? payloadOverride
-                : template.defaultPayload;
+        final String payload = mergePayload(template.defaultPayload, payloadOverride);
 
         return WorkItemCreateRequest.builder()
                 .title(title)
@@ -244,6 +244,42 @@ public class WorkItemTemplateService {
                 .excludedUsers(template.excludedUsers)
                 .scope(template.scope)
                 .build();
+    }
+
+    /**
+     * Deep-merges two JSON payloads. When both are JSON objects, overlay keys win on conflict
+     * and nested objects are merged recursively. When either is null/blank, the other is returned.
+     * When either value is not a JSON object (array, scalar, etc.), the overlay wins entirely.
+     * Malformed JSON in either argument falls back to returning the overlay unchanged.
+     */
+    static String mergePayload(final String base, final String overlay) {
+        final boolean baseBlank = base == null || base.isBlank();
+        final boolean overlayBlank = overlay == null || overlay.isBlank();
+        if (baseBlank && overlayBlank) return null;
+        if (baseBlank) return overlay;
+        if (overlayBlank) return base;
+        try {
+            final JsonNode baseNode = MAPPER.readTree(base);
+            final JsonNode overlayNode = MAPPER.readTree(overlay);
+            // Non-object types (arrays, scalars) — overlay wins; no merge possible
+            if (!baseNode.isObject() || !overlayNode.isObject()) return overlay;
+            return MAPPER.writeValueAsString(deepMerge((ObjectNode) baseNode.deepCopy(), overlayNode));
+        } catch (final Exception e) {
+            // Malformed JSON — fall back to overlay to preserve the caller's intent
+            return overlay;
+        }
+    }
+
+    private static ObjectNode deepMerge(final ObjectNode base, final JsonNode overlay) {
+        overlay.fields().forEachRemaining(entry -> {
+            final JsonNode baseValue = base.get(entry.getKey());
+            if (baseValue != null && baseValue.isObject() && entry.getValue().isObject()) {
+                base.set(entry.getKey(), deepMerge((ObjectNode) baseValue.deepCopy(), entry.getValue()));
+            } else {
+                base.set(entry.getKey(), entry.getValue());
+            }
+        });
+        return base;
     }
 
     /** @see OutcomeCodecs#parseOutcomeNames */

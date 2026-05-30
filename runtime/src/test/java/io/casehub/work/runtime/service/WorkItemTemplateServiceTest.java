@@ -203,6 +203,65 @@ class WorkItemTemplateServiceTest {
         assertThat(req.payload).isNull();
     }
 
+    @Test
+    void toCreateRequest_mergePayload_disjointKeys_bothPreserved() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"type\":\"default\"}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "{\"case\":\"42\"}");
+        assertThat(req.payload).contains("\"type\":\"default\"");
+        assertThat(req.payload).contains("\"case\":\"42\"");
+    }
+
+    @Test
+    void toCreateRequest_mergePayload_overlayKeyWinsConflict_baseUniqueKeysPreserved() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"type\":\"base\",\"extra\":\"kept\"}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "{\"type\":\"override\"}");
+        assertThat(req.payload).contains("\"type\":\"override\"");
+        assertThat(req.payload).contains("\"extra\":\"kept\"");
+    }
+
+    @Test
+    void toCreateRequest_mergePayload_nestedObjects_deepMerged() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"data\":{\"x\":1}}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "{\"data\":{\"y\":2}}");
+        assertThat(req.payload).contains("\"x\":1");
+        assertThat(req.payload).contains("\"y\":2");
+    }
+
+    @Test
+    void toCreateRequest_mergePayload_nonObjectOverlay_overlayWins() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"type\":\"base\"}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "\"just a string\"");
+        assertThat(req.payload).isEqualTo("\"just a string\"");
+    }
+
+    @Test
+    void toCreateRequest_mergePayload_arrayOverlay_overlayWins() {
+        final WorkItemTemplate t = template("T");
+        t.defaultPayload = "{\"type\":\"base\"}";
+        final WorkItemCreateRequest req =
+            WorkItemTemplateService.toCreateRequest(t, null, null, "system", null, "[1,2,3]");
+        assertThat(req.payload).isEqualTo("[1,2,3]");
+    }
+
+    @Test
+    void mergePayload_bothNull_returnsNull() {
+        assertThat(WorkItemTemplateService.mergePayload(null, null)).isNull();
+    }
+
+    @Test
+    void mergePayload_malformedBase_returnsOverlay() {
+        assertThat(WorkItemTemplateService.mergePayload("not-json{{{", "{\"key\":\"value\"}"))
+                .isEqualTo("{\"key\":\"value\"}");
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private WorkItemTemplate template(final String name) {

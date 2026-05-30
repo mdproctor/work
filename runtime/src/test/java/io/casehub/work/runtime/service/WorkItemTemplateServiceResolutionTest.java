@@ -88,7 +88,7 @@ class WorkItemTemplateServiceResolutionTest {
     // ── instantiate: payloadOverride ─────────────────────────────────────────
 
     @Test
-    void instantiate_payloadOverride_usedInsteadOfTemplateDefault() {
+    void instantiate_payloadOverride_deepMergedWithTemplateDefault() {
         final WorkItemTemplate t = persist("Clinical Trial Consent");
         t.defaultPayload = "{\"type\":\"default\"}";
 
@@ -96,7 +96,9 @@ class WorkItemTemplateServiceResolutionTest {
             t, null, null, "casehub-engine", "case:x/pi:y", "{\"trialId\":\"T-99\"}");
 
         assertThat(workItem).isNotNull();
-        assertThat(workItem.payload).isEqualTo("{\"trialId\":\"T-99\"}");
+        // Deep merge: disjoint keys from both are preserved; override wins on conflict
+        assertThat(workItem.payload).contains("\"type\":\"default\"");
+        assertThat(workItem.payload).contains("\"trialId\":\"T-99\"");
     }
 
     @Test
