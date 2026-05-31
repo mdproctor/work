@@ -44,6 +44,9 @@ public class WorkItemTemplateService {
     @Inject
     Instance<MultiInstanceSpawnService> multiInstanceSpawnService;
 
+    @Inject
+    TemplateExpander templateExpander;
+
     /**
      * Instantiate a {@link WorkItemTemplate} into a new PENDING {@link WorkItem}.
      *
@@ -131,16 +134,29 @@ public class WorkItemTemplateService {
             final String callerRef,
             final String payloadOverride) {
 
+        // Expand excludedGroups → actor IDs before any creation path
+        final String expandedExcludedUsers = templateExpander.expandExcludedUsers(template);
+
         if (template.instanceCount != null) {
             if (payloadOverride != null && !payloadOverride.isBlank()) {
                 // payloadOverride is not forwarded to multi-instance spawning in this release
                 LOG.warnf("payloadOverride ignored for multi-instance template '%s' (casehubio/work#175)", template.id);
             }
-            return multiInstanceSpawnService.get().createGroup(template, titleOverride, createdBy, callerRef);
+            return multiInstanceSpawnService.get()
+                    .createGroup(template, expandedExcludedUsers, titleOverride, createdBy, callerRef);
         }
 
-        final WorkItemCreateRequest request =
+        WorkItemCreateRequest request =
             toCreateRequest(template, titleOverride, assigneeIdOverride, createdBy, callerRef, payloadOverride);
+        // Only rebuild when expansion actually added new actor IDs; no-op when all group members
+        // were already in excludedUsers or when groups resolved to empty (NoOp provider).
+        if (expandedExcludedUsers != null && !expandedExcludedUsers.equals(request.excludedUsers)) {
+            final String auditDetail = buildExpansionAuditDetail(template, expandedExcludedUsers);
+            request = request.toBuilder()
+                    .excludedUsers(expandedExcludedUsers)
+                    .auditDetail(auditDetail)
+                    .build();
+        }
         WorkItem workItem = workItemService.create(request);
 
         // Apply template labels as MANUAL — the filter engine may add INFERRED on top
@@ -280,6 +296,20 @@ public class WorkItemTemplateService {
             }
         });
         return base;
+    }
+
+    private static String buildExpansionAuditDetail(final WorkItemTemplate template,
+                                                     final String expandedExcludedUsers) {
+        if (template.excludedGroups == null || template.excludedGroups.isBlank()) return null;
+        final long before = template.excludedUsers == null ? 0L
+                : java.util.Arrays.stream(template.excludedUsers.split(","))
+                        .map(String::trim).filter(s -> !s.isEmpty()).count();
+        final long after = expandedExcludedUsers == null ? 0L
+                : java.util.Arrays.stream(expandedExcludedUsers.split(","))
+                        .map(String::trim).filter(s -> !s.isEmpty()).count();
+        final long added = after - before;
+        if (added <= 0) return null;
+        return "excludedGroups=[\"" + template.excludedGroups.trim() + "\"] resolved to " + added + " actor(s)";
     }
 
     /** @see OutcomeCodecs#parseOutcomeNames */

@@ -189,7 +189,7 @@ class MultiInstanceCoordinatorTest {
             t.instanceCount = 3;
             t.requiredCount = 2;
             t.persist();
-            return spawnService.createGroup(t, null, "test", callerRef).id;
+            return spawnService.createGroup(t, null, null, "test", callerRef).id;
         });
 
         final WorkItem parent = inTx(() -> WorkItem.findById(parentId));

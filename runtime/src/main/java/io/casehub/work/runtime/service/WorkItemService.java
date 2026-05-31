@@ -160,7 +160,7 @@ public class WorkItemService {
         }
         assignmentService.assign(item, AssignmentTrigger.CREATED);
         final WorkItem saved = workItemStore.put(item);
-        audit(saved.id, "CREATED", request.createdBy, null);
+        audit(saved.id, "CREATED", request.createdBy, request.auditDetail);
         if (lifecycleEvent != null) {
             lifecycleEvent.fire(WorkItemLifecycleEvent.of("CREATED", saved, request.createdBy, null));
         }

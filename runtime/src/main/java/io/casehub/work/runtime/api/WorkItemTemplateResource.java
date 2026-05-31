@@ -105,6 +105,8 @@ public class WorkItemTemplateResource {
             JsonNode outputDataSchema,
             /** Comma-separated user IDs excluded from claiming instances; null = no exclusion. */
             String excludedUsers,
+            /** Comma-separated group names whose members are excluded at instantiation time; null = no exclusion. */
+            String excludedGroups,
             /** Hierarchical scope path e.g. {@code "casehubio/devtown/pr-review"}; null = root scope. */
             String scope,
             String createdBy) {
@@ -150,6 +152,7 @@ public class WorkItemTemplateResource {
      * @param inputDataSchema            optional JSON Schema (draft-07) for payload validation
      * @param outputDataSchema           optional JSON Schema (draft-07) for resolution validation
      * @param excludedUsers              optional comma-separated user IDs excluded from claiming
+     * @param excludedGroups             optional comma-separated group names excluded from claiming (expanded at instantiation)
      */
     public record UpdateTemplateRequest(
             String name,
@@ -175,6 +178,7 @@ public class WorkItemTemplateResource {
             JsonNode inputDataSchema,
             JsonNode outputDataSchema,
             String excludedUsers,
+            String excludedGroups,
             String scope) {
     }
 
@@ -236,6 +240,7 @@ public class WorkItemTemplateResource {
         t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.excludedUsers = request.excludedUsers();
+        t.excludedGroups = request.excludedGroups();
         t.scope = request.scope();
         t.createdBy = request.createdBy();
         try {
@@ -363,6 +368,7 @@ public class WorkItemTemplateResource {
         t.inputDataSchema = request.inputDataSchema() != null ? request.inputDataSchema().toString() : null;
         t.outputDataSchema = request.outputDataSchema() != null ? request.outputDataSchema().toString() : null;
         t.excludedUsers = request.excludedUsers();
+        t.excludedGroups = request.excludedGroups();
         t.scope = request.scope();
         try {
             WorkItemTemplateValidationService.validate(t);
@@ -435,6 +441,7 @@ public class WorkItemTemplateResource {
         m.put("inputDataSchema", t.inputDataSchema);
         m.put("outputDataSchema", t.outputDataSchema);
         m.put("excludedUsers", t.excludedUsers);
+        m.put("excludedGroups", t.excludedGroups);
         m.put("scope", t.scope);
         m.put("createdBy", t.createdBy);
         m.put("createdAt", t.createdAt);

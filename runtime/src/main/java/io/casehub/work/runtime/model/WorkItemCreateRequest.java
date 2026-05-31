@@ -36,6 +36,9 @@ public final class WorkItemCreateRequest {
     /** Hierarchical scope path e.g. {@code "casehubio/devtown/pr-review"}; null means root scope. */
     public final String scope;
 
+    /** Optional detail appended to the CREATED audit entry. Used to record group expansion notes. */
+    public final String auditDetail;
+
     private WorkItemCreateRequest(final Builder b) {
         this.title                      = b.title;
         this.description                = b.description;
@@ -62,6 +65,7 @@ public final class WorkItemCreateRequest {
         this.outputDataSchema           = b.outputDataSchema;
         this.excludedUsers              = b.excludedUsers;
         this.scope                      = b.scope;
+        this.auditDetail                = b.auditDetail;
     }
 
     public static Builder builder() {
@@ -100,7 +104,8 @@ public final class WorkItemCreateRequest {
                 && Objects.equals(inputDataSchema, r.inputDataSchema)
                 && Objects.equals(outputDataSchema, r.outputDataSchema)
                 && Objects.equals(excludedUsers, r.excludedUsers)
-                && Objects.equals(scope, r.scope);
+                && Objects.equals(scope, r.scope)
+                && Objects.equals(auditDetail, r.auditDetail);
     }
 
     @Override
@@ -147,6 +152,7 @@ public final class WorkItemCreateRequest {
         private String outputDataSchema;
         private String excludedUsers;
         private String scope;
+        private String auditDetail;
 
         private Builder() {}
 
@@ -176,6 +182,7 @@ public final class WorkItemCreateRequest {
             this.outputDataSchema           = src.outputDataSchema;
             this.excludedUsers              = src.excludedUsers;
             this.scope                      = src.scope;
+            this.auditDetail                = src.auditDetail;
         }
 
         public Builder title(final String v)                          { this.title = v; return this; }
@@ -203,6 +210,7 @@ public final class WorkItemCreateRequest {
         public Builder outputDataSchema(final String v)               { this.outputDataSchema = v; return this; }
         public Builder excludedUsers(final String v)                  { this.excludedUsers = v; return this; }
         public Builder scope(final String v)                          { this.scope = v; return this; }
+        public Builder auditDetail(final String v)                    { this.auditDetail = v; return this; }
 
         public WorkItemCreateRequest build() {
             if (title == null || title.isBlank())

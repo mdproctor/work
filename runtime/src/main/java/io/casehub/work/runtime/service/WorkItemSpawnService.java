@@ -46,16 +46,18 @@ public class WorkItemSpawnService implements SpawnPort {
     private final WorkItemStore workItemStore;
     private final WorkItemService workItemService;
     private final AuditEntryStore auditStore;
+    private final TemplateExpander templateExpander;
 
     @Inject
     Event<WorkItemLifecycleEvent> lifecycleEvent;
 
     @Inject
     public WorkItemSpawnService(final WorkItemStore workItemStore, final WorkItemService workItemService,
-            final AuditEntryStore auditStore) {
+            final AuditEntryStore auditStore, final TemplateExpander templateExpander) {
         this.workItemStore = workItemStore;
         this.workItemService = workItemService;
         this.auditStore = auditStore;
+        this.templateExpander = templateExpander;
     }
 
     /**
@@ -133,7 +135,7 @@ public class WorkItemSpawnService implements SpawnPort {
                     .permittedOutcomes(WorkItemTemplateService.parseOutcomeNames(template.outcomes))
                     .inputDataSchema(template.inputDataSchema)
                     .outputDataSchema(template.outputDataSchema)
-                    .excludedUsers(template.excludedUsers)
+                    .excludedUsers(templateExpander.expandExcludedUsers(template))
                     .build();
 
             final WorkItem child = workItemService.create(createRequest);

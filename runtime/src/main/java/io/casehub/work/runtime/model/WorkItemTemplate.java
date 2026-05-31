@@ -143,6 +143,12 @@ public class WorkItemTemplate extends PanacheEntityBase {
     @Column(name = "excluded_users", columnDefinition = "TEXT")
     public String excludedUsers;
 
+    /** Comma-separated group names excluded from claiming WorkItems from this template.
+     *  Expanded to actor IDs via GroupMembershipProvider at instantiation and merged into
+     *  {@link WorkItem#excludedUsers}. No excluded_groups column on work_item. Refs #184. */
+    @Column(name = "excluded_groups", columnDefinition = "TEXT")
+    public String excludedGroups;
+
     /**
      * Hierarchical scope path in slash-separated form — e.g. {@code "casehubio/devtown/pr-review"}.
      * Snapshotted onto {@link WorkItem#scope} at instantiation. Null means unscoped.

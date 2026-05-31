@@ -69,13 +69,15 @@ public class MultiInstanceSpawnService {
      * </ul>
      */
     @Transactional
-    public WorkItem createGroup(final WorkItemTemplate template, final String titleOverride,
-            final String createdBy, final String callerRef) {
+    public WorkItem createGroup(final WorkItemTemplate template, final String expandedExcludedUsers,
+            final String titleOverride, final String createdBy, final String callerRef) {
         final boolean isCoordinator = template.parentRole == null
                 || ParentRole.COORDINATOR.name().equals(template.parentRole);
 
         // 1. Create parent
-        final WorkItemCreateRequest parentReq = buildParentRequest(template, titleOverride, createdBy, isCoordinator, callerRef);
+        final String expansionNote = buildExpansionNote(template, expandedExcludedUsers);
+        final WorkItemCreateRequest parentReq = buildParentRequest(
+                template, expandedExcludedUsers, expansionNote, titleOverride, createdBy, isCoordinator, callerRef);
         final WorkItem parent = workItemService.create(parentReq);
 
         // 2. Create WorkItemSpawnGroup with M-of-N policy
@@ -94,7 +96,7 @@ public class MultiInstanceSpawnService {
         // 3. Create N child instances and wire PART_OF relations
         final List<WorkItem> children = new ArrayList<>();
         for (int i = 0; i < template.instanceCount; i++) {
-            final WorkItemCreateRequest childReq = buildChildRequest(template, createdBy, i, group);
+            final WorkItemCreateRequest childReq = buildChildRequest(template, expandedExcludedUsers, createdBy, i, group);
             final WorkItem child = workItemService.create(childReq);
             child.parentId = parent.id;
 
@@ -123,9 +125,20 @@ public class MultiInstanceSpawnService {
         return parent;
     }
 
+    private static String buildExpansionNote(final WorkItemTemplate template, final String expanded) {
+        if (template.excludedGroups == null || template.excludedGroups.isBlank()) return null;
+        long before = template.excludedUsers == null ? 0L
+                : java.util.Arrays.stream(template.excludedUsers.split(",")).map(String::trim).filter(s -> !s.isEmpty()).count();
+        long after = expanded == null ? 0L
+                : java.util.Arrays.stream(expanded.split(",")).map(String::trim).filter(s -> !s.isEmpty()).count();
+        long added = after - before;
+        if (added <= 0) return null;
+        return "excludedGroups=[\"" + template.excludedGroups.trim() + "\"] resolved to " + added + " actor(s)";
+    }
+
     private WorkItemCreateRequest buildParentRequest(final WorkItemTemplate template,
-            final String titleOverride, final String createdBy, final boolean isCoordinator,
-            final String callerRef) {
+            final String expandedExcludedUsers, final String auditDetail, final String titleOverride,
+            final String createdBy, final boolean isCoordinator, final String callerRef) {
         final String title = (titleOverride != null && !titleOverride.isBlank())
                 ? titleOverride
                 : template.name;
@@ -145,12 +158,14 @@ public class MultiInstanceSpawnService {
                 .permittedOutcomes(WorkItemTemplateService.parseOutcomeNames(template.outcomes))
                 .inputDataSchema(template.inputDataSchema)
                 .outputDataSchema(template.outputDataSchema)
-                .excludedUsers(template.excludedUsers)
+                .excludedUsers(expandedExcludedUsers)
+                .auditDetail(auditDetail)
                 .build();
     }
 
     private WorkItemCreateRequest buildChildRequest(final WorkItemTemplate template,
-            final String createdBy, final int index, final WorkItemSpawnGroup group) {
+            final String expandedExcludedUsers, final String createdBy,
+            final int index, final WorkItemSpawnGroup group) {
         return WorkItemCreateRequest.builder()
                 .title(template.name + " [" + (index + 1) + "/" + template.instanceCount + "]")
                 .description(template.description)
@@ -167,7 +182,7 @@ public class MultiInstanceSpawnService {
                 .permittedOutcomes(WorkItemTemplateService.parseOutcomeNames(template.outcomes))
                 .inputDataSchema(template.inputDataSchema)
                 .outputDataSchema(template.outputDataSchema)
-                .excludedUsers(template.excludedUsers)
+                .excludedUsers(expandedExcludedUsers)
                 .build();
     }
 

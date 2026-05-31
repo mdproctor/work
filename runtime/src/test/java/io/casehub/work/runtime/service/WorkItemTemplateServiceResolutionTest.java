@@ -3,12 +3,22 @@ package io.casehub.work.runtime.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.platform.api.identity.GroupMember;
+import io.casehub.platform.api.identity.GroupMembershipProvider;
+import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.quarkus.test.junit.QuarkusTest;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,10 +33,40 @@ class WorkItemTemplateServiceResolutionTest {
     @Inject
     WorkItemTemplateService templateService;
 
+    /**
+     * Configurable @Alternative GroupMembershipProvider for tests.
+     * Takes priority over NoOpGroupMembershipProvider @DefaultBean.
+     */
+    @Alternative
+    @Priority(1)
+    @ApplicationScoped
+    public static class TestGroupMembershipProvider implements GroupMembershipProvider {
+        private static final Map<String, Set<GroupMember>> GROUPS = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public static void configure(String group, Set<GroupMember> members) {
+            GROUPS.put(group, members);
+        }
+
+        public static void reset() {
+            GROUPS.clear();
+        }
+
+        @Override
+        public Set<GroupMember> membersOf(String groupName) {
+            return GROUPS.getOrDefault(groupName, Set.of());
+        }
+    }
+
     @BeforeEach
     @Transactional
     void clearTemplates() {
         WorkItemTemplate.deleteAll();
+        TestGroupMembershipProvider.reset();
+    }
+
+    @AfterEach
+    void resetGroups() {
+        TestGroupMembershipProvider.reset();
     }
 
     // ── findByName ────────────────────────────────────────────────────────────
@@ -111,6 +151,48 @@ class WorkItemTemplateServiceResolutionTest {
 
         assertThat(workItem).isNotNull();
         assertThat(workItem.payload).isEqualTo("{\"type\":\"aml\"}");
+    }
+
+    // ── excludedGroups expansion ─────────────────────────────────────────────
+
+    @Test
+    void instantiate_excludedGroups_expandedIntoExcludedUsers() {
+        TestGroupMembershipProvider.configure("legal-team",
+                Set.of(new GroupMember("alice", "Alice")));
+
+        final WorkItemTemplate t = persist("Contract Review");
+        t.excludedGroups = "legal-team";
+
+        final WorkItem workItem = templateService.instantiate(t, null, null, "system");
+
+        assertThat(workItem.excludedUsers).contains("alice");
+    }
+
+    @Test
+    void instantiate_excludedGroups_mergedWithExcludedUsers() {
+        TestGroupMembershipProvider.configure("finance-team",
+                Set.of(new GroupMember("bob", "Bob")));
+
+        final WorkItemTemplate t = persist("Budget Approval");
+        t.excludedUsers = "carol";
+        t.excludedGroups = "finance-team";
+
+        final WorkItem workItem = templateService.instantiate(t, null, null, "system");
+
+        assertThat(workItem.excludedUsers).contains("carol");
+        assertThat(workItem.excludedUsers).contains("bob");
+    }
+
+    @Test
+    void instantiate_excludedGroups_unknownGroupProducesNullExcludedUsers() {
+        // TestGroupMembershipProvider returns empty for unconfigured groups
+        final WorkItemTemplate t = persist("Unopened Task");
+        t.excludedGroups = "unknown-group";
+        t.excludedUsers = null;
+
+        final WorkItem workItem = templateService.instantiate(t, null, null, "system");
+
+        assertThat(workItem.excludedUsers).isNull();
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
