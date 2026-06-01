@@ -18,7 +18,7 @@ Run `add-dir /Users/mdproctor/claude/casehub/work` before any other work.
 | handover | handover | `HANDOFF.md` | workspace | single file, overwritten each session |
 | idea-log | idea-log | `IDEAS.md` | workspace | single file |
 | design-snapshot | design-snapshot | `snapshots/` | workspace | INDEX.md; auto-pruned, max 10 |
-| epic journal | java-update-design / update-primary-doc | `design/JOURNAL.md` | workspace | created by `epic` |
+| epic journal | java-update-design | `design/JOURNAL.md` | workspace | written on epic branches |
 | adr | adr | `adr/` | project | promoted to `docs/adr/` at epic close |
 | blog | write-blog | `~/.claude/blog-routing.yaml` | — | no workspace staging — routed automatically |
 
@@ -80,7 +80,7 @@ type: java
 
 ## What This Project Is
 
-CaseHub Work is a **CaseHub platform module** providing **human-scale WorkItem lifecycle management**. It gives any Quarkus application a human task inbox with expiry, delegation, escalation, priority, and audit trail — usable independently or with optional integrations for Quarkus-Flow, CaseHub, and Qhorus. It is hosted under the CaseHub organisation (`casehubio/work`), not submitted to Quarkiverse.
+CaseHub Work is a **CaseHub platform module** providing **human-scale WorkItem lifecycle management**. It gives any Quarkus application a human task inbox with expiry, delegation, escalation, priority, and audit trail — usable independently or with an optional Quarkus-Flow integration. CaseHub and Qhorus adapters are planned but not yet built. It is hosted under the CaseHub organisation (`casehubio/work`), not submitted to Quarkiverse.
 
 **The core concept — WorkItem (not Task):**
 A `WorkItem` is a unit of work requiring human attention or judgment. It is deliberately NOT called `Task` because:
@@ -112,21 +112,7 @@ Using `WorkItem` avoids naming conflicts and accurately describes what WorkItems
 
 ## Ecosystem Context
 
-WorkItems is part of the Quarkus Native AI Agent Ecosystem:
-
-```
-CaseHub (case orchestration)   Quarkus-Flow (workflow execution)   Qhorus (agent mesh)
-         │                              │                               │
-         └──────────────────────────────┼───────────────────────────────┘
-                                        │
-                              CaseHub Work (WorkItem inbox)
-                                        │
-                              casehub-work-casehub   (optional adapter)
-                              casehub-work-flow      (optional adapter)
-                              casehub-work-qhorus    (optional adapter)
-```
-
-WorkItems has **no dependency on CaseHub, Quarkus-Flow, or Qhorus** — it is the independent human task layer. The integration modules (future) depend on WorkItems, not vice versa.
+WorkItems is the independent human task layer below CaseHub, Quarkus-Flow, and Qhorus — no dependency on any of them. Integration modules depend on WorkItems, not vice versa.
 
 **Related projects (read only, for context):**
 - `~/claude/casehub/qhorus` — agent communication mesh (Qhorus integration target)
@@ -138,36 +124,7 @@ WorkItems has **no dependency on CaseHub, Quarkus-Flow, or Qhorus** — it is th
 
 ## Project Structure
 
-Use `ide_find_class` / `ide_find_symbol` to locate specific classes. The table below shows module ownership and structural constraints that the IDE can't tell you.
-
-| Module | Purpose | Key constraints |
-|---|---|---|
-| `casehub-work-api/` | Pure-Java SPI — no JPA, no REST | All SPIs, events, value objects. casehub-engine depends on this directly. |
-| `casehub-work-core/` | Jandex library — no JPA, no REST | WorkBroker, built-in strategies, claim SLA policies; pure CDI. No filter classes — filter engine moved to `runtime/filter/` in #133. |
-| `runtime/` | Extension runtime | WorkItem entity, JPA stores, filter engine, multi-instance coordinator, REST endpoints at `/workitems` |
-| `deployment/` | Extension build-time | `WorkItemsProcessor` @BuildStep only |
-| `testing/` | Test utilities (`casehub-work-testing`) | In-memory stores; no datasource required. `InMemoryIssueLinkStore` requires `casehub-work-issue-tracker` on classpath. |
-| `docs/` | Architecture, design, specs | `ARCHITECTURE.md` (SPI contracts), `DESIGN.md` (roadmap + Flyway history), `GOTCHAS.md`, `FLYWAY.md` |
-| `scripts/` | Build helpers | See `scripts/README.md` for usage and expected test times |
-
-**Integration modules (built):**
-- `work-flow/` — Quarkus-Flow CDI bridge (`HumanTaskFlowBridge`, `PendingWorkItemRegistry`, `WorkItemFlowEventListener`)
-- `casehub-work-ledger/` — optional accountability module (command/event ledger, hash chain, attestation, EigenTrust)
-- `casehub-work-queues/` — optional label-based queue module; label filter chains, queue views, JEXL/JQ expression evaluation
-- `casehub-work-ai/` — AI-native features; confidence gating via `LowConfidenceFilterProducer`; `SemanticWorkerSelectionStrategy` (@Alternative @Priority(1)) for embedding-based worker scoring; depends on `casehub-work-core`
-- `casehub-work-notifications/` — optional outbound notification module; CDI observer dispatches to HTTP webhook, Slack, and Teams channels after lifecycle events. Flyway V3000.
-- `casehub-work-reports/` — optional SLA compliance reporting; `/reports/sla-breaches`, `/actors/{id}`, `/throughput`, `/queue-health`; zero cost when absent; 73 tests
-- `casehub-work-postgres-broadcaster/` — optional distributed SSE; PostgreSQL LISTEN/NOTIFY for WorkItem events (`casehub_work_events`); no Flyway migrations; 22 tests
-- `casehub-work-queues-postgres-broadcaster/` — optional distributed SSE for queue events (`casehub_work_queue_events`); no Flyway migrations; 13 tests; depends on `casehub-work-queues` + `quarkus-reactive-pg-client`
-- `casehub-work-issue-tracker/` — optional issue-tracker link module; `IssueTrackerProvider` SPI; GitHub and Jira webhook handlers; Flyway V5000; 93 tests
-- `casehub-work-examples/` — runnable scenario demos; each runs via `POST /examples/{name}/run`
-- `integration-tests/` — `@QuarkusIntegrationTest` suite and native image validation (25 tests)
-
-**Future integration modules (not yet scaffolded):**
-- CaseHub adapter — lives in casehub-engine repo, not here (see `docs/architecture/LAYERING.md`)
-- `casehub-work-qhorus/` — Qhorus MCP tools (`request_approval`, `check_approval`, `wait_for_approval`) (blocked: Qhorus not yet complete)
-- `casehub-work-persistence-mongodb/` — MongoDB-backed `WorkItemStore`
-- `casehub-work-persistence-redis/` — Redis-backed `WorkItemStore`
+Module ownership and structural constraints: `docs/MODULES.md` — read before any multi-module work.
 
 ---
 
@@ -233,6 +190,8 @@ filtering or dropping commits that touch these paths.
 | `CLAUDE.md` | Project conventions (build, test, naming) |
 | `docs/adr/` | Architecture decision records |
 | `docs/DESIGN.md` | Design document |
+| `docs/MODULES.md` | Module ownership and structural constraints |
+| `docs/ECOSYSTEM.md` | Cross-project conventions (packaging, versioning, fork workflow) |
 
 ## Work Tracking
 
@@ -247,8 +206,6 @@ filtering or dropping commits that touch these paths.
 | #79 | External System Integrations | blocked | CaseHub/Qhorus not stable |
 | #39 | ProvenanceLink (PROV-O causal graph) | blocked | Awaiting #79 |
 
-**Completed epics:** #77, #78, #80, #81 (Collaboration, Queue Intelligence, Storage, Platform), #93 (Distributed SSE), #98 (Form Schema), #99 (Audit Query API), #100 (AI-Native Features), #101 (Business-Hours Deadlines), #102 (Workload-Aware Routing), #103 (Notifications), #104 (SLA Compliance Reporting), #105 (Subprocess Spawning), #106 (Multi-Instance Tasks), #147 (Project Refinement), #170 (Schema-Validated Output)
-
 **Automatic behaviours (Claude follows these at all times in this project):**
 - **Before implementation begins** — check if an active issue exists. If not, run issue-workflow Phase 1 before writing any code. Create a child issue under the matching epic above.
 - **Before any commit** — run issue-workflow Phase 3 to confirm issue linkage.
@@ -258,28 +215,5 @@ filtering or dropping commits that touch these paths.
 
 ## Ecosystem Conventions
 
-All casehubio projects align on these conventions:
-
-**Quarkus version:** All projects use `3.32.2`. When bumping, bump all projects together.
-
-**GitHub Packages — dependency resolution:** Add to `pom.xml` `<repositories>`:
-```xml
-<repository>
-  <id>github</id>
-  <url>https://maven.pkg.github.com/casehubio/*</url>
-  <snapshots><enabled>true</enabled></snapshots>
-</repository>
-```
-CI must use `server-id: github` + `GITHUB_TOKEN` in `actions/setup-java`.
-
-**Cross-project SNAPSHOT versions:** `casehub-ledger` and `casehub-work` modules are `0.2-SNAPSHOT` resolved from GitHub Packages. Declare in `pom.xml` properties and `<dependencyManagement>` — no hardcoded versions in submodule poms.
-
-**SNAPSHOT API drift:** CI pulls the latest `casehub-ledger:0.2-SNAPSHOT` from GitHub Packages; local builds use the cached jar. When `casehub-ledger` adds new abstract methods to `LedgerEntryRepository`, CI breaks but local passes silently. Before concluding a build is stable, refresh the local cache: `JAVA_HOME=$(/usr/libexec/java_home -v 26) mvn install -DskipTests -f ~/claude/casehub/ledger/pom.xml` and re-run the affected module tests.
-
-**Git workflow — fork model:**
-```
-origin   → personal fork   (git remote get-url origin)
-upstream → casehubio       (git remote get-url upstream)
-```
-Before starting any branch: `git fetch upstream && git rebase upstream/main` to sync local main with casehubio. At work-end: rebase the branch onto local main, push to `origin main`. PRs to `upstream` are created separately, on demand — never automatically at work-end.
+Cross-project conventions (GitHub Packages setup, SNAPSHOT versioning, fork workflow): `docs/ECOSYSTEM.md`.
 
