@@ -176,6 +176,10 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home
 `docs/ARCHITECTURE.md` is the architectural reference — module graph, domain model, SPI contracts.
 `docs/DESIGN.md` is the implementation tracker — build roadmap, Flyway migration history, test totals.
 
+## casehub-work-api Utilities
+
+- `WorkItemCallerRef.parseCaseId(String callerRef): UUID` — parses the `caseId:planItemId` callerRef format set by `casehub-engine-work-adapter` on engine-created WorkItems; returns `null` for non-engine callerRefs (e.g. plain UUIDs or other formats). Used by `casehub-engine-actor-state` to correlate open WorkItems with their originating case.
+
 ---
 
 ## Project Artifacts
