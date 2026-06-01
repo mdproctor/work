@@ -18,8 +18,13 @@ import io.casehub.work.runtime.model.WorkItem;
  * using {@link HttpHelper#hmacSha256Hex}.
  *
  * <p>
- * Uses {@link HttpHelper} from {@code casehub-connectors} — no additional
- * HTTP client dependency.
+ * Uses {@link HttpHelper} from {@code casehub-connectors} as a transport utility —
+ * intentionally not a {@code Connector} SPI implementation. The payload schema is
+ * WorkItem-specific (eventType, assigneeId, callerRef, etc.) and the HMAC key comes
+ * from the notification rule, so the formatting and signing logic belongs in this
+ * layer, not in a generic outbound connector. Named-service channels (Slack, Teams)
+ * delegate to {@code Connector} because the service protocol is the variable; here
+ * the WorkItem domain schema is the variable.
  */
 @ApplicationScoped
 public class HttpWebhookChannel implements NotificationChannel {
