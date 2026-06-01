@@ -24,9 +24,7 @@ Run `add-dir /Users/mdproctor/claude/casehub/work` before any other work.
 
 ## Git Discipline
 
-Two git repositories are active in every session:
-- **Workspace** (`/Users/mdproctor/claude/public/casehub/work`) — methodology artifacts: handover, specs, plans, ADRs (blog is not staged here — goes directly to destination in blog-routing.yaml)
-- **Project repo** (`/Users/mdproctor/claude/casehub/work`) — source code
+Two git repositories are active in every session: a **workspace** (methodology artifacts: handover, specs, plans, ADRs — blog is not staged here, goes directly to destination via blog-routing.yaml) and the **project repo** (source code).
 
 Before any git operation, run `git rev-parse --show-toplevel` to confirm which repo is currently active. Do not assume — the session may have opened in either. cd to the correct repo before staging:
 - Source code commits → project repo
