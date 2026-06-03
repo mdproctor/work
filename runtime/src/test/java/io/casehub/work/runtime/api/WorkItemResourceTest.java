@@ -473,7 +473,7 @@ class WorkItemResourceTest {
                 .then()
                 .statusCode(200)
                 .body("assigneeId", equalTo("bob"))
-                .body("status", equalTo("PENDING"));
+                .body("status", equalTo("DELEGATED"));
     }
 
     // -------------------------------------------------------------------------

@@ -140,12 +140,12 @@ class WorkItemEventTest {
     void delegate_emitsDelegatedEvent() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        service.delegate(wi.id, "alice", "bob");
+        service.delegate(wi.id, "alice", "bob", null);
 
         List<WorkItemLifecycleEvent> events = observer.getEvents();
         WorkItemLifecycleEvent last = events.get(events.size() - 1);
         assertThat(last.type()).endsWith("delegated");
-        assertThat(last.status()).isEqualTo(WorkItemStatus.PENDING);
+        assertThat(last.status()).isEqualTo(WorkItemStatus.DELEGATED);
         assertThat(last.detail()).contains("bob");
     }
 

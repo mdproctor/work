@@ -15,7 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.preferences.MapPreferences;
 import io.casehub.work.api.AssignmentDecision;
+import io.casehub.work.api.DeclineTarget;
 import io.casehub.work.api.PolicyDecision;
 import io.casehub.work.api.ValidationMode;
 import io.casehub.work.core.strategy.CapabilityValidator;
@@ -248,6 +250,8 @@ class WorkItemServiceTest {
                 (userId, excluded) -> PolicyDecision.ALLOW,
                 new BlockedAttemptAuditService(auditStore),
                 new CapabilityValidator(ValidationMode.PERMISSIVE, () -> java.util.Set.of()));
+        // Empty preferences → DeclineTarget.POOL by default
+        service.preferenceProvider = scope -> new MapPreferences(Map.of());
     }
 
     private WorkItemCreateRequest basicRequest() {
@@ -480,17 +484,49 @@ class WorkItemServiceTest {
     void delegate_firstTime_setsOwnerToActor() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
+        wi = service.delegate(wi.id, "alice", "bob", null);
         assertThat(wi.owner).isEqualTo("alice");
     }
 
     @Test
-    void delegate_setsNewAssigneeAndStatusPending() {
+    void delegate_setsNewAssigneeAndStatusDelegated() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
+        wi = service.delegate(wi.id, "alice", "bob", null);
         assertThat(wi.assigneeId).isEqualTo("bob");
-        assertThat(wi.status).isEqualTo(WorkItemStatus.PENDING);
+        assertThat(wi.status).isEqualTo(WorkItemStatus.DELEGATED);
+    }
+
+    @Test
+    void delegate_clearsClaimDeadline() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        wi = service.delegate(wi.id, "alice", "bob", null);
+        assertThat(wi.claimDeadline).isNull();
+    }
+
+    @Test
+    void delegate_clearsLastReturnedToPoolAt() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        wi = service.delegate(wi.id, "alice", "bob", null);
+        assertThat(wi.lastReturnedToPoolAt).isNull();
+    }
+
+    @Test
+    void delegate_withDeclineTargetDelegator_storesDeclineTarget() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        wi = service.delegate(wi.id, "alice", "bob", DeclineTarget.DELEGATOR);
+        assertThat(wi.delegationDeclineTarget).isEqualTo(DeclineTarget.DELEGATOR);
+    }
+
+    @Test
+    void delegate_withNullDeclineTarget_leavesDeclineTargetNull() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        wi = service.delegate(wi.id, "alice", "bob", null);
+        assertThat(wi.delegationDeclineTarget).isNull();
     }
 
     // delegate_setsDelegationStatePending removed — DelegationState dropped in #245;
@@ -500,7 +536,7 @@ class WorkItemServiceTest {
     void delegate_addsDelegatorToDelegationChain() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
+        wi = service.delegate(wi.id, "alice", "bob", null);
         assertThat(wi.delegationChain).contains("alice");
     }
 
@@ -508,7 +544,7 @@ class WorkItemServiceTest {
     void delegate_writesDelegatedAuditEntry() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        service.delegate(wi.id, "alice", "bob");
+        service.delegate(wi.id, "alice", "bob", null);
         List<AuditEntry> trail = auditStore.findByWorkItemId(wi.id);
         assertThat(trail.get(trail.size() - 1).event).isEqualTo("DELEGATED");
     }
@@ -517,10 +553,10 @@ class WorkItemServiceTest {
     void delegate_secondTime_doesNotOverwriteOwner() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
-        // bob claims and re-delegates
-        service.claim(wi.id, "bob");
-        wi = service.delegate(wi.id, "bob", "carol");
+        wi = service.delegate(wi.id, "alice", "bob", null);
+        // bob accepts then re-delegates
+        service.acceptDelegation(wi.id, "bob");
+        wi = service.delegate(wi.id, "bob", "carol", null);
         assertThat(wi.owner).isEqualTo("alice");
     }
 
@@ -528,11 +564,151 @@ class WorkItemServiceTest {
     void delegate_secondTime_delegationChainGrows() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
-        service.claim(wi.id, "bob");
-        wi = service.delegate(wi.id, "bob", "carol");
+        wi = service.delegate(wi.id, "alice", "bob", null);
+        // bob must accept the delegation before they can re-delegate
+        service.acceptDelegation(wi.id, "bob");
+        wi = service.delegate(wi.id, "bob", "carol", null);
         assertThat(wi.delegationChain).contains("alice");
         assertThat(wi.delegationChain).contains("bob");
+    }
+
+    // -------------------------------------------------------------------------
+    // Happy paths — acceptDelegation
+    // -------------------------------------------------------------------------
+
+    @Test
+    void acceptDelegation_transitionsToAssigned() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", null);
+        wi = service.acceptDelegation(wi.id, "bob");
+        assertThat(wi.status).isEqualTo(WorkItemStatus.ASSIGNED);
+        assertThat(wi.assigneeId).isEqualTo("bob");
+    }
+
+    @Test
+    void acceptDelegation_setsAssignedAt() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", null);
+        wi = service.acceptDelegation(wi.id, "bob");
+        assertThat(wi.assignedAt).isNotNull();
+    }
+
+    @Test
+    void acceptDelegation_clearsDeclineTarget() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", DeclineTarget.DELEGATOR);
+        wi = service.acceptDelegation(wi.id, "bob");
+        assertThat(wi.delegationDeclineTarget).isNull();
+    }
+
+    @Test
+    void acceptDelegation_wrongActor_throws() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", null);
+        final UUID id = wi.id;
+        assertThatThrownBy(() -> service.acceptDelegation(id, "charlie"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void acceptDelegation_notDelegated_throws() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        final UUID id = wi.id;
+        assertThatThrownBy(() -> service.acceptDelegation(id, "alice"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // Happy paths — declineDelegation POOL
+    // -------------------------------------------------------------------------
+
+    @Test
+    void declineDelegation_poolPath_transitionsToPending() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", DeclineTarget.POOL);
+        wi = service.declineDelegation(wi.id, "bob");
+        assertThat(wi.status).isEqualTo(WorkItemStatus.PENDING);
+        assertThat(wi.assigneeId).isNull();
+    }
+
+    @Test
+    void declineDelegation_poolPath_setsLastReturnedToPoolAt() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", DeclineTarget.POOL);
+        wi = service.declineDelegation(wi.id, "bob");
+        assertThat(wi.lastReturnedToPoolAt).isNotNull();
+    }
+
+    @Test
+    void declineDelegation_poolPath_recomputesClaimDeadline() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", DeclineTarget.POOL);
+        wi = service.declineDelegation(wi.id, "bob");
+        assertThat(wi.claimDeadline).isNotNull();
+    }
+
+    @Test
+    void declineDelegation_poolPath_clearsDeclineTarget() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", DeclineTarget.POOL);
+        wi = service.declineDelegation(wi.id, "bob");
+        assertThat(wi.delegationDeclineTarget).isNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // Happy paths — declineDelegation DELEGATOR
+    // -------------------------------------------------------------------------
+
+    @Test
+    void declineDelegation_delegatorPath_returnsToOriginalActor() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", DeclineTarget.DELEGATOR);
+        wi = service.declineDelegation(wi.id, "bob");
+        assertThat(wi.status).isEqualTo(WorkItemStatus.ASSIGNED);
+        assertThat(wi.assigneeId).isEqualTo("alice");
+    }
+
+    @Test
+    void declineDelegation_usesPreferenceDefaultWhenNoInstanceOverride() {
+        // setUp wires empty preferences → POOL default
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", null); // no instance override
+        wi = service.declineDelegation(wi.id, "bob");
+        assertThat(wi.status).isEqualTo(WorkItemStatus.PENDING); // POOL behaviour
+    }
+
+    // -------------------------------------------------------------------------
+    // Error cases — declineDelegation
+    // -------------------------------------------------------------------------
+
+    @Test
+    void declineDelegation_wrongActor_throws() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        service.delegate(wi.id, "alice", "bob", null);
+        final UUID id = wi.id;
+        assertThatThrownBy(() -> service.declineDelegation(id, "charlie"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void declineDelegation_notDelegated_throws() {
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        final UUID id = wi.id;
+        assertThatThrownBy(() -> service.declineDelegation(id, "alice"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     // -------------------------------------------------------------------------
@@ -865,8 +1041,8 @@ class WorkItemServiceTest {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
         service.start(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
-        assertThat(wi.status).isEqualTo(WorkItemStatus.PENDING);
+        wi = service.delegate(wi.id, "alice", "bob", null);
+        assertThat(wi.status).isEqualTo(WorkItemStatus.DELEGATED);
         assertThat(wi.assigneeId).isEqualTo("bob");
     }
 
