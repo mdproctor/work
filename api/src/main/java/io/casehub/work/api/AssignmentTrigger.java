@@ -9,5 +9,7 @@ public enum AssignmentTrigger {
     /** WorkItem delegated to a different pool or individual. */
     DELEGATED,
     /** WorkItem returned to an escalation pool after an SLA breach. */
-    SLA_ESCALATED
+    SLA_ESCALATED,
+    /** WorkItem returned to pool after a delegatee declined a targeted delegation. */
+    DELEGATION_DECLINED
 }
