@@ -67,6 +67,11 @@ class WorkItemStatusTest {
     }
 
     @Test
+    void delegated_isActive() {
+        assertThat(WorkItemStatus.DELEGATED.isActive()).isTrue();
+    }
+
+    @Test
     void terminalStatusesAreNeverActive() {
         for (final WorkItemStatus s : WorkItemStatus.values()) {
             if (s.isTerminal()) {
