@@ -82,9 +82,15 @@ public class ExpiryLifecycleService {
     public void checkExpired() {
         final Instant now = Instant.now();
         for (final WorkItem item : workItemStore.scan(WorkItemQuery.expired(now))) {
-            final SlaBreachContext ctx = buildBreachContext(item, BreachType.COMPLETION_EXPIRED, now);
-            final BreachDecision leaf = executeBreachDecision(item, slaBreachPolicy.onBreach(ctx), ctx, now);
-            slaBreachEventBus.fire(new SlaBreachEvent(ctx, leaf));
+            try {
+                final SlaBreachContext ctx = buildBreachContext(item, BreachType.COMPLETION_EXPIRED, now);
+                final BreachDecision leaf = executeBreachDecision(item, slaBreachPolicy.onBreach(ctx), ctx, now);
+                slaBreachEventBus.fire(new SlaBreachEvent(ctx, leaf));
+            } catch (final BreachExecutionFailed e) {
+                LOG.errorf("SLA breach policy misconfigured for WorkItem %s — skipping this tick: %s",
+                        item.id, e.getMessage());
+                writeAudit(item, "BREACH_POLICY_MISCONFIGURED", e.getMessage(), now);
+            }
         }
     }
 
@@ -97,19 +103,25 @@ public class ExpiryLifecycleService {
     public void checkClaimDeadlines() {
         final Instant now = Instant.now();
         for (final WorkItem item : workItemStore.scan(WorkItemQuery.claimExpired(now))) {
-            // Time accumulation always happens, regardless of policy decision
-            if (item.lastReturnedToPoolAt != null) {
-                item.accumulatedUnclaimedSeconds += Duration.between(item.lastReturnedToPoolAt, now).toSeconds();
+            try {
+                // Time accumulation always happens, regardless of policy decision
+                if (item.lastReturnedToPoolAt != null) {
+                    item.accumulatedUnclaimedSeconds += Duration.between(item.lastReturnedToPoolAt, now).toSeconds();
+                }
+                item.lastReturnedToPoolAt = now;
+
+                // CLAIM_EXPIRED lifecycle event is a factual record of the deadline passing —
+                // fire it unconditionally before executing the policy decision.
+                fireLifecycleEvent("CLAIM_EXPIRED", item);
+
+                final SlaBreachContext ctx = buildBreachContext(item, BreachType.CLAIM_EXPIRED, now);
+                final BreachDecision leaf = executeBreachDecision(item, slaBreachPolicy.onBreach(ctx), ctx, now);
+                slaBreachEventBus.fire(new SlaBreachEvent(ctx, leaf));
+            } catch (final BreachExecutionFailed e) {
+                LOG.errorf("SLA breach policy misconfigured for WorkItem %s (claim) — skipping: %s",
+                        item.id, e.getMessage());
+                writeAudit(item, "BREACH_POLICY_MISCONFIGURED", e.getMessage(), now);
             }
-            item.lastReturnedToPoolAt = now;
-
-            // CLAIM_EXPIRED lifecycle event is a factual record of the deadline passing —
-            // fire it unconditionally before executing the policy decision.
-            fireLifecycleEvent("CLAIM_EXPIRED", item);
-
-            final SlaBreachContext ctx = buildBreachContext(item, BreachType.CLAIM_EXPIRED, now);
-            final BreachDecision leaf = executeBreachDecision(item, slaBreachPolicy.onBreach(ctx), ctx, now);
-            slaBreachEventBus.fire(new SlaBreachEvent(ctx, leaf));
         }
     }
 
@@ -133,24 +145,20 @@ public class ExpiryLifecycleService {
             final SlaBreachContext ctx, final Instant now) {
         return switch (decision) {
             case BreachDecision.Fail fail -> executeFail(item, fail, now);
-            case BreachDecision.EscalateTo escalate -> {
-                if (escalate.groups().isEmpty()) {
-                    // Belt-and-suspenders: factory should have rejected this, but protect
-                    // the @Transactional boundary even if the record was constructed directly.
-                    LOG.errorf("SlaBreachPolicy returned EscalateTo with empty groups for WorkItem %s" +
-                            " — applying Fail to avoid silent transaction rollback", item.id);
-                    yield executeFail(item, new BreachDecision.Fail("escalation-misconfigured"), now);
-                }
-                yield executeEscalateTo(item, escalate, ctx, now);
-            }
+            case BreachDecision.EscalateTo escalate -> executeEscalateTo(item, escalate, ctx, now);
             case BreachDecision.Extend extend -> executeExtend(item, extend, ctx, now);
             case BreachDecision.Chained chained -> {
                 try {
                     yield executeBreachDecision(item, chained.primary(), ctx, now);
                 } catch (final BreachExecutionFailed e) {
-                    yield executeBreachDecision(item, chained.fallback(), ctx, now);
+                    try {
+                        yield executeBreachDecision(item, chained.fallback(), ctx, now);
+                    } catch (final BreachExecutionFailed e2) {
+                        yield executeExhausted(item, "policy-exhausted", now);
+                    }
                 }
             }
+            case BreachDecision.Exhausted exhausted -> executeExhausted(item, exhausted.reason(), now);
         };
     }
 
@@ -167,6 +175,12 @@ public class ExpiryLifecycleService {
     private BreachDecision.EscalateTo executeEscalateTo(
             final WorkItem item, final BreachDecision.EscalateTo escalate,
             final SlaBreachContext ctx, final Instant now) {
+        if (escalate.groups().isEmpty()) {
+            // Thrown before any state mutation — safe to catch at Chained handler or batch loop.
+            LOG.errorf("SlaBreachPolicy EscalateTo has empty groups for WorkItem %s — treating as policy failure",
+                    item.id);
+            throw new BreachExecutionFailed("EscalateTo returned empty groups");
+        }
         item.candidateGroups = String.join(",", escalate.groups());
         item.assigneeId = null;
         item.status = WorkItemStatus.PENDING;
@@ -184,9 +198,20 @@ public class ExpiryLifecycleService {
         assignmentService.assign(item, AssignmentTrigger.SLA_ESCALATED);
 
         workItemStore.put(item);
-        writeAudit(item, "ESCALATED", null, now);
-        fireLifecycleEvent("ESCALATED", item);
+        // SLA_REASSIGNED: item is still active (PENDING with new candidateGroups).
+        // Distinct from "ESCALATED" which means the item reached ESCALATED terminal status.
+        writeAudit(item, "SLA_REASSIGNED", null, now);
+        fireLifecycleEvent("SLA_REASSIGNED", item);
         return escalate;
+    }
+
+    private BreachDecision.Exhausted executeExhausted(final WorkItem item, final String reason, final Instant now) {
+        item.status = WorkItemStatus.ESCALATED;
+        item.completedAt = now;
+        workItemStore.put(item);
+        writeAudit(item, "ESCALATED", reason, now);
+        fireLifecycleEvent("ESCALATED", item);
+        return new BreachDecision.Exhausted(reason);
     }
 
     private BreachDecision.Extend executeExtend(
