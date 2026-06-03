@@ -45,7 +45,7 @@ public enum WorkItemStatus {
      */
     public boolean isTerminal() {
         return switch (this) {
-            case COMPLETED, REJECTED, CANCELLED, ESCALATED -> true;
+            case COMPLETED, REJECTED, CANCELLED, ESCALATED, EXPIRED -> true;
             default -> false;
         };
     }
