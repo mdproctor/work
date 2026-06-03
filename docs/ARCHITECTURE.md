@@ -31,7 +31,7 @@ Maven multi-module layout:
 | Module | Artifact | Purpose |
 |---|---|---|
 | Parent | `casehub-work-parent` | BOM, version management |
-| API | `casehub-work-api` | Pure Java SPI contracts — `WorkerCandidate`, `SelectionContext`, `AssignmentDecision`, `AssignmentTrigger`, `WorkerSelectionStrategy`, `WorkerRegistry`, `WorkEventType`, `WorkLifecycleEvent`, `WorkloadProvider`, `SlaBreachPolicy` (replaces `@Deprecated EscalationPolicy`), `SlaBreachContext`, `BreachDecision` (sealed: Fail/EscalateTo/Extend/Chained), `BreachType`, `BreachedTask`, `SkillProfile`, `SkillProfileProvider`, `SkillMatcher`. Spawn SPI: `SpawnPort`, `SpawnRequest`, `ChildSpec`, `SpawnResult`, `SpawnedChild`. groupId `io.casehub`. Depends on `casehub-platform-api` (for `Path`/`Preferences` in SlaBreachContext). |
+| API | `casehub-work-api` | Pure Java SPI contracts — `WorkerCandidate`, `SelectionContext`, `AssignmentDecision`, `AssignmentTrigger`, `WorkerSelectionStrategy`, `WorkerRegistry`, `WorkEventType`, `WorkLifecycleEvent`, `WorkloadProvider`, `SlaBreachPolicy` (replaces `@Deprecated EscalationPolicy`), `SlaBreachContext`, `BreachDecision` (sealed: Fail/EscalateTo/Extend/Exhausted/Chained), `DeclineTarget` (POOL/DELEGATOR — `SingleValuePreference` with key `casehub.work.delegation.decline-target`), `BreachType`, `BreachedTask`, `SkillProfile`, `SkillProfileProvider`, `SkillMatcher`. Spawn SPI: `SpawnPort`, `SpawnRequest`, `ChildSpec`, `SpawnResult`, `SpawnedChild`. groupId `io.casehub`. Depends on `casehub-platform-api` (for `Path`/`Preferences` in SlaBreachContext). |
 | Core | `casehub-work-core` | Generic work management implementations — `WorkBroker` (generic assignment orchestrator), `LeastLoadedStrategy`, `ClaimFirstStrategy`, `NoOpWorkerRegistry`, claim SLA policies. No JPA entities, no REST resources. CaseHub depends on this module directly. Jandex-indexed library, groupId `io.casehub`. |
 | Runtime | `casehub-work` | Core — WorkItem model, storage SPI, JPA defaults, service, REST API, lifecycle engine, labels, vocabulary. Includes `WorkItemContextBuilder`, `JpaWorkloadProvider`, runtime actions (`ApplyLabelAction`, `OverrideCandidateGroupsAction`, `SetPriorityAction`), filter engine (`FilterAction` SPI, `FilterRegistryEngine`, `JexlConditionEvaluator`, `PermanentFilterRegistry`, `DynamicFilterRegistry`, `FilterRule`, `FilterRuleResource`). Subprocess spawning: `WorkItemSpawnService` (implements `SpawnPort`), `WorkItemSpawnGroup` entity, `WorkItemSpawnResource`, `SpawnGroupResource`. |
 | Deployment | `casehub-work-deployment` | Build-time processor — feature registration, native config |
@@ -87,8 +87,8 @@ Maven multi-module layout:
 | `candidateUsers` | String | Comma-separated users individually invited to claim |
 | `requiredCapabilities` | String | Comma-separated capability tags for routing |
 | `createdBy` | String | System or agent that created it |
-| `delegationState` | DelegationState enum | null \| PENDING \| RESOLVED |
-| `delegationChain` | String | Comma-separated prior assignees (audit trail) |
+| `delegationDeclineTarget` | DeclineTarget enum | null \| POOL \| DELEGATOR — instance-level override for where a declined delegation returns; null = use scope preference |
+| `delegationChain` | String | Comma-separated actorIds who have delegated this item (most recent last); actorIds are UUIDs so no ambiguity in CSV format |
 | `payload` | TEXT | JSON context for the human |
 | `resolution` | TEXT | JSON decision from the human |
 | `claimDeadline` | Instant | Must be claimed by; null → use config default (0 = no deadline) |
@@ -145,25 +145,27 @@ Vocabulary (`LabelVocabulary` + `LabelDefinition`) enforces path declarations at
 | `IN_PROGRESS` | Being worked |
 | `COMPLETED` | Successfully resolved |
 | `REJECTED` | Human declined or declared uncomplete-able |
-| `DELEGATED` | Transitional: ownership transferred, pending new assignment |
+| `DELEGATED` | Pre-acceptance: forwarded to a named actor; active (can still expire); requires `accept-delegation` or `decline-delegation` |
 | `SUSPENDED` | On hold; will resume |
 | `CANCELLED` | Externally cancelled by system or admin |
-| `EXPIRED` | Passed completion deadline; triggers escalation policy |
-| `ESCALATED` | Escalation policy has fired; terminal or awaiting admin action |
+| `EXPIRED` | Passed completion deadline; terminal — `isTerminal()` = true |
+| `ESCALATED` | All SLA breach policy branches exhausted; terminal — operator intervention required |
+
+`isTerminal()`: COMPLETED, REJECTED, CANCELLED, EXPIRED, ESCALATED.
+`isActive()`: PENDING, ASSIGNED, IN_PROGRESS, SUSPENDED, DELEGATED.
 
 **Lifecycle transitions:**
 ```
 PENDING → ASSIGNED (claim) | CANCELLED (admin)
-ASSIGNED → IN_PROGRESS (start) | DELEGATED→PENDING | RELEASED→PENDING
+ASSIGNED → IN_PROGRESS (start) | DELEGATED (delegate) | RELEASED→PENDING
          | SUSPENDED | CANCELLED (admin)
-IN_PROGRESS → COMPLETED | REJECTED | DELEGATED→PENDING | SUSPENDED | CANCELLED (admin)
+IN_PROGRESS → COMPLETED | REJECTED | DELEGATED (delegate) | SUSPENDED | CANCELLED (admin)
 SUSPENDED → ASSIGNED | IN_PROGRESS (resume to prior state) | CANCELLED (admin)
-PENDING | ASSIGNED | IN_PROGRESS | SUSPENDED → EXPIRED → ESCALATED
-```
-
-**DelegationState transitions:**
-```
-(null) → PENDING (delegate op) → RESOLVED (delegate completes) → (null) (owner confirms)
+DELEGATED → ASSIGNED (accept-delegation) | PENDING (decline-delegation POOL path)
+          | ASSIGNED (decline-delegation DELEGATOR path, restores previous actor)
+PENDING | ASSIGNED | IN_PROGRESS | SUSPENDED | DELEGATED → EXPIRED (SLA breach → Fail)
+         → SLA_REASSIGNED→PENDING (SLA breach → EscalateTo)
+         → ESCALATED (SLA breach → Chained both branches exhausted) [terminal]
 ```
 
 ### WorkItemFormSchema (`runtime/model/`)
@@ -185,7 +187,7 @@ JSON Schema definitions for WorkItem payload and resolution, keyed optionally by
 
 Append-only event log: `workItemId`, `event`, `actor`, `detail` (JSON), `occurredAt`.
 
-Audit event values: `CREATED` | `ASSIGNED` | `STARTED` | `COMPLETED` | `REJECTED` | `DELEGATED` | `RELEASED` | `SUSPENDED` | `RESUMED` | `CANCELLED` | `EXPIRED` | `ESCALATED`
+Audit event values: `CREATED` | `ASSIGNED` | `STARTED` | `COMPLETED` | `REJECTED` | `DELEGATED` | `DELEGATION_ACCEPTED` | `DELEGATION_DECLINED` | `RELEASED` | `SUSPENDED` | `RESUMED` | `CANCELLED` | `EXPIRED` | `ESCALATED` | `SLA_REASSIGNED` | `SLA_EXTENDED` | `CLAIM_EXPIRED` | `BREACH_POLICY_MISCONFIGURED`
 
 ---
 
