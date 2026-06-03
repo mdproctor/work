@@ -60,7 +60,7 @@ public enum WorkItemStatus {
      */
     public boolean isActive() {
         return switch (this) {
-            case PENDING, ASSIGNED, IN_PROGRESS, SUSPENDED -> true;
+            case PENDING, ASSIGNED, IN_PROGRESS, SUSPENDED, DELEGATED -> true;
             default -> false;
         };
     }

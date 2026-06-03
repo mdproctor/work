@@ -120,7 +120,8 @@ public final class WorkItemQuery {
                         WorkItemStatus.PENDING,
                         WorkItemStatus.ASSIGNED,
                         WorkItemStatus.IN_PROGRESS,
-                        WorkItemStatus.SUSPENDED))
+                        WorkItemStatus.SUSPENDED,
+                        WorkItemStatus.DELEGATED))
                 .build();
     }
 
