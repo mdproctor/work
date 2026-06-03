@@ -123,18 +123,21 @@ public class WorkItem extends PanacheEntityBase {
     // -------------------------------------------------------------------------
 
     /**
-     * Current delegation state; {@code null} when the item has never been delegated.
-     */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "delegation_state")
-    public DelegationState delegationState;
-
-    /**
-     * JSON-serialised audit trail of delegation hops, enabling chain-of-custody
-     * tracking across multiple delegations.
+     * Comma-separated list of actorIds who have delegated this item (most recent last).
+     * Format is CSV; actorIds are UUIDs (hyphens only, no commas) so the format is unambiguous.
+     * Structured per-hop data (timestamps, reasons) is deferred to #240.
      */
     @Column(name = "delegation_chain")
     public String delegationChain;
+
+    /**
+     * Instance-level override for where this item returns when a delegation is declined.
+     * Null means use the scope preference (casehub.work.delegation.decline-target, default POOL).
+     * Set by delegate(); cleared after acceptDelegation() or declineDelegation().
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delegation_decline_target", length = 10)
+    public io.casehub.work.api.DeclineTarget delegationDeclineTarget;
 
     /**
      * Status snapshot saved immediately before a suspend so that resume can

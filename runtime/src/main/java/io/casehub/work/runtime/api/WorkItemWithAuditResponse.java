@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import io.casehub.work.runtime.model.DelegationState;
+import io.casehub.work.api.DeclineTarget;
 import io.casehub.work.runtime.model.WorkItemPriority;
 import io.casehub.work.runtime.model.WorkItemStatus;
 
@@ -22,7 +22,7 @@ public record WorkItemWithAuditResponse(
         String candidateUsers,
         String requiredCapabilities,
         String createdBy,
-        DelegationState delegationState,
+        DeclineTarget delegationDeclineTarget,
         String delegationChain,
         WorkItemStatus priorStatus,
         String payload,

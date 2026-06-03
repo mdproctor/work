@@ -23,7 +23,6 @@ import io.casehub.work.core.strategy.CapabilityValidator;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.AuditEntry;
-import io.casehub.work.runtime.model.DelegationState;
 import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
@@ -439,7 +438,6 @@ public class WorkItemService {
         item.delegationChain = item.delegationChain == null
                 ? actorId
                 : item.delegationChain + "," + actorId;
-        item.delegationState = DelegationState.PENDING;
         // Fire strategy while item is still in its current state (assigneeId/status
         // unchanged) so countActive sees the existing load correctly before reassignment.
         assignmentService.assign(item, AssignmentTrigger.DELEGATED);

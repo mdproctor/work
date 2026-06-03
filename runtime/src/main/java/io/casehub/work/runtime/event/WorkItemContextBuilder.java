@@ -46,7 +46,7 @@ public final class WorkItemContextBuilder {
         map.put("candidateUsers", workItem.candidateUsers);
         map.put("requiredCapabilities", workItem.requiredCapabilities);
         map.put("createdBy", workItem.createdBy);
-        map.put("delegationState", workItem.delegationState);
+        map.put("delegationDeclineTarget", workItem.delegationDeclineTarget);
         map.put("delegationChain", workItem.delegationChain);
         map.put("priorStatus", workItem.priorStatus);
         map.put("payload", workItem.payload);
