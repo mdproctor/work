@@ -17,7 +17,7 @@ import java.util.Set;
  */
 public sealed interface BreachDecision
         permits BreachDecision.Fail, BreachDecision.EscalateTo,
-                BreachDecision.Extend, BreachDecision.Chained {
+                BreachDecision.Extend, BreachDecision.Chained, BreachDecision.Exhausted {
 
     /** Terminates the WorkItem with EXPIRED status and records {@code reason} as the resolution. */
     record Fail(String reason) implements BreachDecision {}
@@ -68,6 +68,17 @@ public sealed interface BreachDecision
      * Build with {@link #thenOnBreach} rather than constructing directly.
      */
     record Chained(BreachDecision primary, BreachDecision fallback) implements BreachDecision {}
+
+    /**
+     * All configured SLA breach policy branches have been exhausted.
+     * The WorkItem transitions to {@link io.casehub.work.runtime.model.WorkItemStatus#ESCALATED}
+     * (terminal) and requires operator intervention to resolve.
+     *
+     * <p>Returned by the runtime when a {@link Chained} policy's primary and fallback both
+     * throw {@code BreachExecutionFailed}. May also be returned directly by a
+     * {@link SlaBreachPolicy} implementation when it determines no resolution is possible.
+     */
+    record Exhausted(String reason) implements BreachDecision {}
 
     /**
      * Chains a fallback decision: if this decision cannot be executed,

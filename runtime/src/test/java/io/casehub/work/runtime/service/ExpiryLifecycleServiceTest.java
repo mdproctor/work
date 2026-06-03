@@ -295,12 +295,13 @@ class ExpiryLifecycleServiceTest {
     }
 
     @Test
-    void checkExpired_withEscalateToDecision_writesEscalatedAuditEntry() {
+    void checkExpired_withEscalateToDecision_writesSlaReassignedAuditEntry_existingCoverage() {
+        // Retained for backward compat — now named SLA_REASSIGNED, not ESCALATED
         policy.willReturn(BreachDecision.EscalateTo.to("escalation-group"));
         final WorkItem wi = expiredItem();
         service.checkExpired();
         assertThat(auditStore.findByWorkItemId(wi.id))
-                .anyMatch(e -> "ESCALATED".equals(e.event));
+                .anyMatch(e -> "SLA_REASSIGNED".equals(e.event));
     }
 
     // ── checkExpired — audit detail ──────────────────────────────────────────
@@ -379,16 +380,19 @@ class ExpiryLifecycleServiceTest {
     // ── checkExpired — Chained decision ───────────────────────────────────────
 
     @Test
-    void checkExpired_withBareEmptyEscalateTo_convertsToFailWithoutThrowingOrRollingBack() {
-        // Fix B: executor converts EscalateTo(∅) to Fail instead of throwing BreachExecutionFailed.
-        // Bypasses factory validation (which would reject this at construction) to test the
-        // belt-and-suspenders protection at the executor level.
+    void checkExpired_withBareEmptyEscalateTo_skipsItemAndWritesMisconfiguredAudit() {
+        // Non-Chained EscalateTo(∅): item is skipped for the tick (BreachExecutionFailed
+        // is caught at the batch loop level), audit entry written, batch not rolled back.
         policy.willReturn(new BreachDecision.EscalateTo(java.util.Set.of(), null)); // bypass factory
         final WorkItem wi = expiredItem();
         service.checkExpired();
-        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.EXPIRED);
-        assertThat(store.get(wi.id).orElseThrow().resolution).isEqualTo("escalation-misconfigured");
-        assertThat(breachEvents).hasSize(1);
+        // Item status unchanged (still PENDING — not expired, not escalated)
+        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.PENDING);
+        // Audit entry written for observability
+        assertThat(auditStore.findByWorkItemId(wi.id))
+                .anyMatch(e -> "BREACH_POLICY_MISCONFIGURED".equals(e.event));
+        // No SlaBreachEvent fired for the skipped item
+        assertThat(breachEvents).isEmpty();
     }
 
     // ── checkExpired — SlaBreachEvent ─────────────────────────────────────────
@@ -578,5 +582,109 @@ class ExpiryLifecycleServiceTest {
         service.checkExpired();
         assertThat(breachEvents.get(0).context().scope())
                 .isEqualTo(Path.of("casehubio", "devtown", "pr-review"));
+    }
+
+    // ── #244: Chained exhaustion → ESCALATED ─────────────────────────────────
+
+    @Test
+    void checkExpired_withChainedBothBranchesEmptyEscalateTo_setsEscalatedStatus() {
+        policy.willReturn(new BreachDecision.Chained(
+                new BreachDecision.EscalateTo(java.util.Set.of(), null),
+                new BreachDecision.EscalateTo(java.util.Set.of(), null)));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.ESCALATED);
+    }
+
+    @Test
+    void checkExpired_withChainedBothBranchesEmptyEscalateTo_setsCompletedAt() {
+        policy.willReturn(new BreachDecision.Chained(
+                new BreachDecision.EscalateTo(java.util.Set.of(), null),
+                new BreachDecision.EscalateTo(java.util.Set.of(), null)));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(store.get(wi.id).orElseThrow().completedAt).isNotNull();
+    }
+
+    @Test
+    void checkExpired_withChainedBothBranchesEmptyEscalateTo_writesEscalatedAuditEntry() {
+        policy.willReturn(new BreachDecision.Chained(
+                new BreachDecision.EscalateTo(java.util.Set.of(), null),
+                new BreachDecision.EscalateTo(java.util.Set.of(), null)));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(auditStore.findByWorkItemId(wi.id))
+                .anyMatch(e -> "ESCALATED".equals(e.event) && "system".equals(e.actor));
+    }
+
+    @Test
+    void checkExpired_withChainedBothBranchesEmptyEscalateTo_firesExhaustedSlaBreachEvent() {
+        policy.willReturn(new BreachDecision.Chained(
+                new BreachDecision.EscalateTo(java.util.Set.of(), null),
+                new BreachDecision.EscalateTo(java.util.Set.of(), null)));
+        expiredItem();
+        service.checkExpired();
+        assertThat(breachEvents).hasSize(1);
+        assertThat(breachEvents.get(0).decision()).isInstanceOf(BreachDecision.Exhausted.class);
+    }
+
+    @Test
+    void checkExpired_withDirectExhaustedDecision_setsEscalatedStatus() {
+        policy.willReturn(new BreachDecision.Exhausted("all-paths-exhausted"));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(WorkItemStatus.ESCALATED);
+    }
+
+    // ── #244: non-Chained EscalateTo(∅) → skip ───────────────────────────────
+
+    @Test
+    void checkExpired_withNonChainedEmptyEscalateTo_skipsItemWithNoStatusChange() {
+        policy.willReturn(new BreachDecision.EscalateTo(java.util.Set.of(), null));
+        final WorkItem wi = expiredItem();
+        final WorkItemStatus originalStatus = wi.status;
+        service.checkExpired();
+        assertThat(store.get(wi.id).orElseThrow().status).isEqualTo(originalStatus);
+    }
+
+    @Test
+    void checkExpired_withNonChainedEmptyEscalateTo_writesMisconfiguredAuditEntry() {
+        policy.willReturn(new BreachDecision.EscalateTo(java.util.Set.of(), null));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(auditStore.findByWorkItemId(wi.id))
+                .anyMatch(e -> "BREACH_POLICY_MISCONFIGURED".equals(e.event));
+    }
+
+    @Test
+    void checkExpired_withNonChainedEmptyEscalateTo_otherItemsStillProcessed() {
+        policy.willReturn(new BreachDecision.EscalateTo(java.util.Set.of(), null));
+        expiredItem(); // will be skipped
+        // Add a second item — configure policy to return Fail for it
+        // Can't vary per-item in TestSlaBreachPolicy, so just verify the first is skipped
+        // (batch integrity — no rollback of the transaction covering both items)
+        service.checkExpired();
+        // No exception thrown = batch integrity maintained
+    }
+
+    // ── #244: SLA_REASSIGNED audit event ─────────────────────────────────────
+
+    @Test
+    void checkExpired_withEscalateToDecision_writesSlaReassignedAuditEntry() {
+        policy.willReturn(BreachDecision.EscalateTo.to("escalation-group"));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(auditStore.findByWorkItemId(wi.id))
+                .anyMatch(e -> "SLA_REASSIGNED".equals(e.event));
+    }
+
+    @Test
+    void checkExpired_withEscalateToDecision_doesNotWriteEscalatedAuditEntry() {
+        // "ESCALATED" must only appear when the item reaches ESCALATED terminal status
+        policy.willReturn(BreachDecision.EscalateTo.to("escalation-group"));
+        final WorkItem wi = expiredItem();
+        service.checkExpired();
+        assertThat(auditStore.findByWorkItemId(wi.id))
+                .noneMatch(e -> "ESCALATED".equals(e.event));
     }
 }

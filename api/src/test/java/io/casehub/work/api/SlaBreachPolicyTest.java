@@ -89,6 +89,7 @@ class SlaBreachPolicyTest {
                 case BreachDecision.EscalateTo e -> "escalate";
                 case BreachDecision.Extend ex -> "extend";
                 case BreachDecision.Chained ch -> "chained";
+                case BreachDecision.Exhausted ex -> "exhausted";
             };
             assertThat(kind).isNotBlank();
         }
