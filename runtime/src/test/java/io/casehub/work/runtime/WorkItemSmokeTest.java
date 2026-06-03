@@ -85,9 +85,9 @@ class WorkItemSmokeTest {
     void delegatePath() {
         WorkItem wi = service.create(basicRequest());
         service.claim(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
+        wi = service.delegate(wi.id, "alice", "bob", null);
 
-        assertThat(wi.status).isEqualTo(WorkItemStatus.PENDING);
+        assertThat(wi.status).isEqualTo(WorkItemStatus.DELEGATED);
         assertThat(wi.assigneeId).isEqualTo("bob");
     }
 

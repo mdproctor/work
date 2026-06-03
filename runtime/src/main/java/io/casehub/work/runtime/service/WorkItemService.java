@@ -58,6 +58,9 @@ public class WorkItemService {
     jakarta.enterprise.inject.Instance<BusinessCalendar> businessCalendar;
 
     @Inject
+    io.casehub.platform.api.preferences.PreferenceProvider preferenceProvider;
+
+    @Inject
     public WorkItemService(final WorkItemStore workItemStore,
             final AuditEntryStore auditStore,
             final WorkItemsConfig config,
@@ -421,7 +424,8 @@ public class WorkItemService {
     }
 
     @Transactional
-    public WorkItem delegate(final UUID id, final String actorId, final String toAssigneeId) {
+    public WorkItem delegate(final UUID id, final String actorId, final String toAssigneeId,
+            final io.casehub.work.api.DeclineTarget declineTarget) {
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.ASSIGNED && item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot delegate WorkItem in status: " + item.status);
@@ -438,23 +442,103 @@ public class WorkItemService {
         item.delegationChain = item.delegationChain == null
                 ? actorId
                 : item.delegationChain + "," + actorId;
-        // Fire strategy while item is still in its current state (assigneeId/status
-        // unchanged) so countActive sees the existing load correctly before reassignment.
+        // Fire strategy while item is still in its current state so countActive
+        // sees the correct load before reassignment.
         assignmentService.assign(item, AssignmentTrigger.DELEGATED);
-        // If strategy did not select a candidate, fall back to the explicit 'to' param.
+        // If strategy did not select a candidate, fall back to explicit 'to' param.
         if (item.assigneeId == null || item.assigneeId.equals(actorId)) {
             item.assigneeId = toAssigneeId;
-            item.status = WorkItemStatus.PENDING;
-            final Instant now = Instant.now();
-            item.lastReturnedToPoolAt = now;
-            item.claimDeadline = claimSlaPolicy.computePoolDeadline(buildClaimSlaContext(item, now));
         }
+        // DELEGATED unconditionally — overrides any ASSIGNED set by strategy.
+        // DELEGATED is directly addressed; pool SLA tracking does not apply.
+        item.status = WorkItemStatus.DELEGATED;
+        item.claimDeadline = null;
+        item.lastReturnedToPoolAt = null;
+        item.delegationDeclineTarget = declineTarget;
         final WorkItem saved = workItemStore.put(item);
         audit(saved.id, "DELEGATED", actorId, "to:" + saved.assigneeId);
         if (lifecycleEvent != null) {
             lifecycleEvent.fire(WorkItemLifecycleEvent.of("DELEGATED", saved, actorId, "to:" + toAssigneeId));
         }
         return saved;
+    }
+
+    @Transactional
+    public WorkItem acceptDelegation(final UUID id, final String claimantId) {
+        final WorkItem item = requireWorkItem(id);
+        if (item.status != WorkItemStatus.DELEGATED) {
+            throw new IllegalStateException(
+                    "Cannot accept delegation for WorkItem in status: " + item.status);
+        }
+        if (!claimantId.equals(item.assigneeId)) {
+            throw new IllegalStateException(
+                    "Actor '" + claimantId + "' is not the designated delegatee for WorkItem " + id);
+        }
+        item.status = WorkItemStatus.ASSIGNED;
+        item.assignedAt = Instant.now();
+        item.delegationDeclineTarget = null;
+        final WorkItem saved = workItemStore.put(item);
+        audit(saved.id, "DELEGATION_ACCEPTED", claimantId, null);
+        if (lifecycleEvent != null) {
+            lifecycleEvent.fire(WorkItemLifecycleEvent.of("DELEGATION_ACCEPTED", saved, claimantId, null));
+        }
+        return saved;
+    }
+
+    @Transactional
+    public WorkItem declineDelegation(final UUID id, final String actorId) {
+        final WorkItem item = requireWorkItem(id);
+        if (item.status != WorkItemStatus.DELEGATED) {
+            throw new IllegalStateException(
+                    "Cannot decline delegation for WorkItem in status: " + item.status);
+        }
+        if (!actorId.equals(item.assigneeId)) {
+            throw new IllegalStateException(
+                    "Actor '" + actorId + "' is not the designated delegatee for WorkItem " + id);
+        }
+        final io.casehub.work.api.DeclineTarget target = resolveDeclineTarget(item);
+        item.delegationDeclineTarget = null;
+
+        if (target == io.casehub.work.api.DeclineTarget.DELEGATOR && item.delegationChain != null) {
+            final String[] chain = item.delegationChain.split(",");
+            final String prevActor = chain[chain.length - 1].trim();
+            // Restore to previous actor — no exclusion check: prevActor was a verified holder.
+            item.assigneeId = prevActor;
+            item.status = WorkItemStatus.ASSIGNED;
+            item.assignedAt = Instant.now();
+        } else {
+            // POOL path
+            item.assigneeId = null;
+            item.status = WorkItemStatus.PENDING;
+            final Instant now = Instant.now();
+            item.lastReturnedToPoolAt = now;
+            item.claimDeadline = claimSlaPolicy.computePoolDeadline(buildClaimSlaContext(item, now));
+            assignmentService.assign(item, AssignmentTrigger.DELEGATION_DECLINED);
+        }
+
+        final WorkItem saved = workItemStore.put(item);
+        audit(saved.id, "DELEGATION_DECLINED", actorId, null);
+        if (lifecycleEvent != null) {
+            lifecycleEvent.fire(WorkItemLifecycleEvent.of("DELEGATION_DECLINED", saved, actorId, null));
+        }
+        return saved;
+    }
+
+    private io.casehub.work.api.DeclineTarget resolveDeclineTarget(final WorkItem item) {
+        if (item.delegationDeclineTarget != null) {
+            return item.delegationDeclineTarget;
+        }
+        final io.casehub.platform.api.path.Path scopePath =
+                item.scope != null ? io.casehub.platform.api.path.Path.parse(item.scope)
+                        : io.casehub.platform.api.path.Path.root();
+        final io.casehub.platform.api.preferences.Preferences prefs =
+                preferenceProvider.resolve(
+                        new io.casehub.platform.api.preferences.SettingsScope(scopePath, Instant.now()));
+        return prefs.getOrDefault(io.casehub.work.api.DeclineTarget.KEY);
+    }
+
+    public Optional<WorkItem> findById(final UUID id) {
+        return workItemStore.get(id);
     }
 
     @Transactional

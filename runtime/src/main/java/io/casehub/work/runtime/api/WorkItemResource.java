@@ -252,7 +252,7 @@ public class WorkItemResource {
             final DelegateRequest body) {
         try {
             return Response.ok(WorkItemMapper.toResponse(
-                    workItemService.delegate(id, actor, body.to()))).build();
+                    workItemService.delegate(id, actor, body.to(), body.declineTarget()))).build();
         } catch (final IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of("error", e.getMessage()))
