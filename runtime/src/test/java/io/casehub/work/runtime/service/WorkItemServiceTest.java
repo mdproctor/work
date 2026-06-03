@@ -1275,4 +1275,23 @@ class WorkItemServiceTest {
         WorkItem wi = svc.create(basicRequest());
         assertThat(wi.claimDeadline).isNull();
     }
+
+    // -------------------------------------------------------------------------
+    // findById (#241)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void findById_existingItem_returnsItem() {
+        final WorkItem wi = service.create(basicRequest());
+        assertThat(service.findById(wi.id))
+                .isPresent()
+                .get()
+                .extracting(w -> w.id)
+                .isEqualTo(wi.id);
+    }
+
+    @Test
+    void findById_unknownId_returnsEmpty() {
+        assertThat(service.findById(UUID.randomUUID())).isEmpty();
+    }
 }
