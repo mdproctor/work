@@ -182,7 +182,7 @@ public class WorkItemResource {
     @GET
     @Path("/{id}")
     public WorkItemWithAuditResponse getById(@PathParam("id") final UUID id) {
-        final WorkItem wi = workItemStore.get(id)
+        final WorkItem wi = workItemService.findById(id)
                 .orElseThrow(() -> new WorkItemNotFoundException(id));
         final List<AuditEntry> trail = auditStore.findByWorkItemId(id);
         return WorkItemMapper.toWithAudit(wi, trail);
@@ -255,6 +255,34 @@ public class WorkItemResource {
                     workItemService.delegate(id, actor, body.to(), body.declineTarget()))).build();
         } catch (final IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
+    }
+
+    @PUT
+    @Path("/{id}/accept-delegation")
+    public Response acceptDelegation(@PathParam("id") final UUID id,
+            @QueryParam("claimant") final String claimant) {
+        try {
+            return Response.ok(WorkItemMapper.toResponse(
+                    workItemService.acceptDelegation(id, claimant))).build();
+        } catch (final IllegalStateException e) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
+    }
+
+    @PUT
+    @Path("/{id}/decline-delegation")
+    public Response declineDelegation(@PathParam("id") final UUID id,
+            @QueryParam("actor") final String actor) {
+        try {
+            return Response.ok(WorkItemMapper.toResponse(
+                    workItemService.declineDelegation(id, actor))).build();
+        } catch (final IllegalStateException e) {
+            return Response.status(Response.Status.CONFLICT)
                     .entity(Map.of("error", e.getMessage()))
                     .build();
         }
