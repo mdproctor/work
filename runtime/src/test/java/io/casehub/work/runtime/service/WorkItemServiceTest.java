@@ -23,7 +23,6 @@ import io.casehub.work.core.strategy.WorkBroker;
 import io.casehub.work.runtime.model.WorkItemLabelRequest;
 import io.casehub.work.runtime.config.WorkItemsConfig;
 import io.casehub.work.runtime.model.AuditEntry;
-import io.casehub.work.runtime.model.DelegationState;
 import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
@@ -494,13 +493,8 @@ class WorkItemServiceTest {
         assertThat(wi.status).isEqualTo(WorkItemStatus.PENDING);
     }
 
-    @Test
-    void delegate_setsDelegationStatePending() {
-        WorkItem wi = service.create(basicRequest());
-        service.claim(wi.id, "alice");
-        wi = service.delegate(wi.id, "alice", "bob");
-        assertThat(wi.delegationState).isEqualTo(DelegationState.PENDING);
-    }
+    // delegate_setsDelegationStatePending removed — DelegationState dropped in #245;
+    // WorkItemStatus.DELEGATED now carries the pre-acceptance semantic
 
     @Test
     void delegate_addsDelegatorToDelegationChain() {

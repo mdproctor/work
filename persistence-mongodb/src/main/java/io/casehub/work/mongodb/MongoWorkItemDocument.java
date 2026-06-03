@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 
 import org.bson.codecs.pojo.annotations.BsonId;
 
-import io.casehub.work.runtime.model.DelegationState;
+import io.casehub.work.api.DeclineTarget;
 import io.casehub.work.api.LabelPersistence;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemLabel;
@@ -47,7 +47,7 @@ public class MongoWorkItemDocument extends PanacheMongoEntityBase {
     public List<String> candidateUsers = new ArrayList<>();
     public String requiredCapabilities;
     public String createdBy;
-    public String delegationState;
+    public String delegationDeclineTarget;
     public String delegationChain;
     public String priorStatus;
     public String payload;
@@ -86,7 +86,7 @@ public class MongoWorkItemDocument extends PanacheMongoEntityBase {
         doc.candidateUsers = splitCsv(wi.candidateUsers);
         doc.requiredCapabilities = wi.requiredCapabilities;
         doc.createdBy = wi.createdBy;
-        doc.delegationState = wi.delegationState != null ? wi.delegationState.name() : null;
+        doc.delegationDeclineTarget = wi.delegationDeclineTarget != null ? wi.delegationDeclineTarget.name() : null;
         doc.delegationChain = wi.delegationChain;
         doc.priorStatus = wi.priorStatus != null ? wi.priorStatus.name() : null;
         doc.payload = wi.payload;
@@ -128,7 +128,7 @@ public class MongoWorkItemDocument extends PanacheMongoEntityBase {
         wi.candidateUsers = joinCsv(candidateUsers);
         wi.requiredCapabilities = requiredCapabilities;
         wi.createdBy = createdBy;
-        wi.delegationState = delegationState != null ? DelegationState.valueOf(delegationState) : null;
+        wi.delegationDeclineTarget = delegationDeclineTarget != null ? DeclineTarget.valueOf(delegationDeclineTarget) : null;
         wi.delegationChain = delegationChain;
         wi.priorStatus = priorStatus != null ? WorkItemStatus.valueOf(priorStatus) : null;
         wi.payload = payload;
