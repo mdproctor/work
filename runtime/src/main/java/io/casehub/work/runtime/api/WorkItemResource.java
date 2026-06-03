@@ -267,6 +267,10 @@ public class WorkItemResource {
         try {
             return Response.ok(WorkItemMapper.toResponse(
                     workItemService.acceptDelegation(id, claimant))).build();
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
         } catch (final IllegalStateException e) {
             return Response.status(Response.Status.CONFLICT)
                     .entity(Map.of("error", e.getMessage()))
@@ -281,6 +285,10 @@ public class WorkItemResource {
         try {
             return Response.ok(WorkItemMapper.toResponse(
                     workItemService.declineDelegation(id, actor))).build();
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
         } catch (final IllegalStateException e) {
             return Response.status(Response.Status.CONFLICT)
                     .entity(Map.of("error", e.getMessage()))

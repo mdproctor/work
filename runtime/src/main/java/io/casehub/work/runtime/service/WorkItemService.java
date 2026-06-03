@@ -13,10 +13,15 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
+import io.casehub.platform.api.path.Path;
+import io.casehub.platform.api.preferences.Preferences;
+import io.casehub.platform.api.preferences.PreferenceProvider;
+import io.casehub.platform.api.preferences.SettingsScope;
 import io.casehub.work.api.AssignmentTrigger;
 import io.casehub.work.api.BusinessCalendar;
 import io.casehub.work.api.ClaimSlaContext;
 import io.casehub.work.api.ClaimSlaPolicy;
+import io.casehub.work.api.DeclineTarget;
 import io.casehub.work.api.ExclusionPolicy;
 import io.casehub.work.api.PolicyDecision;
 import io.casehub.work.core.strategy.CapabilityValidator;
@@ -58,7 +63,7 @@ public class WorkItemService {
     jakarta.enterprise.inject.Instance<BusinessCalendar> businessCalendar;
 
     @Inject
-    io.casehub.platform.api.preferences.PreferenceProvider preferenceProvider;
+    PreferenceProvider preferenceProvider;
 
     @Inject
     public WorkItemService(final WorkItemStore workItemStore,
@@ -425,7 +430,7 @@ public class WorkItemService {
 
     @Transactional
     public WorkItem delegate(final UUID id, final String actorId, final String toAssigneeId,
-            final io.casehub.work.api.DeclineTarget declineTarget) {
+            final DeclineTarget declineTarget) {
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.ASSIGNED && item.status != WorkItemStatus.IN_PROGRESS) {
             throw new IllegalStateException("Cannot delegate WorkItem in status: " + item.status);
@@ -465,6 +470,9 @@ public class WorkItemService {
 
     @Transactional
     public WorkItem acceptDelegation(final UUID id, final String claimantId) {
+        if (claimantId == null || claimantId.isBlank()) {
+            throw new IllegalArgumentException("claimantId is required");
+        }
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.DELEGATED) {
             throw new IllegalStateException(
@@ -487,6 +495,9 @@ public class WorkItemService {
 
     @Transactional
     public WorkItem declineDelegation(final UUID id, final String actorId) {
+        if (actorId == null || actorId.isBlank()) {
+            throw new IllegalArgumentException("actorId is required");
+        }
         final WorkItem item = requireWorkItem(id);
         if (item.status != WorkItemStatus.DELEGATED) {
             throw new IllegalStateException(
@@ -496,10 +507,10 @@ public class WorkItemService {
             throw new IllegalStateException(
                     "Actor '" + actorId + "' is not the designated delegatee for WorkItem " + id);
         }
-        final io.casehub.work.api.DeclineTarget target = resolveDeclineTarget(item);
+        final DeclineTarget target = resolveDeclineTarget(item);
         item.delegationDeclineTarget = null;
 
-        if (target == io.casehub.work.api.DeclineTarget.DELEGATOR && item.delegationChain != null) {
+        if (target == DeclineTarget.DELEGATOR && item.delegationChain != null) {
             final String[] chain = item.delegationChain.split(",");
             final String prevActor = chain[chain.length - 1].trim();
             // Restore to previous actor — no exclusion check: prevActor was a verified holder.
@@ -524,17 +535,13 @@ public class WorkItemService {
         return saved;
     }
 
-    private io.casehub.work.api.DeclineTarget resolveDeclineTarget(final WorkItem item) {
+    private DeclineTarget resolveDeclineTarget(final WorkItem item) {
         if (item.delegationDeclineTarget != null) {
             return item.delegationDeclineTarget;
         }
-        final io.casehub.platform.api.path.Path scopePath =
-                item.scope != null ? io.casehub.platform.api.path.Path.parse(item.scope)
-                        : io.casehub.platform.api.path.Path.root();
-        final io.casehub.platform.api.preferences.Preferences prefs =
-                preferenceProvider.resolve(
-                        new io.casehub.platform.api.preferences.SettingsScope(scopePath, Instant.now()));
-        return prefs.getOrDefault(io.casehub.work.api.DeclineTarget.KEY);
+        final Path scopePath = item.scope != null ? Path.parse(item.scope) : Path.root();
+        final Preferences prefs = preferenceProvider.resolve(new SettingsScope(scopePath, Instant.now()));
+        return prefs.getOrDefault(DeclineTarget.KEY);
     }
 
     public Optional<WorkItem> findById(final UUID id) {

@@ -679,6 +679,21 @@ class WorkItemServiceTest {
     }
 
     @Test
+    void declineDelegation_delegatorPathWithNullChain_fallsBackToPool() {
+        // If DELEGATOR is requested but delegationChain is null, falls back to POOL.
+        // Prevents NPE if a WorkItem reaches DELEGATED status through an unusual path.
+        WorkItem wi = service.create(basicRequest());
+        service.claim(wi.id, "alice");
+        wi = service.delegate(wi.id, "alice", "bob", DeclineTarget.DELEGATOR);
+        // Clear chain to simulate unusual state
+        wi.delegationChain = null;
+        repo.put(wi);
+        wi = service.declineDelegation(wi.id, "bob");
+        assertThat(wi.status).isEqualTo(WorkItemStatus.PENDING); // POOL fallback
+        assertThat(wi.assigneeId).isNull();
+    }
+
+    @Test
     void declineDelegation_usesPreferenceDefaultWhenNoInstanceOverride() {
         // setUp wires empty preferences → POOL default
         WorkItem wi = service.create(basicRequest());
