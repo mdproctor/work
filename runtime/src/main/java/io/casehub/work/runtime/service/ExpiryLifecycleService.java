@@ -121,6 +121,10 @@ public class ExpiryLifecycleService {
                 LOG.errorf("SLA breach policy misconfigured for WorkItem %s (claim) — skipping: %s",
                         item.id, e.getMessage());
                 writeAudit(item, "BREACH_POLICY_MISCONFIGURED", e.getMessage(), now);
+                // Note: accumulatedUnclaimedSeconds and lastReturnedToPoolAt were mutated above
+                // and will commit when the @Transactional boundary closes. This is intentional —
+                // "time accumulation always happens, regardless of policy decision" (pre-existing design).
+                // The "skipped" item retries next tick with an accurate accumulated time baseline.
             }
         }
     }
