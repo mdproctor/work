@@ -312,3 +312,173 @@ C4Deployment
 **Symptom:** Two concurrent claim requests on different cluster nodes both succeed — the same WorkItem is assigned to two actors.
 **Cause:** `WorkItemStore.put()` without optimistic locking allows concurrent writers to overwrite each other's state.
 **Fix:** `WorkItem` carries `@Version long version`; concurrent claim produces `OptimisticLockException` which `WorkItemResource` maps to HTTP 409 Conflict. The second claimer must retry claim.
+
+---
+
+## §9 Journeys and Chapters
+
+### §9.1 Journey Overview
+
+| Journey | Description | Chapters | Status |
+|---|---|---|---|
+| Core Platform | Domain baseline, REST API, lifecycle engine, CDI events, Quarkus-Flow, ledger, label queues, native image, WorkItemTemplate, model enrichment, audit history, subprocess spawn, atomic claim + schedule dedup, ClaimSlaPolicy SPI | C1–C15 | ✅ Complete |
+| Enterprise Capabilities | Confidence-gated routing, worker selection strategy, module separation, semantic AI + LLM assist, MongoDB persistence, issue tracker, SLA reporting, multi-instance, business hours, notifications, broadcaster SPI, distributed SSE | C16–C27 | ✅ Complete |
+| Lifecycle Enrichment | Named outcomes, template data schemas, conflict-of-interest exclusions, enforced builder, round-robin strategy, SlaBreachPolicy SPI + escalation removal, capability vocabulary, status lifecycle fixes + DELEGATED | C28–C35 | ✅ Complete |
+
+```mermaid
+flowchart LR
+  C1["C1: Domain Baseline\nL1"] --> C2["C2: REST API\n+L2"]
+  C2 --> C3["C3: Lifecycle Engine\n+L3"]
+  C3 --> C4["C4: CDI Events\nL1,L3"]
+  C4 --> C5["C5: Flow\n+L7"]
+  C5 --> C6["C6: Ledger\n+L5"]
+  C6 --> C7["C7: Label Queues\n+L4"]
+  C7 --> C8["C8: Native Image"]
+  C8 --> C9["C9: Form Schema\n(superseded)"]
+  C9 --> C10["C10: WorkItemTemplate\nL1"]
+  C10 --> C11["C11: Model Enrichment\nL1,L2"]
+  C11 --> C12["C12: Audit History\nL2"]
+  C12 --> C13["C13: Spawn\nL1"]
+  C13 --> C14["C14: Atomic Claim\nL1"]
+  C14 --> C15["C15: ClaimSlaPolicy\nL3"]
+
+  C15 --> C16["C16: Confidence Routing\nL1,L4"]
+  C16 --> C17["C17: Worker Selection\nL1"]
+  C17 --> C18["C18: Module Sep\nL1"]
+  C18 --> C19["C19: Semantic+LLM\nL7"]
+  C19 --> C20["C20: MongoDB\nL7"]
+  C20 --> C21["C21: Issue Tracker\nL7"]
+  C21 --> C22["C22: SLA Reports\nL7"]
+  C22 --> C23["C23: Multi-Instance\nL1,L3"]
+  C23 --> C24["C24: Business Hours\nL3"]
+  C24 --> C25["C25: Notifications\nL7"]
+  C25 --> C26["C26: Broadcaster SPI\nL6"]
+  C26 --> C27["C27: Distributed SSE\nL6"]
+
+  C27 --> C28["C28: Named Outcomes\nL1,L2"]
+  C28 --> C29["C29: Template Schemas\nL1,L2"]
+  C29 --> C30["C30: CoI Exclusions\nL1"]
+  C30 --> C31["C31: Builder\nL1,L2"]
+  C31 --> C32["C32: Round-Robin\nL3"]
+  C32 --> C33["C33: SlaBreachPolicy\nL3"]
+  C33 --> C34["C34: Capability Vocab\nL1"]
+  C34 --> C35["C35: Status Lifecycle\nL1,L3"]
+
+  style C1 fill:#90EE90,color:#000
+  style C2 fill:#90EE90,color:#000
+  style C3 fill:#90EE90,color:#000
+  style C4 fill:#90EE90,color:#000
+  style C5 fill:#90EE90,color:#000
+  style C6 fill:#90EE90,color:#000
+  style C7 fill:#90EE90,color:#000
+  style C8 fill:#90EE90,color:#000
+  style C9 fill:#90EE90,color:#000
+  style C10 fill:#90EE90,color:#000
+  style C11 fill:#90EE90,color:#000
+  style C12 fill:#90EE90,color:#000
+  style C13 fill:#90EE90,color:#000
+  style C14 fill:#90EE90,color:#000
+  style C15 fill:#90EE90,color:#000
+  style C16 fill:#90EE90,color:#000
+  style C17 fill:#90EE90,color:#000
+  style C18 fill:#90EE90,color:#000
+  style C19 fill:#90EE90,color:#000
+  style C20 fill:#90EE90,color:#000
+  style C21 fill:#90EE90,color:#000
+  style C22 fill:#90EE90,color:#000
+  style C23 fill:#90EE90,color:#000
+  style C24 fill:#90EE90,color:#000
+  style C25 fill:#90EE90,color:#000
+  style C26 fill:#90EE90,color:#000
+  style C27 fill:#90EE90,color:#000
+  style C28 fill:#90EE90,color:#000
+  style C29 fill:#90EE90,color:#000
+  style C30 fill:#90EE90,color:#000
+  style C31 fill:#90EE90,color:#000
+  style C32 fill:#90EE90,color:#000
+  style C33 fill:#90EE90,color:#000
+  style C34 fill:#90EE90,color:#000
+  style C35 fill:#90EE90,color:#000
+```
+
+### §9.2 Chapter Index
+
+| # | Chapter | Journey | Key issues | Status |
+|---|---|---|---|---|
+| C1 | Domain Baseline | Core Platform | Phase 1 | ✅ |
+| C2 | REST API | Core Platform | Phase 2 | ✅ |
+| C3 | Lifecycle Engine | Core Platform | Phase 3 | ✅ |
+| C4 | CDI Events | Core Platform | Phase 4 | ✅ |
+| C5 | Quarkus-Flow Integration | Core Platform | Phase 5, #37, #38 | ✅ |
+| C6 | Ledger Module | Core Platform | Phase 6, #45, ADR-0001 | ✅ |
+| C7 | Label-Based Queues | Core Platform | Phase 7, #72, ADR-0002 | ✅ |
+| C8 | Native Image | Core Platform | Phase 8 | ✅ |
+| C9 | Form Schema *(superseded by C29)* | Core Platform | #107, #108 | ✅ |
+| C10 | WorkItemTemplate | Core Platform | #76 | ✅ |
+| C11 | WorkItem Model Enrichment | Core Platform | #74, #75, #82–#89, #91 | ✅ |
+| C12 | Audit History API | Core Platform | Phase 10, #109–#111 | ✅ |
+| C13 | Subprocess Spawn | Core Platform | SpawnPort SPI, V17+V18 | ✅ |
+| C14 | Atomic Claim + Schedule Dedup | Core Platform | #94, #96 | ✅ |
+| C15 | ClaimSlaPolicy SPI | Core Platform | #125 | ✅ |
+| C16 | Confidence-Gated Routing | Enterprise Capabilities | Phase 11, #112–#114 | ✅ |
+| C17 | Worker Selection Strategy | Enterprise Capabilities | Phase 12, #115–#116 | ✅ |
+| C18 | Module Separation | Enterprise Capabilities | #118 | ✅ |
+| C19 | Semantic Skill Matching + LLM Assist | Enterprise Capabilities | #121, #124, #126, V4001 | ✅ |
+| C20 | MongoDB Persistence | Enterprise Capabilities | persistence-mongodb module | ✅ |
+| C21 | Issue Tracker | Enterprise Capabilities | #73, #156–#161 | ✅ |
+| C22 | SLA Compliance Reporting | Enterprise Capabilities | Phase 14, #142–#145 | ✅ |
+| C23 | Multi-Instance WorkItems | Enterprise Capabilities | Phase 15, #106 | ✅ |
+| C24 | Business-Hours Deadlines | Enterprise Capabilities | Phase 16 | ✅ |
+| C25 | Notifications | Enterprise Capabilities | Phase 17, #140–#141 | ✅ |
+| C26 | Broadcaster SPI | Enterprise Capabilities | Phase 18, #147, #150 | ✅ |
+| C27 | Distributed SSE + Queue Broadcaster | Enterprise Capabilities | Phase 19+20, #93, #155 | ✅ |
+| C28 | Named Outcomes | Lifecycle Enrichment | Phase 21, #169, #176, #178 | ✅ |
+| C29 | Template Data Schemas | Lifecycle Enrichment | Phase 22, #170 — *supersedes C9* | ✅ |
+| C30 | Conflict-of-Interest Exclusions | Lifecycle Enrichment | Phase 23, #171, #186, #192, ADR-0005 | ✅ |
+| C31 | WorkItemCreateRequest Builder | Lifecycle Enrichment | Phase 24, #182 | ✅ |
+| C32 | Round-Robin Strategy | Lifecycle Enrichment | #117, #200, #202, #203 | ✅ |
+| C33 | SlaBreachPolicy SPI + Escalation Removal | Lifecycle Enrichment | Phase 25+26, #212–#216 | ✅ |
+| C34 | Capability Vocabulary | Lifecycle Enrichment | #220, ADR-0003, ADR-0004 | ✅ |
+| C35 | Status Lifecycle Fixes + DELEGATED | Lifecycle Enrichment | Phase 27, #241, #243–#245 | ✅ |
+
+**Layer × Chapter matrix** (High/Med/Low/—):
+
+| Layer | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | C13 | C14 | C15 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L1 Domain Baseline | **H** | L | — | L | — | — | — | — | L | **M** | **M** | L | **M** | **M** | L |
+| L2 REST API | — | **H** | — | — | — | — | — | — | — | — | L | **M** | — | — | — |
+| L3 Lifecycle Engine | — | — | **H** | **M** | — | — | — | — | — | — | — | — | — | — | **M** |
+| L4 Label System | — | — | — | — | — | — | **H** | — | — | — | — | — | — | — | — |
+| L5 Ledger Integration | — | — | — | — | — | **H** | — | — | — | — | — | — | — | — | — |
+| L6 Distribution | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| L7 Optional Modules | — | — | — | — | **M** | — | — | — | — | — | — | — | — | — | — |
+
+| Layer | C16 | C17 | C18 | C19 | C20 | C21 | C22 | C23 | C24 | C25 | C26 | C27 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| L1 Domain Baseline | L | **M** | **M** | — | — | — | — | **M** | L | — | — | — |
+| L2 REST API | — | — | — | — | — | — | — | — | — | — | — | — |
+| L3 Lifecycle Engine | — | — | — | — | — | — | — | **M** | **M** | — | — | — |
+| L4 Label System | **M** | — | — | — | — | — | — | — | — | — | — | — |
+| L5 Ledger Integration | — | — | — | — | — | — | — | — | — | — | — | — |
+| L6 Distribution | — | — | — | — | — | — | — | — | — | — | **M** | **H** |
+| L7 Optional Modules | — | — | **M** | **M** | **M** | **M** | **M** | — | — | **H** | — | — |
+
+| Layer | C28 | C29 | C30 | C31 | C32 | C33 | C34 | C35 |
+|---|---|---|---|---|---|---|---|---|
+| L1 Domain Baseline | **M** | **M** | **M** | L | — | L | **M** | **M** |
+| L2 REST API | L | L | — | L | — | — | — | — |
+| L3 Lifecycle Engine | — | — | — | — | **M** | **H** | — | **M** |
+| L4 Label System | — | — | — | — | — | — | — | — |
+| L5 Ledger Integration | — | — | — | — | — | — | — | — |
+| L6 Distribution | — | — | — | — | — | — | — | — |
+| L7 Optional Modules | — | — | — | — | — | — | — | — |
+
+**Sequencing rationale:**
+- C1 before C2: REST requires the persisted WorkItem entity and service layer at runtime
+- C2 before C3: lifecycle transitions require service methods to exist
+- C3 before C4: CDI events are emitted inside service transitions; transitions must exist first
+- C6 (Ledger) after C4: `LedgerEventCapture @Observes WorkItemLifecycleEvent` — the event bus must exist
+- C7 (Label Queues) before C16 (Confidence Routing): C16 extends the filter engine from C7
+- C18 (Module Separation) before C19 (Semantic AI): semantic AI depends on the api/core SPI split
+- C26 (Broadcaster SPI) before C27 (Distributed SSE): PostgreSQL broadcaster implements the SPI from C26
+- C33 (SlaBreachPolicy SPI) before C35 (Status Lifecycle): C35 status correctness (#243 EXPIRED in isTerminal, #244 Exhausted) depends on sealed `BreachDecision` from C33
