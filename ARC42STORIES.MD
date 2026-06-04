@@ -1132,3 +1132,103 @@ Four targeted fixes delivered together. #243: `EXPIRED` added to `WorkItemStatus
 |---|---|
 | L1 Domain Model | Med |
 | L3 Routing + Assignment | Med |
+
+---
+
+## §9.4 Layer Entries
+
+### Layer — L1 Domain Baseline
+
+**Participates in chapters:** C1, C2, C4, C9, C10, C11, C12, C13, C14, C15, C17, C18, C23, C24, C28, C29, C30, C31, C34, C35
+**Architectural patterns:** Hexagonal (Ports and Adapters), Strategy, Registry
+**Key protocols:** `docs/protocols/casehub/flyway-version-range-allocation.md`, `docs/protocols/universal/module-tier-structure.md`, PP-20260525-607b33
+**Issues:** Phase 1, #182, #220, ADR-0003, ADR-0004, ADR-0005
+**Navigation:** `git log --grep="Phase 1\|#182\|#220" --oneline`
+**Completed:** 2026-04-14 (baseline); enriched through 2026-06-03
+
+#### What it adds
+
+**Before:** No human task primitive exists in the application.
+**After:** `casehub-work` (Quarkus extension) provides the WorkItem inbox — `JpaWorkItemStore @ApplicationScoped` persists items; `WorkItemService` enforces all status transitions.
+
+What this layer adds:
+- **WorkItem entity** — JPA entity with 10-status lifecycle, 30+ fields, `@Version` for OCC, `@PrePersist` UUID generation; all status transitions enforced by `WorkItemService`
+- **Storage SPI** — `WorkItemStore` interface allows `@Alternative @Priority(1)` backends (MongoDB, in-memory) to displace the JPA default without touching service code
+- **Audit trail** — `AuditEntry` append-only log records every transition with actor, event, and optional detail JSON
+- **Capability vocabulary** — `Capability` value type (kebab-case, cached regex); `CapabilityValidator` STRICT/WARN/PERMISSIVE modes; `CapabilityRegistry` SPI
+
+Not closed here: REST surface (L2), lifecycle scheduling (L3), label routing (L4), tamper-evidence (L5).
+
+#### Accountability Gaps Closed
+
+| Gap | What breaks without it | Closed by |
+|---|---|---|
+| No structured task audit trail | Transitions have no observable record | `AuditEntry` appended on every `WorkItemService` call |
+| Capability misconfiguration silently empties pool | Assignment routes to zero candidates | `CapabilityValidator` rejects or warns at creation time |
+
+#### Key Files
+
+`runtime/src/main/java/io/casehub/work/runtime/model/WorkItem.java` — JPA entity representing a unit of work requiring human attention; holds lifecycle state, assignment, priority, expiry, and versioning fields.
+
+`runtime/src/main/java/io/casehub/work/runtime/model/WorkItemStatus.java` — enum of all 10 lifecycle statuses; provides `isTerminal()` and `isActive()` predicates used by query filters and scheduler guards.
+
+`runtime/src/main/java/io/casehub/work/runtime/model/AuditEntry.java` — append-only JPA entity recording each lifecycle event with actor, event type, timestamp, and optional detail JSON; never updated after insert.
+
+`runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemStore.java` — storage SPI interface defining `put`, `get`, `scan(WorkItemQuery)`, and default methods; no JPA types leak through the interface.
+
+`runtime/src/main/java/io/casehub/work/runtime/repository/jpa/JpaWorkItemStore.java` — `@ApplicationScoped` Panache-backed implementation of `WorkItemStore`; translates `WorkItemQuery` to JPQL and handles indexed callerRef lookup.
+
+`runtime/src/main/java/io/casehub/work/runtime/service/WorkItemService.java` — `@ApplicationScoped` application service that owns all status transition logic and calls `WorkItemStore` and audit services; no transition logic lives in the entity or REST layer.
+
+`runtime/src/main/java/io/casehub/work/runtime/repository/WorkItemQuery.java` — composable value object carrying scan criteria; assignment fields combine with OR, all other fields combine with AND; backends translate to their native query language.
+
+`api/src/main/java/io/casehub/work/api/Capability.java` — record type enforcing kebab-case format at construction; throws `MalformedCapabilityException` on violation so format errors fail fast at system boundaries.
+
+`testing/src/main/java/io/casehub/work/testing/InMemoryWorkItemStore.java` — `@Alternative @Priority(1)` in-memory implementation of `WorkItemStore` for unit tests; requires no datasource or Quarkus boot.
+
+#### Key Wiring
+
+**`@PrePersist` UUID generation.** `WorkItem.id` is set in `@PrePersist` — not at construction time. This allows `BlockedAttemptAuditService` to pre-generate an ID before the exclusion check, recording `CREATE_DENIED` at a known ID even when the WorkItem never reaches the `work_item` table.
+
+**`@Version long version` on `WorkItem`.** Provides optimistic concurrency control — concurrent claim from two nodes produces `OptimisticLockException`, mapped to HTTP 409 Conflict by `WorkItemResource`. The second claimer must retry; no explicit locking is used.
+
+**Flyway at `classpath:db/work/migration/`.** All runtime module migrations (V1–V34) live at this path per PP-20260525-607b33. Consumers must set `quarkus.flyway.locations=classpath:db/work/migration` explicitly — Quarkus has no auto-registration mechanism for extension migrations.
+
+**`InMemoryWorkItemStore` for unit tests.** The testing module provides `InMemoryWorkItemStore` annotated `@Alternative @Priority(1)` — unit tests use this without Quarkus or a datasource; `@QuarkusTest` integration tests use `JpaWorkItemStore` with H2.
+
+#### Architectural Decisions
+
+**Why Storage SPI rather than direct JPA dependency in services:** Keeping `WorkItemStore` as an interface in the service layer allows alternative backends (MongoDB, Redis) to displace the JPA default via `@Alternative @Priority(1)` without modifying `WorkItemService`. Tradeoff: every new query method must be added to the SPI interface, which requires updating alternative implementations.
+
+**Why Capability as a value type rather than validated String:** Capability (ADR-0003) enforces kebab-case format at construction time; a plain String accepts any value including misspellings that silently produce empty candidate pools. Tradeoff: callers must parse Strings to Capability at system boundaries (REST layer, config); existing String-typed fields required migration.
+
+**Why group membership snapshot at WorkItem creation (ADR-0005):** `excludedGroups` on `WorkItemTemplate` is expanded to actor IDs at instantiation time via `GroupMembershipProvider`. Late resolution would produce non-deterministic exclusion when group membership changes mid-lifecycle. Tradeoff: the snapshot reflects membership at creation time; changes to group membership after creation do not affect the item's exclusion list.
+
+#### Pattern Introduced
+
+`@DefaultBean` CDI displacement — a no-op or JPA `@DefaultBean` is displaced by `@Alternative @Priority(1)` via classpath presence; no consumer config change required.
+
+#### Pattern Anchor
+
+`runtime/src/main/java/io/casehub/work/runtime/repository/jpa/JpaWorkItemStore.java` — `@ApplicationScoped` JPA default
+`testing/src/main/java/io/casehub/work/testing/InMemoryWorkItemStore.java` — `@Alternative @Priority(1)` test override
+
+#### Gotchas
+
+**Symptom:** `WorkItemQuery.expired()` does not include items in a newly added non-terminal status; `ExpiryCleanupJob` skips them silently.
+**Cause:** `WorkItemQuery.expired()` and `WorkItemQuery.claimExpired()` use explicit status sets. A new active status absent from those sets is invisible to the scheduler.
+**Fix:** When adding a new non-terminal `WorkItemStatus` value, update three places atomically: `WorkItemStatus.isActive()`, `WorkItemStatus.isTerminal()`, and the status predicates inside `WorkItemQuery.expired()` and `WorkItemQuery.claimExpired()`.
+
+**Symptom:** `CREATE_DENIED` audit entry is absent after an exclusion check rejects a WorkItem creation.
+**Cause:** `BlockedAttemptAuditService` writes via `@Transactional(REQUIRES_NEW)`, committing independently. If the audit bean is missing from CDI or the REQUIRES_NEW transaction fails, the entry is silently dropped.
+**Fix:** Verify `BlockedAttemptAuditService` appears in the CDI graph (`@ApplicationScoped` with no `@Vetoed`); confirm V32 migration dropped `fk_audit_entry_work_item` — without it, `CREATE_DENIED` records fail FK validation.
+
+#### Pattern to Replicate
+
+1. Define a domain entity with UUID PK, `@Version` for OCC, `@PrePersist` for timestamp and ID generation, and a status enum with `isTerminal()` / `isActive()` switch methods.
+2. Define a `Store` interface with `put`, `get`, and `scan(Query)` methods — no JPA types in the interface.
+3. Implement the `Store` with `@ApplicationScoped` JPA default; add an `@Alternative @Priority(1)` in-memory implementation for zero-datasource unit tests.
+4. Define a `Service` class that takes the `Store` as a CDI dependency; enforce all status transitions here — never in the entity or REST layer.
+5. Define an append-only `AuditEntryStore` with a separate JPA entity; call it inside every `Service` state transition.
+6. Write Flyway migrations at `classpath:db/<reponame>/migration/` (not `db/migration/`) and document the version range in the module's README.
+7. Configure `@QuarkusTest` integration tests with H2 `MODE=PostgreSQL`; use the in-memory store for unit tests that need no Quarkus boot.
