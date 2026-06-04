@@ -234,9 +234,11 @@ Actor or system POSTs to `POST /workitems`. `WorkItemService` validates the requ
 
 `ExpiryCleanupJob` fires on schedule via `@Scheduled`. It calls `ExpiryLifecycleService.checkExpired()`, which scans all expired WorkItems and calls `SlaBreachPolicy.onBreach(SlaBreachContext)` per item:
 
-- `BreachDecision.Fail` → WorkItem transitions to EXPIRED (terminal); `SlaBreachEvent` CDI fires; `EXPIRED` audit entry written
+- `BreachDecision.Fail` → WorkItem transitions to EXPIRED (terminal); `EXPIRED` audit entry written
 - `BreachDecision.EscalateTo(groups, deadline)` → item returns to PENDING with new candidate groups and deadline; `SLA_REASSIGNED` audit entry written; `WorkItemAssignmentService` pre-assigns via `SLA_ESCALATED` trigger
 - `BreachDecision.Chained` → primary decision tried, fallback tried on failure; both exhausted → `executeExhausted()` → WorkItem transitions to ESCALATED (terminal)
+
+**Note:** `SlaBreachEvent` CDI fires on all `BreachDecision` outcomes (Fail, EscalateTo, Exhausted, Extend), not only Fail.
 
 `BreachExecutionFailed` exceptions are caught at item level — one misconfigured policy writes `BREACH_POLICY_MISCONFIGURED` audit and skips the item without rolling back the batch.
 
@@ -1758,3 +1760,102 @@ Optional classpath-presence activation — an optional module adds `@Alternative
 3. For new capabilities with no SPI to override (e.g. reports, LLM assist), use `@ApplicationScoped` CDI beans and REST resources that activate by presence.
 4. Ensure the optional module carries its own Flyway migrations at `db/work/migration/` in a reserved V-number range (see `docs/protocols/casehub/flyway-version-range-allocation.md`).
 5. Write Jandex index for the module (via jandex-maven-plugin) so CDI can discover its beans in Quarkus without a full classpath scan.
+
+---
+
+## §10 Architectural Decisions
+
+All 5 ADRs are chapter-specific and elaborated in §9.4 layer entries. This section provides cross-references only.
+
+| ADR | Decision | Where elaborated |
+|---|---|---|
+| ADR-0001 | Extract ledger infrastructure to shared `casehub-ledger` library so Qhorus, engine, and devtown can use the same hash chain | §9.4 L5 — Architectural decisions |
+| ADR-0002 | Labels as queues with MANUAL/INFERRED persistence — MANUAL labels survive filter re-evaluation; INFERRED labels are recomputed | §9.4 L4 — Architectural decisions |
+| ADR-0003 | Capability as a validated value type with kebab-case enforcement — prevents silent empty candidate pools from misspelled tags | §9.4 L1 — Architectural decisions |
+| ADR-0004 | Capability validation mode as deployment config (STRICT/WARN/PERMISSIVE) — not hardcoded — consuming apps choose validation strictness | §9.4 L1 — Architectural decisions |
+| ADR-0005 | Group membership snapshot at WorkItem creation — `excludedGroups` expanded to actor IDs at instantiation so exclusion is deterministic at execution time | §9.4 L1 — Architectural decisions |
+
+Full decision records: `docs/adr/`
+
+---
+
+## §11 Quality Requirements
+
+| Quality goal | Scenario | Verification |
+|---|---|---|
+| SLA correctness | WorkItem with `expiresAt` in the past transitions to EXPIRED within one `ExpiryCleanupJob` cycle | `ExpiryLifecycleServiceTest` verifies EXPIRED transition; scheduler interval configurable via `casehub.work.cleanup.expiry-check-seconds` |
+| SLA breach exhaustion | Chained policy with two failing branches sets WorkItem to ESCALATED (terminal) | `ExpiryLifecycleServiceTest.checkExpired_chainedExhaustion` |
+| Isolation | Core extension compiles and passes unit tests without `casehub-ledger`, `casehub-qhorus`, or `casehub-engine` on the classpath | `mvn verify -pl runtime` with no optional modules present |
+| Zero-datasource unit tests | `WorkItemServiceTest` runs without Quarkus boot in under 1 s | `InMemoryWorkItemStore @Alternative @Priority(1)` in `casehub-work-testing`; no `@QuarkusTest` annotation required |
+| Native image correctness | All 25 `@QuarkusIntegrationTest` tests pass against GraalVM 25 native binary | `mvn verify -Pnative -pl integration-tests` |
+| Concurrent claim safety | Two simultaneous claim requests on different nodes produce one ASSIGNED and one HTTP 409 Conflict | `WorkItemResourceTest` with concurrent claim simulation; `@Version` on WorkItem triggers `OptimisticLockException` |
+
+### Test Totals (all modules, 0 failures)
+
+| Module | Tests |
+|---|---|
+| casehub-work-api | 82 |
+| casehub-work-core | 38 |
+| runtime | 840 |
+| work-flow | 32 |
+| casehub-work-ledger | 76 |
+| casehub-work-queues | 84 |
+| casehub-work-ai | 77 |
+| casehub-work-examples | 18 |
+| casehub-work-queues-examples | 37 |
+| casehub-work-reports | 73 |
+| casehub-work-notifications | 39 |
+| casehub-work-postgres-broadcaster | 22 |
+| casehub-work-queues-postgres-broadcaster | 13 |
+| casehub-work-issue-tracker | 93 |
+| testing | 31 |
+| integration-tests | 25 |
+| **Total** | **~1278** |
+
+---
+
+## §12 Risks and Technical Debt
+
+### Active Risks
+
+| Risk | Impact | Status |
+|---|---|---|
+| `casehub-work-qhorus` not built | MCP tools for agent-driven approval flows unavailable | ⏸ Blocked — Qhorus APIs not stable |
+| `casehub-work-casehub` not built | CaseHub WorkerRegistry adapter unavailable | ⏸ Blocked — CaseHub engine API not stable |
+| ProvenanceLink (#39) | PROV-O causal graph across WorkItems, cases, and agent activities unavailable | ⏸ Blocked — awaiting CaseHub + Qhorus integrations |
+
+### Technical Debt
+
+| Item | Detail |
+|---|---|
+| Notification duplication | `casehub-work-notifications` ships Slack/Teams directly; should delegate to `casehub-connectors` connector SPI (casehubio/parent#5 open) |
+| `WorkItemLabel.path` still String | `LabelDefinition.path` migrated to `casehub-platform-api Path` type (C34); `WorkItemLabel.path` migration deferred — M-scale, requires REST API change |
+| queues-dashboard Tamboui dependency | Tamboui UI framework is a POC dependency; not production-hardened |
+
+### Layer Churn Observations
+
+- **L1 Domain Baseline** participates in 20+ chapters across all three journeys — the highest delta rate. Expected: every new capability adds at least one field or service method. The boundary is correct; churn reflects richness, not a design problem.
+- **L3 Lifecycle Engine** has High deltas in C33 and C35 (2026-05-22 and 2026-06-03). Two lifecycle-correctness passes after the initial engine build. The initial lifecycle design (C3, 2026-04-14) under-specified terminal states; C33+C35 closed the gaps.
+
+---
+
+## §13 Glossary
+
+| Term | Definition |
+|---|---|
+| WorkItem | A unit of work requiring human attention or judgment — has assignee, expiry, delegation, and full audit trail; persists minutes to days; a WorkItem waits for a human |
+| Task (CNCF Serverless Workflow) | A machine-executed workflow step in milliseconds; no assignee, no expiry; controlled by the engine |
+| Task (CaseHub) | A CMMN case work unit assigned to any worker (human or agent) via capability matching |
+| SLA | Service-Level Agreement deadline on a WorkItem — either `claimDeadline` (must be claimed by) or `expiresAt` (must be completed by) |
+| SlaBreachPolicy | SPI deciding what happens when a completion SLA breaches: Fail (terminal EXPIRED), EscalateTo (new candidates, new deadline), Extend (new deadline), Chained (try multiple), or Exhausted (terminal ESCALATED) |
+| ClaimSlaPolicy | SPI deciding what happens when a claim SLA breaches: item unclaimed too long |
+| BreachDecision | Sealed type returned by `SlaBreachPolicy.onBreach()` — five variants: Fail, EscalateTo, Extend, Chained, Exhausted |
+| callerRef | Opaque routing key set on a WorkItem at creation; echoed in every lifecycle event; convention: `casehub-engine` sets `"caseId:planItemId"`; casehub-work never interprets it |
+| DELEGATED | WorkItemStatus set when `delegate()` is called — pre-acceptance state; the named target must `accept-delegation` or `decline-delegation`; non-terminal, expires normally |
+| ESCALATED | WorkItemStatus set when a Chained SlaBreachPolicy exhausts all branches — terminal; requires operator intervention |
+| EXPIRED | WorkItemStatus set when the completion deadline passes and SlaBreachPolicy returns Fail or Chained exhausts — terminal |
+| DelegationDeclineTarget | Enum (POOL / DELEGATOR) — where a declined delegation returns the WorkItem; instance field takes precedence over scope preference |
+| Chapter | A delivery unit in Arc42Stories — a vertical cut through architectural layers delivering one platform-visible capability end-to-end |
+| Journey | A major arc of related Chapters; casehub-work has three: Core Platform, Enterprise Capabilities, Lifecycle Enrichment |
+| Layer | A horizontal architectural concern; casehub-work defines seven internal layers (L1–L7) |
+| NormativeResolution | Enum (DONE / DECLINE / FAILURE) bridging issue tracker vocabulary to WorkItem transitions; defined in `casehub-work-api` |
