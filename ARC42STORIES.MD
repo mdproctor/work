@@ -1318,3 +1318,83 @@ Thin REST delegation — resource method validates input, calls service, maps re
 3. Register `ExceptionMapper` beans for domain exceptions (`OptimisticLockException` → 409, `MalformedCapabilityException` → 400) rather than try/catch in resource methods.
 4. Use an enforced builder for any request DTO with more than 5 fields — make the constructor private, expose only `builder()`.
 5. Leave resource methods unannotated for auth — the consuming application adds `@RolesAllowed` at deployment time.
+
+### Layer — L3 Lifecycle Engine
+
+**Participates in chapters:** C3, C4, C15, C23, C24, C32, C33, C35
+**Architectural patterns:** Event-Driven, Strategy, Observer
+**Key protocols:** `docs/protocols/casehub/flyway-version-range-allocation.md`
+**Issues:** Phase 3, Phase 4, #125, #212, #213, #243, #244
+**Navigation:** `git log --grep="Phase 3\|Phase 4\|#212\|#213" --oneline`
+**Completed:** 2026-04-14 (baseline); enriched through 2026-06-03
+
+#### What it adds
+
+**Before:** WorkItem status transitions had no automatic time-based consequence; expired items remained active indefinitely.
+**After:** `ExpiryCleanupJob @Scheduled` drives `ExpiryLifecycleService`, which executes `SlaBreachPolicy.onBreach()` per expired item, transitioning items to EXPIRED, PENDING (EscalateTo), or ESCALATED (Exhausted); `WorkItemLifecycleEvent` fires on every transition.
+
+What this layer adds:
+- **Scheduler** — `ExpiryCleanupJob` fires on interval; detects expired WorkItems via `WorkItemQuery`; `ClaimDeadlineJob` fires on the same interval to detect claim-expired WorkItems
+- **Breach policy execution** — `ExpiryLifecycleService` calls `SlaBreachPolicy.onBreach(SlaBreachContext)` per item; executes the sealed `BreachDecision`; catches `BreachExecutionFailed` at item level to avoid aborting the batch
+- **Claim deadline policy** — `ClaimSlaPolicy` SPI governs what happens when a WorkItem's claim deadline passes (C15)
+- **CDI event bus** — `WorkItemLifecycleEvent` fires synchronously inside every `WorkItemService` state transition; carries event type, WorkItem ID, actor, callerRef, and optional named outcome
+
+Not closed here: tamper-evident recording (L5), distributed broadcast (L6).
+
+#### Accountability Gaps Closed
+
+| Gap | What breaks without it | Closed by |
+|---|---|---|
+| Missed deadlines with no audit consequence | Items silently stay PENDING/ASSIGNED past SLA | `SlaBreachEvent` CDI fires on every breach; `EXPIRED`/`SLA_REASSIGNED` audit entry written unconditionally |
+| SLA breach policy exhaustion left no terminal state | Chained policy with two failing branches left item stranded | `BreachDecision.Exhausted` → `WorkItemStatus.ESCALATED` terminal; `BREACH_POLICY_MISCONFIGURED` audit if policy throws |
+
+#### Key Files
+
+- `runtime/src/main/java/io/casehub/work/runtime/service/ExpiryCleanupJob.java` — `@Scheduled` job that fires on configurable interval (`casehub.work.cleanup.expiry-check-seconds`) and delegates to `ExpiryLifecycleService.checkExpired()`
+- `runtime/src/main/java/io/casehub/work/runtime/service/ClaimDeadlineJob.java` — `@Scheduled` job on the same interval that delegates to `ExpiryLifecycleService.checkClaimDeadlines()` for items whose claim deadline has passed
+- `runtime/src/main/java/io/casehub/work/runtime/service/ExpiryLifecycleService.java` — dispatches `SlaBreachPolicy.onBreach()` per expired item, executes the sealed `BreachDecision`, fires `SlaBreachEvent`, and catches `BreachExecutionFailed` at item level to write a diagnostic audit entry without aborting the batch
+- `runtime/src/main/java/io/casehub/work/runtime/event/WorkItemLifecycleEvent.java` — CDI event fired synchronously after every WorkItem state transition; carries post-mutation status, actor, rationale, planRef, and outcome; embeds the WorkItem entity so observers avoid a second store lookup
+- `api/src/main/java/io/casehub/work/api/SlaBreachPolicy.java` — SPI that receives a `SlaBreachContext` and returns a sealed `BreachDecision`; stateless; called by `ExpiryLifecycleService` for both completion-expiry and claim-expiry breaches
+- `api/src/main/java/io/casehub/work/api/ClaimSlaPolicy.java` — SPI that computes the pool-phase deadline when a WorkItem returns to the unclaimed pool; four built-in implementations (ContinuationPolicy, FreshClockPolicy, SingleBudgetPolicy, PhaseClockPolicy) override via `@Alternative @Priority(1)`
+
+#### Key Wiring
+
+**`@Scheduled(every = ...)` on `ExpiryCleanupJob` and `ClaimDeadlineJob`.** Both jobs use `quarkus-scheduler` with a configurable interval (`casehub.work.cleanup.expiry-check-seconds`). In a clustered deployment without a cluster lock identity, multiple nodes may fire concurrently — safe because `ExpiryLifecycleService` processes each item within a `@Transactional` boundary with OCC on `WorkItem.version`.
+
+**`WorkItemLifecycleEvent` fires synchronously via `Event.fire()`, not `fireAsync()`.** Observers that use `@ObservesAsync` will miss these events. `SlaBreachEvent` also fires synchronously. This is intentional — synchronous delivery keeps breach audit entries in the same transaction scope as the status transition.
+
+**`SlaBreachContext` carries `Path scope` and `Preferences`.** Policy implementations resolve scope-based preferences (e.g. per-team breach escalation config) by calling `preferences.get(key, scope)`. Without `scope`, all policies share the root-scope config regardless of where the WorkItem originated.
+
+**`BreachExecutionFailed` is caught at item level, not batch level.** If `SlaBreachPolicy.onBreach()` throws, `ExpiryLifecycleService.checkExpired()` writes a `BREACH_POLICY_MISCONFIGURED` audit entry and continues to the next item. The batch never aborts. This prevents one misconfigured policy from halting all SLA processing.
+
+#### Architectural Decisions
+
+**Why sealed `BreachDecision` rather than an open interface:** A sealed type is exhaustive at compile time — all five variants (Fail, EscalateTo, Extend, Chained, Exhausted) are handled in every switch. An open interface would allow implementing classes to introduce variants that the execution engine doesn't handle, silently doing nothing. Tradeoff: adding a new decision variant requires updating the execution engine.
+
+**Why synchronous `Event.fire()` rather than `fireAsync()`:** Synchronous events keep audit side-effects (LedgerEventCapture) in the same transaction scope as the status transition. If the transaction rolls back, the audit event is also discarded. Async events would fire independently of transaction outcome, producing audit records for rolled-back transitions. Tradeoff: a slow observer blocks the transition.
+
+#### Pattern Introduced
+
+Item-level exception isolation — exceptions from policy execution are caught per item inside a loop; the item is skipped with an audit record; the batch continues. Never catch exceptions at batch level unless you intend to abort the entire batch.
+
+#### Pattern Anchor
+
+`runtime/src/main/java/io/casehub/work/runtime/service/ExpiryLifecycleService.java` — `checkExpired()` and `checkClaimDeadlines()` methods show the item-level catch pattern
+
+#### Gotchas
+
+**Symptom:** `SlaBreachEvent` observers fire even when `SlaBreachPolicy` is not configured — e.g. on items that expire without a policy implementation on the classpath.
+**Cause:** `SlaBreachEvent` fires for all `BreachDecision` outcomes that reach the SlaBreachEvent fire call — not only Fail. The event fires regardless of whether a custom policy is installed.
+**Fix:** Do not use `@Observes SlaBreachEvent` as the only signal for "item has a breach policy" — it fires on all decisions including EscalateTo and Exhausted. Use `event.decision()` to filter by the specific outcome you care about.
+
+**Symptom:** `@ObservesAsync WorkItemLifecycleEvent` observer never fires.
+**Cause:** `WorkItemLifecycleEvent` is dispatched via `Event.fire()` (synchronous), not `fireAsync()`. Async observers are not invoked by synchronous dispatch.
+**Fix:** Use `@Observes WorkItemLifecycleEvent` (synchronous). If you need async behaviour, wrap the observer body in `CompletableFuture.runAsync()` or use a separate CDI event.
+
+#### Pattern to Replicate
+
+1. Define a scheduler job (`@Scheduled`) that queries for items past their deadline using a `WorkItemQuery` equivalent with explicit status set predicates.
+2. For each item, call a configurable policy SPI that returns a sealed decision type — never hardcode the consequence inside the scheduler.
+3. Execute the decision inside a `@Transactional` method; catch policy exceptions at item level and write a diagnostic audit entry; never abort the batch for a single item failure.
+4. Fire a CDI event synchronously (`Event.fire()`) inside the status transition method — this keeps the event in the same transaction scope as the state change.
+5. Define the policy's context object (BreachDecision equivalent) to carry scope and preferences so policy implementations can resolve per-team or per-context configuration.
