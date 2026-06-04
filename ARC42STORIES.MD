@@ -982,3 +982,153 @@ Before this chapter, SSE events reached only clients connected to the originatin
 | Layer | Delta |
 |---|---|
 | L6 Observability + Events | High |
+
+---
+
+### Chapter C28 — Named Outcomes
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 1 of 8 | **Status:** ✅
+**Delivered:** 2026-05-17 | **Issues:** Phase 21, #169, #176, #178
+
+**What this delivers**
+Before this chapter, completion intent lived only in `WorkItem.resolution` JSON, requiring consumers to parse domain-specific fields to route on outcome. After: `WorkItemTemplate.outcomes` declares valid completion classifications (e.g. `approved`, `rejected`, `escalated`); `WorkItem.permittedOutcomes` snapshots that list at instantiation; `complete()` validates the supplied outcome against permitted values; `WorkItemLifecycleEvent.outcome` carries the named value for engine and Qhorus adapter routing; `reject()` accepts a named outcome (V22); `GET /workitems` inbox accepts `?outcome=` filter.
+
+**Accountability gaps closed**
+- Completion intent buried in resolution JSON → named outcome on `WorkItemLifecycleEvent` enables downstream routing without parsing
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Model | Med |
+| L2 Application Services | Low |
+
+---
+
+### Chapter C29 — Template Data Schemas
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 2 of 8 | **Status:** ✅
+**Delivered:** 2026-05-17 | **Issues:** Phase 22, #170
+
+**What this delivers**
+Before this chapter, JSON Schema lived in a standalone `WorkItemFormSchema` entity decoupled from the `WorkItem` — resolution validation required an external lookup. After: `WorkItemTemplate.inputDataSchema` and `outputDataSchema` (JSON Schema draft-07 TEXT) are validated at instantiation and completion by `FormSchemaValidationService`; both schemas snapshot onto `WorkItem` at creation so each item governs its own validation without external lookup. `WorkItemFormSchema` entity and its CRUD REST resource are deleted; schema discovery migrates to `GET /workitem-templates/{id}`. Migrations: V23 (schema columns on template), V24 (snapshot columns on `work_item`), V25 (drop `work_item_form_schema` table). This chapter supersedes C9.
+
+**Accountability gaps closed**
+- None — consolidation and correctness fix
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Model | Med |
+| L2 Application Services | Low |
+
+---
+
+### Chapter C30 — Conflict-of-Interest Exclusions
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 3 of 8 | **Status:** ✅
+**Delivered:** 2026-05-18 (extended through 2026-05-31) | **Issues:** Phase 23, #171, #186, #192, #220, ADR-0005
+
+**What this delivers**
+Before this chapter, excluded actors could claim or be assigned to WorkItems they had a conflict of interest in — no enforcement existed at any assignment path. After: `ExclusionPolicy` SPI in `casehub-work-api` exposes `check(userId, excludedUsers, excludedGroups)` returning `PolicyDecision` with a denial reason; `CommaSeparatedExclusionPolicy` ships as `@DefaultBean`; `excludedUsers` (TEXT CSV) on `WorkItemTemplate` and `WorkItem` carries direct exclusions; `excludedGroups` (TEXT CSV) on template is expanded to actor IDs via `GroupMembershipProvider` at instantiation (V33, ADR-0005); enforcement covers all five assignment paths: claim, create, assign, delegate, and auto-assignment. `BlockedAttemptAuditService` writes `CLAIM_DENIED`, `DELEGATE_DENIED`, `CREATE_DENIED` via `@Transactional(REQUIRES_NEW)` so the audit entry commits even when the outer transaction rolls back; V32 drops the FK to allow orphaned audit entries.
+
+**Accountability gaps closed**
+- No conflict-of-interest audit trail → `CLAIM_DENIED`/`DELEGATE_DENIED`/`CREATE_DENIED` written independently of the rejected transaction
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Model | Med |
+
+---
+
+### Chapter C31 — WorkItemCreateRequest Builder
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 4 of 8 | **Status:** ✅
+**Delivered:** 2026-05-20 | **Issues:** Phase 24, #182
+
+**What this delivers**
+Before this chapter, callers constructed `WorkItemCreateRequest` positionally with 24 parameters — adding a field silently shifted all downstream call sites. After: `WorkItemCreateRequest` is a final class with an enforced builder; the private constructor is reachable only via `Builder.build()`, making positional construction structurally impossible. 60+ call sites migrated across 7 modules. A drift-protection test (`builderHasSetterForEveryField`) guards against future field/setter mismatches.
+
+**Accountability gaps closed**
+- None — API safety and maintainability
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Model | Low |
+| L2 Application Services | Low |
+
+---
+
+### Chapter C32 — Round-Robin Strategy
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 5 of 8 | **Status:** ✅
+**Delivered:** 2026-05-21 | **Issues:** #117, #200, #202, #203, #204
+
+**What this delivers**
+Before this chapter, sequential worker rotation required consumers to implement their own cursor. After: `RoundRobinStrategy` provides cursor-backed sequential worker selection; the `routing_cursor` table (V29, PK = `pool_hash`) persists cursor state; `RoutingCursorStore` SPI is backed by `JpaRoutingCursorStore` with optimistic concurrency control; `@DefaultBean NoOpRoutingCursorStore` in `casehub-work-core` keeps the SPI optional. V30 adds `last_accessed` and `RoutingCursorCleanupJob` for TTL-based cursor GC (configurable cron and `ttl-days`). Inbox filter params (`status`, `priority`, `category`, `followUp`, `outcome`) previously declared but silently ignored are wired in this chapter (#200).
+
+**Accountability gaps closed**
+- None — new routing capability
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L3 Routing + Assignment | Med |
+
+---
+
+### Chapter C33 — SlaBreachPolicy SPI + Escalation Removal
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 6 of 8 | **Status:** ✅
+**Delivered:** 2026-05-22 | **Issues:** Phase 25+26, #212, #213, #215, #216
+
+**What this delivers**
+Before this chapter, escalation was governed by four separate `EscalationPolicy` implementations with no chaining. After: `SlaBreachPolicy` SPI replaces the removed `EscalationPolicy`; `onBreach(SlaBreachContext)` returns a sealed `BreachDecision` — `Fail`, `EscalateTo(groups, deadline)`, `Extend(by)`, `Chained`, or `Exhausted`; `SlaBreachContext` carries `BreachType`, `BreachedTask`, `Path` scope, and `Preferences`. `ExpiryLifecycleService` is rewritten: policy-driven decision execution; `SlaBreachEvent` CDI fires at leaf decision; `CLAIM_EXPIRED` lifecycle event fires unconditionally. `WorkItemService.extend()` (`PUT /workitems/{id}/extend`) implements the `Extend` decision. V31 adds `scope` field on `work_item` and `work_item_template`. All four `EscalationPolicy` implementations and their CDI producers are removed; `AssignmentTrigger.SLA_ESCALATED` added — after `EscalateTo`, `WorkItemAssignmentService` pre-assigns before `put()`.
+
+**Accountability gaps closed**
+- No configurable escalation chain → `Chained` `BreachDecision` with fallback; `Exhausted` final state visible in `WorkItemStatus.ESCALATED`
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Model | Low |
+| L3 Routing + Assignment | High |
+
+---
+
+### Chapter C34 — Capability Vocabulary
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 7 of 8 | **Status:** ✅
+**Delivered:** 2026-05-29 | **Issues:** #220, ADR-0003, ADR-0004
+
+**What this delivers**
+Before this chapter, capability tags were unvalidated strings — a spelling error silently produced empty candidate pools with no diagnostic. After: `Capability` is a kebab-case-enforced value type with cached regex; `CapabilityRegistry` SPI and `PermissiveCapabilityRegistry` `@DefaultBean` govern vocabulary; `CapabilityValidator` operates in three modes per `ValidationMode` enum (ADR-0004): `STRICT` rejects unknown capabilities at creation time, `WARN` logs, `PERMISSIVE` accepts all; `CapabilityParser` provides strict and lenient parsing modes. `WorkerCandidate` and `SelectionContext` are updated to use `Set<Capability>`; `WorkBroker` drops string parsing. Exception mappers cover `MalformedCapabilityException` and `UnknownCapabilityException`.
+
+**Accountability gaps closed**
+- Misconfigured capability silently empties candidate pool → `CapabilityValidator` enforces format and optionally vocabulary at WorkItem creation
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Model | Med |
+
+---
+
+### Chapter C35 — Status Lifecycle Fixes + DELEGATED
+
+**Journey:** Lifecycle Enrichment | **Sequence:** 8 of 8 | **Status:** ✅
+**Delivered:** 2026-06-03 | **Issues:** Phase 27, #241, #243, #244, #245
+
+**What this delivers**
+Four targeted fixes delivered together. #243: `EXPIRED` added to `WorkItemStatus.isTerminal()` — items in `EXPIRED` state were neither active nor terminal, creating a limbo in metrics and queries. #244: `BreachDecision.Exhausted` added as the fifth sealed variant — the `Chained` handler catches double-failure and calls `executeExhausted()`, setting `WorkItemStatus.ESCALATED` (terminal); `checkExpired`/`checkClaimDeadlines` catch `BreachExecutionFailed` at item level and write `BREACH_POLICY_MISCONFIGURED` audit via the isolated transaction pattern. #245: `DelegationState` enum dropped; `WorkItemStatus.DELEGATED` is set unconditionally in `delegate()` (was never set before); new `acceptDelegation()` transitions to `ASSIGNED`; new `declineDelegation()` resolves `POOL` vs `DELEGATOR` target via instance field or scope preference `DeclineTarget.KEY`; `AssignmentTrigger.DELEGATION_DECLINED` added; `DELEGATED` added to `isActive()` and `WorkItemQuery.expired()`; `PUT /workitems/{id}/accept-delegation` and `PUT /workitems/{id}/decline-delegation` REST endpoints wired. #241: `WorkItemService.findById()` routed through service layer; `GET /workitems/{id}` uses the service method. V34: drops `delegation_state` column, adds `delegation_decline_target`.
+
+**Accountability gaps closed**
+- `EXPIRED` items counted as active in metrics → `EXPIRED` now in `isTerminal()`
+- Exhausted SLA breach chains had no terminal resolution → `ESCALATED` set on `Exhausted`; `BREACH_POLICY_MISCONFIGURED` audit written
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Model | Med |
+| L3 Routing + Assignment | Med |
