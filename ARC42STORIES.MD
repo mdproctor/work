@@ -763,3 +763,222 @@ Before this chapter, claim deadline breach had no configurable policy and breach
 | Layer | Delta |
 |---|---|
 | L3 Lifecycle Engine | Med |
+
+---
+
+### Chapter C16 — Confidence-Gated Routing
+
+**Journey:** Enterprise Capabilities | **Sequence:** 1 of 12 | **Status:** ✅
+**Delivered:** 2026-04-21 | **Issues:** Phase 11, #112–#114, Epic #100
+
+**What this delivers**
+Before this chapter, all WorkItems routed to the same candidate pool regardless of AI confidence metadata carried on the item. After: consuming apps register JEXL-based filter rules against the `FilterRegistryEngine`; rules that match on `confidenceScore` override candidate groups or priority, rerouting low-confidence items to a human review pool automatically.
+
+**Accountability gaps closed**
+- No AI-driven routing differentiation → `FilterRegistryEngine` applies JEXL conditions to override routing on confidence threshold breach
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Low |
+| L4 Assignment + Routing | Med |
+
+---
+
+### Chapter C17 — Worker Selection Strategy
+
+**Journey:** Enterprise Capabilities | **Sequence:** 2 of 12 | **Status:** ✅
+**Delivered:** 2026-04-21 | **Issues:** Phase 12, #115–#116, Epics #100, #102
+
+**What this delivers**
+Before this chapter, assignment was implicit pool-based claiming only — no pre-assignment on creation or rerouting on delegation. After: deploying applications plug in a `WorkerSelectionStrategy` SPI; `WorkBroker` invokes the strategy on creation, release, delegation, and SLA escalation; `LeastLoadedStrategy` and `ClaimFirstStrategy` ship built-in, with `ClaimFirstStrategy` declared `@Alternative @Priority(0)` to yield to `SemanticWorkerSelectionStrategy` when present.
+
+**Accountability gaps closed**
+- None — capability addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Med |
+
+---
+
+### Chapter C18 — Module Separation
+
+**Journey:** Enterprise Capabilities | **Sequence:** 3 of 12 | **Status:** ✅
+**Delivered:** 2026-04-22 | **Issues:** #118
+
+**What this delivers**
+Before this chapter, all SPI contracts and implementations resided in the runtime module; `casehub-engine` would pull in JPA entities, REST resources, and Flyway migrations it did not need. After: `casehub-work-api` (pure-Java SPI contracts, no Quarkus) and `casehub-work-core` (Jandex library with generic `WorkBroker` and strategies) are extracted; `casehub-engine` takes a compile dependency on `casehub-work-core` only, getting routing logic without a datasource requirement.
+
+**Accountability gaps closed**
+- None — infrastructure separation
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Med |
+
+---
+
+### Chapter C19 — Semantic Skill Matching + LLM Assist
+
+**Journey:** Enterprise Capabilities | **Sequence:** 4 of 12 | **Status:** ✅
+**Delivered:** 2026-04-23 | **Issues:** #121, #124, #126, V4001, Epic #100
+
+**What this delivers**
+Before this chapter, worker assignment used load and availability only; escalated items had no diagnostic context beyond the audit log. After: `SemanticWorkerSelectionStrategy` (`@Alternative @Priority(1)`) activates when `casehub-work-ai` is on the classpath and uses embedding-based `EmbeddingSkillMatcher` to match workers to task requirements; `GET /workitems/{id}/resolution-suggestion` generates an LLM completion suggestion from audit history; `EscalationSummaryObserver` fires on `EXPIRED`/`CLAIM_EXPIRED` and writes an LLM-generated briefing to the `escalation_summary` table (V4001).
+
+**Accountability gaps closed**
+- None — capability addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L7 Optional Integrations | Med |
+
+---
+
+### Chapter C20 — MongoDB Persistence
+
+**Journey:** Enterprise Capabilities | **Sequence:** 5 of 12 | **Status:** ✅
+**Delivered:** 2026-04-18 | **Issues:** persistence-mongodb module
+
+**What this delivers**
+Before this chapter, `casehub-work` required a relational datasource. After: the `casehub-work-persistence-mongodb` optional module provides `MongoWorkItemStore`, which displaces `JpaWorkItemStore` by classpath presence (`@Alternative @Priority(1)`); `candidateGroups` and `candidateUsers` store as MongoDB arrays; `WorkItemQuery` translates to MongoDB `Document` filters with `$regex` for label patterns.
+
+**Accountability gaps closed**
+- None — infrastructure addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L7 Optional Integrations | Med |
+
+---
+
+### Chapter C21 — Issue Tracker Integration
+
+**Journey:** Enterprise Capabilities | **Sequence:** 6 of 12 | **Status:** ✅
+**Delivered:** 2026-04-19 + 2026-05-04 | **Issues:** #73, #156, #157, #160, #161
+
+**What this delivers**
+Before this chapter, WorkItems and external issue trackers had no bidirectional link; closing a GitHub issue had no effect on its associated WorkItem. After: the `casehub-work-issue-tracker` module provides `IssueTrackerProvider` and `IssueLinkStore` SPIs; GitHub and Jira webhook parsers translate inbound events to `NormativeResolution` (`DONE`/`DECLINE`/`FAILURE`), which drives WorkItem transitions; lifecycle events sync WorkItem status changes back to issue labels and state (V5000, V5001).
+
+**Accountability gaps closed**
+- None — capability addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L7 Optional Integrations | Med |
+
+---
+
+### Chapter C22 — SLA Compliance Reporting
+
+**Journey:** Enterprise Capabilities | **Sequence:** 7 of 12 | **Status:** ✅
+**Delivered:** 2026-04-28 | **Issues:** Phase 14, #142–#145, Epic #104
+
+**What this delivers**
+Before this chapter, SLA compliance required custom HQL queries against the audit table. After: the `casehub-work-reports` module exposes four endpoints — `GET /workitems/reports/sla-breaches`, `/actors`, `/throughput`, and `/queue-health`; HQL `date_trunc` handles time bucketing; Caffeine caches results for five minutes; 73 tests validate results against a PostgreSQL Testcontainer dialect.
+
+**Accountability gaps closed**
+- None — reporting infrastructure addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L7 Optional Integrations | Med |
+
+---
+
+### Chapter C23 — Multi-Instance WorkItems
+
+**Journey:** Enterprise Capabilities | **Sequence:** 8 of 12 | **Status:** ✅
+**Delivered:** 2026-04-28–29 | **Issues:** Phase 15, #106, Epic #106
+
+**What this delivers**
+Before this chapter, parallel human review required callers to manually spawn and track child WorkItems and evaluate threshold completion themselves. After: declaring `instanceCount=N` on a `WorkItemTemplate` triggers auto-spawn of N child WorkItems; `MultiInstanceCoordinator` observes completions via `@Observes` with OCC counter; `MultiInstanceGroupPolicy` evaluates the M-of-N threshold and fires `WorkItemGroupLifecycleEvent`; `InstanceAssignmentStrategy` SPI supports Pool, Explicit, RoundRobin, and Composite modes (V20 parentId, V21 group OCC columns).
+
+**Accountability gaps closed**
+- None — capability addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Med |
+| L3 Lifecycle Engine | Med |
+
+---
+
+### Chapter C24 — Business-Hours Deadlines
+
+**Journey:** Enterprise Capabilities | **Sequence:** 9 of 12 | **Status:** ✅
+**Delivered:** 2026-04-26–27 | **Issues:** Phase 16, Epic #101
+
+**What this delivers**
+Before this chapter, SLA deadlines counted calendar time including nights and weekends, making declared SLAs meaningless for human actors who work business hours only. After: the `BusinessCalendar` SPI (with `DefaultBusinessCalendar` reading `casehub.work.business-hours.*` config) and `HolidayCalendar` SPI (with `ICalHolidayCalendar` loading iCal feeds) resolve `expiresAtBusinessHours` and `claimDeadlineBusinessHours` on `WorkItemCreateRequest` to absolute `Instant` values at creation time, snapping to the next business-hour boundary.
+
+**Accountability gaps closed**
+- None — infrastructure addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Low |
+| L3 Lifecycle Engine | Med |
+
+---
+
+### Chapter C25 — Notifications
+
+**Journey:** Enterprise Capabilities | **Sequence:** 10 of 12 | **Status:** ✅
+**Delivered:** 2026-04-27 | **Issues:** Phase 17, #140–#141, Epic #103
+
+**What this delivers**
+Before this chapter, WorkItem lifecycle transitions had no outbound notification path. After: the `casehub-work-notifications` optional module provides the `NotificationChannel` SPI in `casehub-work-api`; three implementations ship — HTTP webhook, Slack, and Teams; `NotificationRule` entity (V3000) configures which lifecycle events trigger which channel; deploying applications configure rules that push messages on assignment, expiry, or escalation.
+
+**Accountability gaps closed**
+- None — capability addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L7 Optional Integrations | High |
+
+---
+
+### Chapter C26 — Broadcaster SPI
+
+**Journey:** Enterprise Capabilities | **Sequence:** 11 of 12 | **Status:** ✅
+**Delivered:** 2026-04-30 | **Issues:** Phase 18, #147, #150
+
+**What this delivers**
+Before this chapter, SSE delivery was hardcoded in the runtime module with no alternative implementation path; alternative backends required modifying core code. After: `WorkItemEventBroadcaster` and `WorkItemQueueEventBroadcaster` interfaces are extracted; `LocalWorkItemEventBroadcaster` (`@DefaultBean`) uses an in-process Mutiny `BroadcastProcessor`; alternative backends displace the default via `@Alternative @Priority(1)` with no modification to the runtime module.
+
+**Accountability gaps closed**
+- None — infrastructure extraction
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L6 Observability + Events | Med |
+
+---
+
+### Chapter C27 — Distributed SSE + Queue Broadcaster
+
+**Journey:** Enterprise Capabilities | **Sequence:** 12 of 12 | **Status:** ✅
+**Delivered:** 2026-05-01 | **Issues:** Phase 19+20, #93, #155
+
+**What this delivers**
+Before this chapter, SSE events reached only clients connected to the originating node; multi-node deployments on a shared datasource dropped events for clients on other nodes. After: `casehub-work-postgres-broadcaster` provides `PostgresWorkItemEventBroadcaster` (`@Alternative @Priority(1)`), which publishes via PostgreSQL `NOTIFY` on `casehub_work_events` and re-broadcasts incoming `LISTEN` notifications to local SSE clients, firing only on `TransactionPhase.AFTER_SUCCESS`; `casehub-work-queues-postgres-broadcaster` applies the same pattern for `casehub_work_queue_events`; neither module requires Flyway migrations.
+
+**Accountability gaps closed**
+- None — infrastructure addition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L6 Observability + Events | High |
