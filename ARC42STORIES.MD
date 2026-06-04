@@ -97,3 +97,35 @@ What casehub-work explicitly does NOT do:
 - Decide when to spawn child WorkItems — callers drive spawn via `SpawnPort`
 - Implement trust scoring — casehub-ledger owns this; casehub-work fires events, ledger records and scores
 - Determine when heterogeneous plan items all complete — casehub-engine; homogeneous M-of-N IS casehub-work
+
+---
+
+## §4 Solution Strategy
+
+Foundation modules define their own layer taxonomy. casehub-work's layers represent the
+internal architectural concerns added incrementally across 35 build Chapters:
+
+### Layer Taxonomy
+
+| Layer | Concern |
+|---|---|
+| L1 Domain Baseline | WorkItem + AuditEntry entities, Storage SPI, JPA defaults, WorkItemService — the inbox foundation |
+| L2 REST API | WorkItemResource (7 sub-resources), DTOs, exception mappers, OpenAPI |
+| L3 Lifecycle Engine | ExpiryCleanupJob, ClaimDeadlineJob, ClaimSlaPolicy SPI, SlaBreachPolicy SPI, CDI lifecycle events |
+| L4 Label System | LabelVocabulary, MANUAL/INFERRED label persistence, FilterEngine (JEXL/JQ/Lambda), QueueView |
+| L5 Ledger Integration | WorkItemLedgerEntry (JOINED from LedgerEntry), hash chain, peer attestation, EigenTrust |
+| L6 Distribution | WorkItemEventBroadcaster SPI, LocalWorkItemEventBroadcaster @DefaultBean, PostgreSQL LISTEN/NOTIFY broadcaster |
+| L7 Optional Modules | SLA reports, AI (semantic routing + LLM assist), notifications, issue tracker, MongoDB persistence, Quarkus-Flow bridge |
+
+### Chapter Sequencing Rationale
+
+Hard dependencies — order is non-negotiable:
+
+- C1 before C2: REST requires the persisted WorkItem entity and service layer at runtime
+- C2 before C3: lifecycle transitions require service methods to exist first
+- C3 before C4: CDI events are emitted inside service transitions; transitions must exist
+- C6 (Ledger) after C4: `LedgerEventCapture @Observes WorkItemLifecycleEvent` — the event bus must exist first
+- C7 (Label Queues) before C16 (Confidence Routing): confidence-gated routing extends the filter engine from C7
+- C18 (Module Separation) before C19 (Semantic AI + LLM Assist): semantic AI depends on the api/core SPI split
+- C26 (Broadcaster SPI) before C27 (Distributed SSE): PostgreSQL broadcaster implements the SPI extracted in C26
+- C33 (SlaBreachPolicy SPI) before C35 (Status Lifecycle): status correctness fixes (#243 EXPIRED in isTerminal, #244 Exhausted) depend on the sealed `BreachDecision` type from C33
