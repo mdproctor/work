@@ -1500,3 +1500,86 @@ MANUAL/INFERRED label persistence — human-applied labels survive re-evaluation
 5. Define named view entities (`QueueView` equivalent) that store a label pattern query with wildcard support; resolve them to store scan calls at request time rather than materialising the result set.
 6. Persist queue membership state (`WorkItemQueueMembership` equivalent) so membership diffs survive JVM restarts without re-firing ADDED events on startup.
 7. Fire CDI events synchronously on queue membership changes for downstream observers (SSE broadcaster, metrics, audit); expose an SPI interface (`WorkItemQueueEventBroadcaster` equivalent) so alternative fan-out backends can replace the in-process default.
+
+### Layer — L5 Ledger Integration
+
+**Participates in chapters:** C6
+**Architectural patterns:** Observer, Chain of Responsibility (hash chain), JOINED inheritance
+**Key protocols:** ADR-0001, `docs/protocols/casehub/ledger-subclass-extension.md`
+**Issues:** Phase 6, #45, ADR-0001
+**Navigation:** `git log --grep="Phase 6\|#45" --oneline`
+**Completed:** 2026-04-14–15
+
+#### What it adds
+
+**Before:** WorkItem lifecycle transitions had no tamper-evident audit record; trust scoring was not possible.
+**After:** `casehub-work-ledger` optional module appends a `WorkItemLedgerEntry` (JOINED from `casehub-ledger`'s `LedgerEntry`) on every lifecycle event; EigenTrust nightly batch computes actor trust scores from attestation records.
+
+What this layer adds:
+- **Immutable audit chain** — `WorkItemLedgerEntry` extends `LedgerEntry` via JPA JOINED inheritance; each entry carries a `prevHash` forming a tamper-evident Merkle chain
+- **Trust scoring** — EigenTrust nightly batch reads `WorkItemLedgerEntry` attestations; trust scores feed back into `WorkerSelectionStrategy` implementations
+- **Zero-core coupling** — `LedgerEventCapture @Observes WorkItemLifecycleEvent` is the sole coupling point; if the module is absent from the classpath, events fire into the void with no impact on the core
+
+Not closed here: actor trust routing decisions (that is casehub-ledger's TrustScoreRoutingPublisher CDI).
+
+#### Accountability Gaps Closed
+
+| Gap | What breaks without it | Closed by |
+|---|---|---|
+| No tamper-evident lifecycle record | Audit entries could be deleted or modified after the fact | Merkle hash chain in `WorkItemLedgerEntry` — any deletion breaks the chain |
+| No trust scoring input | Agent and human selection has no outcome-based weighting | EigenTrust attestations in `WorkItemLedgerEntry` feed trust score computation |
+
+#### Key Files
+
+- `ledger/src/main/java/io/casehub/work/ledger/service/LedgerEventCapture.java` — `@ApplicationScoped` CDI observer; `onWorkItemEvent(@Observes WorkItemLifecycleEvent)` is the sole coupling point between core and ledger module
+- `ledger/src/main/java/io/casehub/work/ledger/model/WorkItemLedgerEntry.java` — `@Entity` extending `LedgerEntry` via JPA JOINED inheritance; stores WorkItem-specific fields alongside the base hash-chain columns
+- `ledger/src/main/java/io/casehub/work/ledger/repository/WorkItemLedgerEntryRepository.java` — SPI repository interface for ledger entry persistence
+- `ledger/src/main/java/io/casehub/work/ledger/repository/jpa/JpaWorkItemLedgerEntryRepository.java` — JPA implementation of the repository
+- `ledger/src/main/java/io/casehub/work/ledger/api/LedgerResource.java` — REST resource exposing ledger entry reads
+- `ledger/src/main/java/io/casehub/work/ledger/api/LedgerMapper.java` — maps `WorkItemLedgerEntry` to response DTOs
+- `ledger/src/main/java/io/casehub/work/ledger/api/ActorTrustResource.java` — REST resource exposing computed actor trust scores
+- `ledger/src/main/java/io/casehub/work/ledger/api/dto/LedgerEntryResponse.java` — DTO for ledger entry responses
+- `ledger/src/main/java/io/casehub/work/ledger/api/dto/LedgerAttestationRequest.java` — DTO for attestation submission
+- `ledger/src/main/java/io/casehub/work/ledger/api/dto/LedgerAttestationResponse.java` — DTO for attestation responses
+- `ledger/src/main/java/io/casehub/work/ledger/api/dto/ActorTrustScoreResponse.java` — DTO for trust score query results
+- `ledger/src/main/java/io/casehub/work/ledger/api/dto/ProvenanceRequest.java` — DTO for provenance link submission
+
+#### Key Wiring
+
+**`LedgerEventCapture @Observes WorkItemLifecycleEvent` (plain, no TransactionPhase).** The observer method signature is `void onWorkItemEvent(@Observes final WorkItemLifecycleEvent event)` — no `@Observes(during = TransactionPhase.AFTER_SUCCESS)`. This means the ledger entry is written synchronously within the same transaction as the lifecycle transition. If the lifecycle transaction rolls back, the ledger write also rolls back; no orphan entries are produced, but the entry is also not appended if the caller's transaction fails after the observer fires.
+
+**Consumers using `casehub-work-ledger` must configure two Flyway locations.** `casehub-work-ledger` depends on `casehub-ledger`, whose base migrations (V1000–V1007) live at `classpath:db/ledger/migration`. The consuming application must set `quarkus.flyway.locations=classpath:db/work/migration,classpath:db/ledger/migration`. Without both paths, Hibernate fails to find the `ledger_entry` base table referenced by the JOINED inheritance.
+
+**`actorType` derived from `actorId` prefix.** `LedgerEventCapture` maps the `actorId` string to an `ActorType` enum: `agent:` prefix → AGENT, `system:` prefix → SYSTEM, anything else → HUMAN. This convention is not enforced by casehub-work — it is a contract between callers and the ledger's trust scoring.
+
+#### Architectural Decisions
+
+**Why extract to shared `casehub-ledger` (ADR-0001):** Keeping ledger infrastructure in casehub-work would prevent Qhorus, casehub-engine, and devtown from using the same hash chain and trust scoring primitives. A shared `casehub-ledger` library lets all modules produce entries in the same chain. Tradeoff: casehub-work-ledger takes an external casehubio dependency, which requires casehub-ledger to be published before casehub-work can build.
+
+**Why zero-core coupling via CDI observer:** The core extension (`casehub-work` runtime) has no import of `casehub-ledger` or `casehub-work-ledger`. The coupling is entirely through the CDI event bus — `WorkItemLifecycleEvent` is defined in the runtime; `LedgerEventCapture` is in the ledger module and observes it. Removing the ledger module from the classpath produces no compilation error and no runtime error in the core.
+
+#### Pattern Introduced
+
+Optional CDI observer module — a module that attaches to a domain event bus to add cross-cutting behaviour (audit, metrics, notification) without the core taking any dependency on it. The core fires a typed CDI event; optional modules observe it.
+
+#### Pattern Anchor
+
+`ledger/src/main/java/io/casehub/work/ledger/service/LedgerEventCapture.java` — `@Observes WorkItemLifecycleEvent` is the entire coupling surface
+
+#### Gotchas
+
+**Symptom:** `@QuarkusTest` in a module using `casehub-work-ledger` fails with "table LEDGER_ENTRY not found" or H2 schema errors.
+**Cause:** The module's `application.properties` for tests only configures `quarkus.flyway.locations=classpath:db/work/migration`. The ledger base migrations at `classpath:db/ledger/migration` are not included.
+**Fix:** Add `classpath:db/ledger/migration` to `quarkus.flyway.locations` in the module's `src/test/resources/application.properties`. Both paths are required when `casehub-work-ledger` is on the test classpath.
+
+**Symptom:** Trust scores show HUMAN for all actors even when actorIds contain the `agent:` prefix.
+**Cause:** `LedgerEventCapture` derives `actorType` from the `actorId` string at event time. If the workflow creates WorkItems with actorIds that don't use the `agent:` prefix convention (e.g. plain UUIDs for agent actors), all entries are stored as HUMAN.
+**Fix:** Ensure agent-created WorkItems pass actorIds with the `agent:` prefix in `WorkItemService.create()` and other mutation methods. The convention is documented in the `LedgerEventCapture` Javadoc.
+
+#### Pattern to Replicate
+
+1. Define an optional module that depends on the core extension and a shared audit library.
+2. In the optional module, define a CDI bean annotated with `@ApplicationScoped` that observes the core's lifecycle event type.
+3. In the observer, persist an audit record that extends the shared audit library's base entity via JPA JOINED inheritance.
+4. Ensure the optional module's Flyway migrations are scoped to its own path (`db/<module>/migration/`) and that the shared library's base migrations are a separate path consumers must configure.
+5. Do not add any import of the optional module or the shared audit library to the core extension — the coupling exists only through the CDI event.
