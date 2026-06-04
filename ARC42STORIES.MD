@@ -482,3 +482,284 @@ flowchart LR
 - C18 (Module Separation) before C19 (Semantic AI): semantic AI depends on the api/core SPI split
 - C26 (Broadcaster SPI) before C27 (Distributed SSE): PostgreSQL broadcaster implements the SPI from C26
 - C33 (SlaBreachPolicy SPI) before C35 (Status Lifecycle): C35 status correctness (#243 EXPIRED in isTerminal, #244 Exhausted) depends on sealed `BreachDecision` from C33
+
+---
+
+## §9.3 Journey 1 — Core Platform (C1–C15)
+
+> Journey 1 delivers the WorkItem primitive from zero to a native-image-ready Quarkus extension with REST API, lifecycle engine, CDI events, optional Ledger integration, and label-based queues. All 15 chapters were completed between 2026-04-14 and 2026-04-24.
+
+---
+
+### Chapter C1 — Domain Baseline
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 1 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, no human task primitive existed in the casehub-work codebase. After: the `WorkItem` entity with a 10-status lifecycle, `AuditEntry` persistence, `WorkItemStore` SPI, `WorkItemService` enforcing all valid transitions, and `InMemoryWorkItemStore` in the testing module are all in place. Any Quarkus application adding `casehub-work` gets a working task inbox backed by its configured datasource.
+
+**Accountability gaps closed**
+- No structured task audit trail → `AuditEntry` appended on every status transition via `WorkItemService`
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | High |
+
+---
+
+### Chapter C2 — REST API
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 2 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, the WorkItem lifecycle was accessible only via CDI injection. After: `WorkItemResource` exposes 13 endpoints with request/response DTOs and exception mappers, so any HTTP client can create, claim, complete, and delegate WorkItems via REST without touching CDI.
+
+**Accountability gaps closed**
+- No external claim surface → REST inbox with candidate group filtering on GET /workitems
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Low |
+| L2 REST API | High |
+
+---
+
+### Chapter C3 — Lifecycle Engine
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 3 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, WorkItems that breached their deadline sat active indefinitely with no automated consequence. After: `ExpiryCleanupJob` (@Scheduled) drives `ExpiryLifecycleService`; every item that passes its deadline either transitions to EXPIRED, returns to the candidate pool with a new deadline, or reaches ESCALATED terminal state within one scheduler cycle.
+
+**Accountability gaps closed**
+- Missed deadlines with no consequence → SLA breach fires an `AuditEntry` unconditionally on every expiry transition
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L3 Lifecycle Engine | High |
+
+---
+
+### Chapter C4 — CDI Events
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 4 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, lifecycle transitions had no observable side-channel outside `WorkItemService`. After: `WorkItemLifecycleEvent` fires on every status transition, carrying event type, WorkItem ID, actor, and optional rationale/planRef fields, so any CDI bean reacts to state changes without modifying the service.
+
+**Accountability gaps closed**
+- None (event bus infrastructure — no new accountability surface added)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Low |
+| L3 Lifecycle Engine | Med |
+
+---
+
+### Chapter C5 — Quarkus-Flow Integration
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 5 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, Quarkus-Flow workflow definitions had no native human-in-the-loop step. After: `HumanTaskFlowBridge` wraps WorkItem creation in a Quarkus-Flow `function` task returning `Uni<String>`; the `workItem()` DSL helper suspends a workflow until a human completes the assigned WorkItem.
+
+**Accountability gaps closed**
+- None (integration layer — accountability responsibility belongs to the host workflow)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L7 Optional Modules | Med |
+
+---
+
+### Chapter C6 — Ledger Module
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 6 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, lifecycle events had no tamper-evident record and actor trust was unscored. After: the optional `casehub-work-ledger` module introduces `LedgerEventCapture`, which `@Observes WorkItemLifecycleEvent` and appends a `WorkItemLedgerEntry` joined from `casehub-ledger`'s Merkle chain; a nightly EigenTrust batch derives actor trust scores from those attestations.
+
+**Accountability gaps closed**
+- No tamper-evident audit → `WorkItemLedgerEntry` appended in Merkle hash chain on every transition
+- No trust scoring → EigenTrust reputation computed nightly from audit attestations
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L5 Ledger Integration | High |
+
+---
+
+### Chapter C7 — Label-Based Queues
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 7 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, WorkItems had no label-based routing and inbox queries returned unfiltered results. After: the optional `casehub-work-queues` module delivers `LabelVocabulary` (GLOBAL→PERSONAL scope hierarchy), `WorkItemFilter` (JEXL/JQ/Lambda evaluators), `FilterChain`, `QueueView` named queries, and `WorkItemQueueEvent` CDI events; consuming apps define label vocabularies and query the inbox as named queue views.
+
+**Accountability gaps closed**
+- No label-based routing audit → `WorkItemQueueEvent` fires on every queue membership change
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L4 Label System | High |
+
+---
+
+### Chapter C8 — Native Image
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 8 of 15 | **Status:** ✅
+**Delivered:** 2026-04-14 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, casehub-work had no verified GraalVM native image target. After: the `@QuarkusIntegrationTest` suite validates the native binary; startup time measures 0.084 s, confirming sub-100 ms deployment for casehub-work native builds.
+
+**Accountability gaps closed**
+- None (infrastructure validation — no accountability surface)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| Cross-cutting | — |
+
+---
+
+### Chapter C9 — Form Schema (superseded by C29)
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 9 of 15 | **Status:** ✅
+**Delivered:** 2026-04-15 | **Issues:** #92
+
+**What this delivers**
+`WorkItemFormSchema` was introduced as a standalone CRUD resource for JSON Schema definitions. C29 (Template Data Schemas) later moved schema ownership into `WorkItemTemplate` and deleted this entity. The net production effect of C9 is zero — the entity no longer exists in production code.
+
+**Accountability gaps closed**
+- None net (capability superseded and deleted by C29)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Low (net zero — entity created then deleted by C29) |
+
+---
+
+### Chapter C10 — WorkItemTemplate
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 10 of 15 | **Status:** ✅
+**Delivered:** 2026-04-20 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, each WorkItem creation required callers to supply all fields individually. After: `WorkItemTemplate` blueprints carry title, description, candidateGroups, SLA defaults, `inputDataSchema`, `outputDataSchema` (from C29), and named outcomes (from C28); `WorkItemTemplateService.instantiate()` creates WorkItems from templates with payload override and callerRef support, so consuming apps define templates once and instantiate consistent WorkItems by name.
+
+**Accountability gaps closed**
+- None (convenience layer — no new accountability surface)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Med |
+
+---
+
+### Chapter C11 — WorkItem Model Enrichment
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 11 of 15 | **Status:** ✅
+**Delivered:** 2026-04-20 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, the inbox had no notes, no relations, no live streaming, and no observability hooks. After: `WorkItemNote` (lightweight operational notes), `WorkItemRelation` graph (PART_OF and pluggable relation types), `WorkItemLink` (structured external references), SSE live event stream (GET /workitems/events), recurring cron-driven WorkItem creation, Micrometer metrics (gauges, counters, queue depth), inbox summary/clone/bulk operations, and an OpenAPI spec are all in place.
+
+**Accountability gaps closed**
+- None (enrichment — no new accountability surface)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Med |
+| L2 REST API | Low |
+
+---
+
+### Chapter C12 — Audit History API
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 12 of 15 | **Status:** ✅
+**Delivered:** 2026-04-20 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, audit entries were queryable only per WorkItem via its detail endpoint. After: GET /audit exposes cross-WorkItem queries with actorId, event, date, and category filters plus pagination; GET /workitems/reports/sla-breaches and GET /workitems/reports/actors/{actorId} deliver SLA compliance and actor performance summaries across the full audit history.
+
+**Accountability gaps closed**
+- No cross-item audit query → cross-item `AuditEntry` search with actorId, date, category, and event filters at GET /audit
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Low |
+| L2 REST API | Med |
+
+---
+
+### Chapter C13 — Subprocess Spawn
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 13 of 15 | **Status:** ✅
+**Delivered:** 2026-04-24 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, parent–child WorkItem relationships had no structured representation and batch creation had no idempotency guarantee. After: `SpawnPort` SPI in `casehub-work-api` and `WorkItemSpawnService` implement idempotent batch creation; `WorkItemSpawnGroup` tracks group status and `completedCount`; the `callerRef` field on `WorkItem` carries an opaque routing key (V17 migration) echoed on every lifecycle event, enabling engine restart recovery.
+
+**Accountability gaps closed**
+- None (spawn infrastructure — callerRef is a routing key, not an accountability mechanism)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Med |
+
+---
+
+### Chapter C14 — Atomic Claim + Schedule Dedup
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 14 of 15 | **Status:** ✅
+**Delivered:** 2026-04-20 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, concurrent claim attempts from different cluster nodes could race and produce duplicate assignments with no detection. After: `@Version long version` on `WorkItem` makes concurrent claim atomic; a second claimer receives `OptimisticLockException`, which `WorkItemResource` maps to HTTP 409 Conflict; `@Version` on `WorkItemSchedule` with `REQUIRES_NEW` prevents schedule double-fire across cluster nodes.
+
+**Accountability gaps closed**
+- Silent double-claim with no detection → `@Version` OCC produces 409 Conflict; second claimer retries transparently
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L1 Domain Baseline | Med |
+
+---
+
+### Chapter C15 — ClaimSlaPolicy SPI
+
+**Journey:** Journey 1 — Core Platform | **Sequence:** 15 of 15 | **Status:** ✅
+**Delivered:** 2026-04-23 | **Issues:** #92
+
+**What this delivers**
+Before this chapter, claim deadline breach had no configurable policy and breached items silently stayed unclaimed in the pool. After: the `ClaimSlaPolicy` SPI in `casehub-work-api` defines four pool-deadline strategies — PoolExpiry (item stays available), PoolEscalation (re-routes to new groups), PoolExtension (extends the claim deadline), and PoolFail (terminates the item); `ExpiryLifecycleService.checkClaimDeadlines()` dispatches to the configured policy, and `claimDeadline` resets on release, delegate, and expiry transitions.
+
+**Accountability gaps closed**
+- None (SPI infrastructure — policy selection is a consuming-app responsibility)
+
+**Layer Impact**
+| Layer | Delta |
+|---|---|
+| L3 Lifecycle Engine | Med |
