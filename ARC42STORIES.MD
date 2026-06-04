@@ -1654,3 +1654,107 @@ Not closed here: audit trail for distributed events — ledger writes happen in 
 **Cause:** The PostgreSQL broadcaster uses `reactive-pg-client` for LISTEN. If the reactive PG client datasource is not configured, the broadcaster initialises but never subscribes to the LISTEN channel.
 **Fix:** Ensure `quarkus.datasource.reactive.url` is configured in the consuming application alongside the JDBC datasource. The broadcaster requires the reactive PG client; the core extension uses JDBC.
 5. Do not add any import of the optional module or the shared audit library to the core extension — the coupling exists only through the CDI event.
+
+### Layer — L7 Optional Modules
+
+**Participates in chapters:** C5, C18, C19, C20, C21, C22, C23, C25, C26, C27
+**Architectural patterns:** @DefaultBean CDI displacement, Strategy, SPI
+**Key protocols:** `docs/protocols/casehub/alternative-extension-patterns.md`, `docs/protocols/optional-module-pattern.md`
+**Issues:** Phase 5, #73, #106, #121, #124, #126, #140–#141, #142–#145, #156–#161
+**Navigation:** `git log --grep="#121\|#156\|#142" --oneline`
+**Completed:** 2026-04-14 through 2026-05-05
+
+#### What it adds
+
+**Before:** casehub-work-core provided only the task inbox; SLA reporting, AI routing, notifications, and external integrations required custom code in each consuming application.
+**After:** Six optional modules activate by classpath presence — each displaces a `@DefaultBean` or adds a new capability with zero modification to the core extension.
+
+What this layer adds:
+- **AI module** (`casehub-work-ai`) — semantic worker selection + LLM-assisted resolution and escalation summary
+- **SLA reports** (`casehub-work-reports`) — four pre-aggregated report endpoints with Caffeine cache
+- **Notifications** (`casehub-work-notifications`) — HTTP webhook, Slack, Teams outbound via `NotificationChannel` SPI
+- **Issue tracker** (`casehub-work-issue-tracker`) — bidirectional GitHub/Jira link; NormativeResolution drives WorkItem transitions from inbound webhooks
+- **MongoDB** (`casehub-work-persistence-mongodb`) — drop-in `WorkItemStore` alternative for MongoDB deployments
+- **Flow bridge** (`work-flow`) — `HumanTaskFlowBridge` wraps WorkItem creation as a Quarkus-Flow `function` task
+
+Not closed here: distribution of events (L6), tamper-evident audit (L5).
+
+#### Accountability Gaps Closed
+
+| Gap | What breaks without it | Closed by |
+|---|---|---|
+| No SLA reporting surface | Operators write ad-hoc HQL to query breach rates | `casehub-work-reports` pre-aggregated endpoints with Caffeine cache |
+| No audit linkage between tasks and issue tracker | WorkItems and GitHub/Jira issues are disconnected | `casehub-work-issue-tracker` bidirectional link with inbound webhook handler |
+
+#### Key Files
+
+**AI module:**
+- `ai/src/main/java/io/casehub/work/ai/skill/SemanticWorkerSelectionStrategy.java` — `@Alternative @Priority(1)` worker selection strategy using embedding-based skill matching; displaces the config-selected built-in strategy when the ai module is on the classpath
+- `ai/src/main/java/io/casehub/work/ai/skill/EmbeddingSkillMatcher.java` — matches WorkItem skill requirements to worker profiles using vector embeddings; requires a configured LangChain4j embedding provider
+- `ai/src/main/java/io/casehub/work/ai/suggestion/ResolutionSuggestionResource.java` — REST endpoint at `GET /workitems/{id}/resolution-suggestion`; calls `ResolutionSuggestionService` to produce LLM-assisted resolution text
+- `ai/src/main/java/io/casehub/work/ai/escalation/EscalationSummaryObserver.java` — `@ApplicationScoped` CDI observer; listens for EXPIRED and CLAIM_EXPIRED lifecycle events and triggers LLM summary generation
+
+**Reports module:**
+- `reports/src/main/java/io/casehub/work/reports/api/ReportResource.java` — REST entry point exposing the four pre-aggregated report endpoints
+- `reports/src/main/java/io/casehub/work/reports/service/ReportService.java` — service layer coordinating Caffeine-cached report assembly
+- `reports/src/main/java/io/casehub/work/reports/service/SlaBreachReport.java` — SLA breach aggregation report model
+- `reports/src/main/java/io/casehub/work/reports/service/ThroughputReport.java` — throughput-over-time report model
+
+**Notifications module:**
+- `api/src/main/java/io/casehub/work/api/NotificationChannel.java` — SPI interface in the api artifact; implemented by each channel
+- `notifications/src/main/java/io/casehub/work/notifications/channel/HttpWebhookChannel.java` — outbound HTTP webhook implementation of `NotificationChannel`
+- `notifications/src/main/java/io/casehub/work/notifications/channel/SlackNotificationChannel.java` — Slack outbound channel implementation
+- `notifications/src/main/java/io/casehub/work/notifications/channel/TeamsNotificationChannel.java` — Microsoft Teams outbound channel implementation
+
+**Issue tracker module:**
+- `issue-tracker/src/main/java/io/casehub/work/issuetracker/spi/IssueTrackerProvider.java` — SPI interface for GitHub and Jira provider implementations
+- `issue-tracker/src/main/java/io/casehub/work/issuetracker/webhook/WebhookEventHandler.java` — inbound webhook receiver; translates GitHub/Jira payloads to `NormativeResolution` and drives WorkItem transitions
+- `api/src/main/java/io/casehub/work/api/NormativeResolution.java` — enum in the api artifact mapping tracker-specific resolution strings to stable WorkItem transition vocabulary
+
+**MongoDB module:**
+- `persistence-mongodb/src/main/java/io/casehub/work/mongodb/MongoWorkItemStore.java` — `@ApplicationScoped @Alternative @Priority(1)` drop-in replacement for the default JPA-based `WorkItemStore`; activates when `casehub-work-persistence-mongodb` is on the classpath
+
+**Flow module:**
+- `flow/src/main/java/io/casehub/work/flow/HumanTaskFlowBridge.java` — wraps WorkItem creation and completion as a Quarkus-Flow `function` task, enabling human task steps in CNCF Serverless Workflow definitions
+
+#### Key Wiring
+
+**`SemanticWorkerSelectionStrategy` `@ApplicationScoped @Alternative @Priority(1)`.** Displaces the config-selected built-in strategy (e.g. `ClaimFirstStrategy`) when `casehub-work-ai` is on the classpath. Delegates skill matching to `EmbeddingSkillMatcher`, which requires a configured LangChain4j embedding provider. If no embedding provider is configured, `EmbeddingSkillMatcher.matchSkills()` returns empty results and the strategy falls back to the configured fallback strategy.
+
+**`EscalationSummaryObserver` observes `WorkItemLifecycleEvent`.** When EXPIRED or CLAIM_EXPIRED is received, the observer calls `EscalationSummaryService` which sends the WorkItem context to an LLM and stores the response in the `escalation_summary` table (V4001 migration). The V4001 migration lives at `ai/src/main/resources/db/work/migration/V4001__escalation_summary.sql`.
+
+**`NormativeResolution` enum bridges issue tracker vocabulary to WorkItem transitions.** GitHub `closed/completed` → DONE → WorkItem COMPLETED. GitHub `closed/not_planned` → DECLINE → WorkItem CANCELLED. Jira `Won't Do` → DECLINE → WorkItem CANCELLED. Jira `Done` → DONE → WorkItem COMPLETED. `WebhookEventHandler` translates inbound webhook payloads to `NormativeResolution` and calls `WorkItemService` directly.
+
+**`MongoWorkItemStore` `@ApplicationScoped @Alternative @Priority(1)`.** CDI selects this implementation over the default JPA-based `WorkItemStore` when `casehub-work-persistence-mongodb` is on the classpath. No configuration flag is required — classpath presence alone activates the MongoDB backend.
+
+#### Architectural Decisions
+
+**Why NormativeResolution enum rather than direct state mapping:** Each issue tracker uses different vocabulary for the same semantic outcome ("Won't Do", "Invalid", "Not Planned" all mean DECLINE). `NormativeResolution` provides a stable vocabulary layer between tracker-specific strings and `WorkItemService` transitions. Tradeoff: mapping tables in `WebhookEventHandler` must be maintained when trackers add new resolution names.
+
+**Why LLM assist in the same module as semantic routing (ai/):** Both capabilities require an LLM provider on the classpath. Co-locating them in `casehub-work-ai` means a consuming application adds one optional dependency to get both — separate modules would require two dependencies for two capabilities that share the same infrastructure requirement.
+
+#### Pattern Introduced
+
+Optional classpath-presence activation — an optional module adds `@Alternative @Priority(1)` implementations or new CDI beans; the core extension has no knowledge of the module; consumers add it as a dependency to activate its behaviour.
+
+#### Pattern Anchor
+
+`ai/src/main/java/io/casehub/work/ai/skill/SemanticWorkerSelectionStrategy.java` — `@Alternative @Priority(1)` displaces the config-selected built-in strategy when the ai module is on the classpath
+
+#### Gotchas
+
+**Symptom:** `SemanticWorkerSelectionStrategy` activates but worker assignment always falls back to `LeastLoadedStrategy`.
+**Cause:** `EmbeddingSkillMatcher` requires an embedding model provider (e.g. via LangChain4j). If no provider is configured, `EmbeddingSkillMatcher.matchSkills()` returns an empty result and `SemanticWorkerSelectionStrategy` falls back to the configured fallback strategy.
+**Fix:** Configure an embedding model in `application.properties` (e.g. `quarkus.langchain4j.openai.api-key=...`). Without a live embedding provider, semantic matching is a no-op.
+
+**Symptom:** `WebhookEventHandler` receives a GitHub webhook with `closed/not_planned` but the linked WorkItem is not cancelled.
+**Cause:** The resolution→NormativeResolution mapping is driven by both the `state` and the `state_reason` fields of the GitHub issue event. `closed` alone without `state_reason=not_planned` maps to DONE, not DECLINE.
+**Fix:** Ensure the GitHub webhook is configured to send `issues` events (not just `push` events). Verify the `state_reason` field is present in the payload — older GitHub webhook versions may omit it.
+
+#### Pattern to Replicate
+
+1. Define an optional module as a Quarkus extension (with deployment module) that depends only on the core's `api/` artifact.
+2. Implement `@Alternative @Priority(1)` overrides for SPIs defined in `api/` — the override activates when the module is on the classpath.
+3. For new capabilities with no SPI to override (e.g. reports, LLM assist), use `@ApplicationScoped` CDI beans and REST resources that activate by presence.
+4. Ensure the optional module carries its own Flyway migrations at `db/work/migration/` in a reserved V-number range (see `docs/protocols/casehub/flyway-version-range-allocation.md`).
+5. Write Jandex index for the module (via jandex-maven-plugin) so CDI can discover its beans in Quarkus without a full classpath scan.
