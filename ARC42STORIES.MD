@@ -221,3 +221,59 @@ SUSPENDED → ASSIGNED | IN_PROGRESS (resume to priorStatus) | CANCELLED
 DELEGATED → ASSIGNED (accept-delegation) | PENDING (decline, POOL path) | ASSIGNED (decline, DELEGATOR path)
 any active → EXPIRED (SLA Fail) | PENDING (SLA EscalateTo) | ESCALATED (Chained exhausted)
 ```
+
+---
+
+## §6 Runtime View
+
+### Scenario 1 — WorkItem creation with assignment
+
+Actor or system POSTs to `POST /workitems`. `WorkItemService` validates the request against the template's `inputDataSchema` (via `FormSchemaValidationService` if set), persists the WorkItem as PENDING via `JpaWorkItemStore`, fires `WorkItemLifecycleEvent(CREATED)`. `WorkItemAssignmentService` observes CREATED and calls `WorkBroker` with the configured `WorkerSelectionStrategy`. If a pre-assignment resolves, status transitions to ASSIGNED; otherwise the item stays in the pool. If `casehub-work-ledger` is on the classpath, `LedgerEventCapture @Observes` fires asynchronously and appends a `WorkItemLedgerEntry`.
+
+### Scenario 2 — SLA breach → Fail
+
+`ExpiryCleanupJob` fires on schedule via `@Scheduled`. It calls `ExpiryLifecycleService.checkExpired()`, which scans all expired WorkItems and calls `SlaBreachPolicy.onBreach(SlaBreachContext)` per item:
+
+- `BreachDecision.Fail` → WorkItem transitions to EXPIRED (terminal); `SlaBreachEvent` CDI fires; `EXPIRED` audit entry written
+- `BreachDecision.EscalateTo(groups, deadline)` → item returns to PENDING with new candidate groups and deadline; `SLA_REASSIGNED` audit entry written; `WorkItemAssignmentService` pre-assigns via `SLA_ESCALATED` trigger
+- `BreachDecision.Chained` → primary decision tried, fallback tried on failure; both exhausted → `executeExhausted()` → WorkItem transitions to ESCALATED (terminal)
+
+`BreachExecutionFailed` exceptions are caught at item level — one misconfigured policy writes `BREACH_POLICY_MISCONFIGURED` audit and skips the item without rolling back the batch.
+
+### Scenario 3 — Delegation accept/decline
+
+Actor A (ASSIGNED or IN_PROGRESS) calls `PUT /workitems/{id}/delegate` → WorkItem transitions to DELEGATED, `claimDeadline` cleared. Actor B calls `PUT /workitems/{id}/accept-delegation` → ASSIGNED to B. Or Actor B calls `PUT /workitems/{id}/decline-delegation` → resolves `delegationDeclineTarget`: instance field `POOL` → PENDING (back to original candidate pool); instance field `DELEGATOR` → ASSIGNED back to Actor A. If no instance field, reads scope preference via `DeclineTarget.KEY` (default POOL).
+
+---
+
+## §7 Deployment View
+
+```mermaid
+C4Deployment
+  title casehub-work — Deployment (Standard + Distributed)
+  Deployment_Node(quarkus1, "Quarkus Node 1") {
+    Container(app1, "Application + casehub-work", "JVM or Native", "Serves REST API; fires lifecycle events")
+  }
+  Deployment_Node(quarkus2, "Quarkus Node 2") {
+    Container(app2, "Application + casehub-work", "JVM or Native", "Serves REST API; fires lifecycle events")
+  }
+  Deployment_Node(pg, "PostgreSQL") {
+    ContainerDb(db, "Database", "PostgreSQL", "work_item, audit_entry + all module tables; Flyway V1–V34")
+    ContainerDb(notify, "LISTEN/NOTIFY", "PostgreSQL", "casehub_work_events + casehub_work_queue_events channels")
+  }
+  Rel(app1, db, "Flyway + JPA")
+  Rel(app2, db, "Flyway + JPA")
+  Rel(app1, notify, "NOTIFY on lifecycle event (TransactionPhase.AFTER_SUCCESS)")
+  Rel(notify, app2, "LISTEN → re-broadcast to local SSE clients")
+```
+
+### Deployment Variants
+
+| Variant | Add to classpath | Capability gained |
+|---|---|---|
+| Minimal (evaluation) | `casehub-work` + H2 datasource | WorkItem lifecycle, SLA, REST API |
+| Standard | `casehub-work` + PostgreSQL datasource | Full lifecycle with production datasource |
+| Distributed cluster | + `casehub-work-postgres-broadcaster` | All nodes receive all SSE events via LISTEN/NOTIFY |
+| Full audit | + `casehub-work-ledger` + `casehub-ledger` | Tamper-evident Merkle chain, EigenTrust scoring |
+| AI routing | + `casehub-work-ai` + embedding provider | Semantic worker selection + LLM-assisted resolution |
+| MongoDB | + `casehub-work-persistence-mongodb` | MongoDB WorkItemStore (drop-in, no datasource config change) |
