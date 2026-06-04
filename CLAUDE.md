@@ -86,7 +86,7 @@ A `WorkItem` is a unit of work requiring human attention or judgment. It is deli
 - CaseHub has its own `Task` class — a CMMN-style case work unit
 Using `WorkItem` avoids naming conflicts and accurately describes what WorkItems manages: work that waits for a person.
 
-**See the full glossary:** `docs/ARCHITECTURE.md` § Glossary
+**See the full glossary:** `ARC42STORIES.MD` § §13 Glossary
 
 ---
 
@@ -172,9 +172,10 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home
 
 ## Design Document
 
-`docs/specs/2026-04-14-tarkus-design.md` is the primary design specification.
-`docs/ARCHITECTURE.md` is the architectural reference — module graph, domain model, SPI contracts.
-`docs/DESIGN.md` is the implementation tracker — build roadmap, Flyway migration history, test totals.
+`ARC42STORIES.MD` is the primary architecture record — §5 Building Block View (module structure, domain model), §9 Journeys and Chapters (35-chapter delivery history, 7 layer entries with key files, wiring, gotchas, and patterns), §10 Architectural Decisions (cross-references to `docs/adr/`).
+
+REST API reference: [`docs/api-reference.md`](docs/api-reference.md)
+Configuration properties: [`README.md`](README.md#configuration)
 
 ## casehub-work-api Utilities
 
@@ -191,7 +192,7 @@ filtering or dropping commits that touch these paths.
 |------|------------|
 | `CLAUDE.md` | Project conventions (build, test, naming) |
 | `docs/adr/` | Architecture decision records |
-| `docs/DESIGN.md` | Design document |
+| `ARC42STORIES.MD` | Primary architecture record |
 | `docs/MODULES.md` | Module ownership and structural constraints |
 | `docs/ECOSYSTEM.md` | Cross-project conventions (packaging, versioning, fork workflow) |
 
