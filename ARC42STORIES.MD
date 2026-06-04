@@ -1582,4 +1582,75 @@ Optional CDI observer module — a module that attaches to a domain event bus to
 2. In the optional module, define a CDI bean annotated with `@ApplicationScoped` that observes the core's lifecycle event type.
 3. In the observer, persist an audit record that extends the shared audit library's base entity via JPA JOINED inheritance.
 4. Ensure the optional module's Flyway migrations are scoped to its own path (`db/<module>/migration/`) and that the shared library's base migrations are a separate path consumers must configure.
+
+### Layer — L6 Distribution
+
+**Participates in chapters:** C26, C27
+**Architectural patterns:** @DefaultBean CDI displacement, Observer, Pub-Sub
+**Key protocols:** `docs/protocols/casehub/alternative-extension-patterns.md`
+**Issues:** Phase 18, Phase 19+20, #93, #147, #150, #155
+**Navigation:** `git log --grep="#93\|#147\|#155" --oneline`
+**Completed:** 2026-04-30 (SPI); 2026-05-01 (PostgreSQL backends)
+
+#### What it adds
+
+**Before:** `WorkItemResource` contained hardcoded in-process SSE delivery; no alternative broadcast backend was possible without modifying the runtime module.
+**After:** `WorkItemEventBroadcaster` interface extracted; `LocalWorkItemEventBroadcaster @DefaultBean` provides in-process delivery; `PostgresWorkItemEventBroadcaster @ApplicationScoped @Alternative @Priority(1)` in `casehub-work-postgres-broadcaster` displaces it by classpath presence and fans events to all cluster nodes via PostgreSQL LISTEN/NOTIFY.
+
+What this layer adds:
+- **Broadcaster SPI** — `WorkItemEventBroadcaster` interface and `WorkItemQueueEventBroadcaster` interface; each has a `@DefaultBean` in-process implementation
+- **PostgreSQL LISTEN/NOTIFY broadcaster** — `PostgresWorkItemEventBroadcaster` publishes to `casehub_work_events` channel; all nodes subscribed via LISTEN re-broadcast to local SSE clients; fires `AFTER_SUCCESS` only
+- **Queue event broadcaster** — `PostgresWorkItemQueueEventBroadcaster` follows the same pattern for `casehub_work_queue_events`; `WorkItemQueueEvent` is a plain record — no separate wire DTO needed
+- **No Flyway** — neither broadcaster module adds schema changes; they reuse the datasource managed by the core extension
+
+Not closed here: audit trail for distributed events — ledger writes happen in the originating node before NOTIFY.
+
+#### Accountability Gaps Closed
+
+| Gap | What breaks without it | Closed by |
+|---|---|---|
+| SSE clients on non-originating nodes see no events | Dashboard shows stale or empty inbox on all nodes except the one handling the mutation | PostgreSQL NOTIFY + LISTEN fan-out to all subscribed nodes |
+
+#### Key Files
+
+- `runtime/src/main/java/io/casehub/work/runtime/event/WorkItemEventBroadcaster.java` — the SPI interface defining the broadcast contract; all broadcaster implementations must implement this
+- `runtime/src/main/java/io/casehub/work/runtime/event/LocalWorkItemEventBroadcaster.java` — `@DefaultBean` in-process implementation using a Mutiny `BroadcastProcessor`; active when no alternative is on the classpath
+- `postgres-broadcaster/src/main/java/io/casehub/work/postgres/broadcaster/PostgresWorkItemEventBroadcaster.java` — `@ApplicationScoped @Alternative @Priority(1)` implementation; publishes to PostgreSQL LISTEN/NOTIFY and re-broadcasts to SSE clients on all nodes
+- `postgres-broadcaster/src/main/java/io/casehub/work/postgres/broadcaster/WorkItemEventPayload.java` — wire DTO used by the PostgreSQL broadcaster to serialize only scalar fields before publishing to the NOTIFY channel
+- `queues-postgres-broadcaster/src/main/java/io/casehub/work/queues/postgres/broadcaster/PostgresWorkItemQueueEventBroadcaster.java` — `@ApplicationScoped @Alternative @Priority(1)` queue event broadcaster; mirrors the WorkItem broadcaster pattern for queue events
+
+#### Key Wiring
+
+**`@ApplicationScoped @Alternative @Priority(1)` on `PostgresWorkItemEventBroadcaster`.** The `@Alternative` annotation removes the bean from consideration by default; `@Priority(1)` re-enables it globally without requiring an explicit `@Alternative` activation in `beans.xml`. When `casehub-work-postgres-broadcaster` is on the classpath, CDI selects `PostgresWorkItemEventBroadcaster` over the `@DefaultBean` `LocalWorkItemEventBroadcaster` — no application configuration required, classpath presence is sufficient.
+
+**`TransactionPhase.AFTER_SUCCESS` in the NOTIFY observer.** Confirmed present: `@Observes(during = TransactionPhase.AFTER_SUCCESS)`. The NOTIFY fires only after the transaction commits — a rolled-back transaction never publishes to the channel, so SSE clients don't see phantom events for work items that were never actually persisted.
+
+**`WorkItemEventPayload` wire DTO.** The PostgreSQL broadcaster serializes only scalar fields from `WorkItemLifecycleEvent` into `WorkItemEventPayload` before publishing. This avoids serializing complex object graphs over the NOTIFY channel (PostgreSQL NOTIFY payload has a 8000-byte limit). Subscriber nodes deserialize `WorkItemEventPayload` and reconstruct a minimal event for SSE delivery.
+
+**No Flyway migrations.** Neither broadcaster module adds schema changes — they use the `reactive-pg-client` to subscribe to LISTEN channels on the existing datasource. No additional tables are created.
+
+#### Architectural Decisions
+
+**Why SPI extraction before PostgreSQL implementation:** Testing the local broadcaster doesn't require PostgreSQL. Extracting `WorkItemEventBroadcaster` as an interface (C26) before building the PostgreSQL backend (C27) means the local broadcaster's test coverage is independent of any infrastructure. Tradeoff: one extra abstraction layer, but zero infrastructure in unit tests.
+
+**Why at-most-once delivery (AFTER_SUCCESS, no retry):** SSE clients reconnect on disconnect and receive the current state via REST — they don't require exactly-once delivery. PostgreSQL NOTIFY without acknowledgement is at-most-once: if the subscriber is disconnected during NOTIFY, the event is lost. For SSE this is acceptable because the client's reconnect triggers a fresh inbox load. Tradeoff: a client that disconnects during a burst of events misses those events and must poll to recover.
+
+#### Pattern Introduced
+
+@DefaultBean CDI displacement for broadcast backends — the SPI has a no-op or in-process @DefaultBean; a production backend adds @Alternative @Priority(1) and activates by classpath presence alone.
+
+#### Pattern Anchor
+
+`runtime/src/main/java/io/casehub/work/runtime/event/WorkItemEventBroadcaster.java` — the SPI interface
+`runtime/src/main/java/io/casehub/work/runtime/event/LocalWorkItemEventBroadcaster.java` — the @DefaultBean in-process implementation
+
+#### Gotchas
+
+**Symptom:** `BackPressureFailure` appears in logs on every WorkItem lifecycle event, even when no SSE clients are connected.
+**Cause:** `LocalWorkItemEventBroadcaster` uses a Mutiny `BroadcastProcessor`; if no subscribers are registered, publishing to it throws `BackPressureFailure`.
+**Fix:** The broadcaster suppresses `BackPressureFailure` when no subscribers are active. If you see it in your own broadcaster implementation, wrap the publish call with a subscriber-count guard or suppress the specific exception.
+
+**Symptom:** SSE events arrive on the originating node's clients but not on other cluster nodes' clients, even with `casehub-work-postgres-broadcaster` on the classpath.
+**Cause:** The PostgreSQL broadcaster uses `reactive-pg-client` for LISTEN. If the reactive PG client datasource is not configured, the broadcaster initialises but never subscribes to the LISTEN channel.
+**Fix:** Ensure `quarkus.datasource.reactive.url` is configured in the consuming application alongside the JDBC datasource. The broadcaster requires the reactive PG client; the core extension uses JDBC.
 5. Do not add any import of the optional module or the shared audit library to the core extension — the coupling exists only through the CDI event.
