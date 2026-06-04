@@ -1232,3 +1232,89 @@ Not closed here: REST surface (L2), lifecycle scheduling (L3), label routing (L4
 5. Define an append-only `AuditEntryStore` with a separate JPA entity; call it inside every `Service` state transition.
 6. Write Flyway migrations at `classpath:db/<reponame>/migration/` (not `db/migration/`) and document the version range in the module's README.
 7. Configure `@QuarkusTest` integration tests with H2 `MODE=PostgreSQL`; use the in-memory store for unit tests that need no Quarkus boot.
+
+### Layer — L2 REST API
+
+**Participates in chapters:** C2, C11, C12, C28, C29, C31
+**Architectural patterns:** Thin REST layer — no business logic in resources
+**Key protocols:** `docs/protocols/casehub/auth-retrofit-readiness.md`
+**Issues:** Phase 2, #83–#88, #182
+**Navigation:** `git log --grep="Phase 2\|#83\|#182" --oneline`
+**Completed:** 2026-04-14 (baseline); extended through 2026-05-20
+
+#### What it adds
+
+**Before:** WorkItem lifecycle accessible only via CDI injection inside the same application.
+**After:** `WorkItemResource @Path("/workitems")` exposes the full inbox lifecycle over HTTP; any external client can create, claim, complete, delegate, and query WorkItems.
+
+What this layer adds:
+- **REST resources** — 7 JAX-RS resource classes under `/workitems`; each sub-resource delegates to the service layer with no business logic in the resource method
+- **Enforced builder** — `WorkItemCreateRequest` final class with private constructor reachable only via `Builder.build()`; positional construction is structurally impossible
+- **Exception mappers** — `OptimisticLockException` → HTTP 409 Conflict; `MalformedCapabilityException` → HTTP 400; `UnknownCapabilityException` → HTTP 400
+
+Not closed here: SLA breach (L3), label routing (L4), ledger recording (L5).
+
+#### Accountability Gaps Closed
+
+| Gap | What breaks without it | Closed by |
+|---|---|---|
+| No external claim surface | Only in-process CDI callers can interact with WorkItems | REST inbox with `?assignee` + `?candidateGroups` query params |
+
+#### Key Files
+
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemResource.java` — root JAX-RS resource at `@Path("/workitems")`; inbox, summary, and per-item lifecycle endpoints
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemBulkResource.java` — bulk lifecycle operations at `@Path("/workitems/bulk")`; claim and complete multiple items in one request
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemSpawnResource.java` — spawn and spawn-group sub-resource under `/workitems/{id}/spawn`
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemInstancesResource.java` — multi-instance child listing at `/workitems/{id}/instances`
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemRelationResource.java` — inter-item relation management at `@Path("/workitems/{id}/relations")`
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemScheduleResource.java` — schedule sub-resource at `@Path("/workitem-schedules")`
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemTemplateResource.java` — template CRUD at `@Path("/workitem-templates")`
+- `runtime/src/main/java/io/casehub/work/runtime/api/AuditResource.java` — audit trail query endpoint at `@Path("/audit")`
+- `runtime/src/main/java/io/casehub/work/runtime/api/AsyncApiResource.java` — serves the AsyncAPI spec at `@Path("/q/asyncapi")`
+- `runtime/src/main/java/io/casehub/work/runtime/api/VocabularyResource.java` — vocabulary definition management at `@Path("/vocabulary")`
+- `runtime/src/main/java/io/casehub/work/runtime/filter/FilterRuleResource.java` — label filter rule CRUD at `@Path("/filter-rules")`
+- `runtime/src/main/java/io/casehub/work/runtime/api/SpawnGroupResource.java` — spawn-group entity CRUD at `@Path("/spawn-groups")`
+- `runtime/src/main/java/io/casehub/work/runtime/api/CreateWorkItemRequest.java` — record DTO for HTTP request body; flat string fields decoded by the resource before service call
+- `runtime/src/main/java/io/casehub/work/runtime/model/WorkItemCreateRequest.java` — enforced-builder domain request object; private constructor, all required fields explicit and named
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemResponse.java` — record DTO returned from every WorkItem read endpoint; maps domain fields to JSON-serialisable types
+- `runtime/src/main/java/io/casehub/work/runtime/api/WorkItemMapper.java` — stateless utility class; converts `WorkItem` domain objects to `WorkItemResponse` DTOs with no business logic
+
+#### Key Wiring
+
+**`@Path("/workitems")` on `WorkItemResource`.** All sub-resources use relative paths from this root. The resource carries no CDI qualifier — a single application-scoped instance serves all requests via JAX-RS injection.
+
+**No `@RolesAllowed` on any resource method.** Per the auth-retrofit-readiness protocol, resource methods stay thin enough for auth retrofit — a consuming application adds `@RolesAllowed` at the resource level or via a CDI interceptor without modifying the extension.
+
+**`WorkItemCreateRequest` enforced builder.** The constructor is private; the only way to construct the request is `WorkItemCreateRequest.builder().[fields].build()`. This prevents future field additions from silently shifting positional arguments at call sites. Drift-protection test `builderHasSetterForEveryField` fails at compile time if a field has no corresponding builder setter.
+
+#### Architectural Decisions
+
+**Why thin REST resources (no business logic in resource methods):** Business logic in resource methods makes it impossible to test service behaviour without an HTTP stack. `WorkItemService` is the testable unit; `WorkItemResource` is a translation layer only. Tradeoff: more classes, but each testable independently.
+
+**Why enforced builder over positional record (#182):** A 24-parameter record silently shifts all downstream call sites when a field is inserted in the middle. An enforced builder makes each parameter explicit and named; insertion of a new field does not compile until every call site is updated. Tradeoff: 60+ call site migrations at the time of change.
+
+#### Pattern Introduced
+
+Thin REST delegation — resource method validates input, calls service, maps result to DTO; no conditional logic, no entity access, no exception handling beyond the mappers.
+
+#### Pattern Anchor
+
+`runtime/src/main/java/io/casehub/work/runtime/api/WorkItemResource.java` — root resource; every method delegates to `WorkItemService`
+
+#### Gotchas
+
+**Symptom:** `OptimisticLockException` surfaces as HTTP 500 instead of HTTP 409 when two concurrent claim requests race.
+**Cause:** `OptimisticLockException` is not mapped to an HTTP status code by default in Quarkus RESTEasy.
+**Fix:** Register an `ExceptionMapper<OptimisticLockException>` that returns `Response.status(Response.Status.CONFLICT).build()`. casehub-work ships this mapper in the runtime module; if you see 500s on concurrent claim, verify the mapper is on the classpath and not excluded by CDI vetoing.
+
+**Symptom:** A call to `WorkItemCreateRequest.builder().build()` compiles but `WorkItemService.create()` throws `NullPointerException` on a required field.
+**Cause:** Builder fields are set to null by default; `Builder.build()` does not validate required fields — it only assembles the object.
+**Fix:** Required fields (`title`, `createdBy`) are validated inside `WorkItemService.create()` which throws `IllegalArgumentException`. Callers should set all fields before calling `build()`.
+
+#### Pattern to Replicate
+
+1. Define one root JAX-RS resource at a stable base path (`@Path("/workitems")`); use sub-resource classes for nested concerns (spawn, instances, notes).
+2. Each resource method: validate the request DTO, call the service method, map the result to a response DTO — no conditional logic, no entity access.
+3. Register `ExceptionMapper` beans for domain exceptions (`OptimisticLockException` → 409, `MalformedCapabilityException` → 400) rather than try/catch in resource methods.
+4. Use an enforced builder for any request DTO with more than 5 fields — make the constructor private, expose only `builder()`.
+5. Leave resource methods unannotated for auth — the consuming application adds `@RolesAllowed` at deployment time.
