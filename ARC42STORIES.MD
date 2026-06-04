@@ -63,3 +63,37 @@ CaseHub Work is a Quarkus extension that provides human-scale WorkItem lifecycle
 - Flyway path scoping: all migrations live at `classpath:db/work/migration/` (PP-20260525-607b33)
 - No auth on REST resources: consuming applications add `@RolesAllowed`; this extension ships auth-retrofit-readiness stubs only
 - Test datasource: H2 `MODE=PostgreSQL` for unit and module tests; Testcontainers (real PostgreSQL) for dialect validation
+
+---
+
+## §3 Context and Scope
+
+```mermaid
+C4Context
+  title casehub-work — System Context
+  Person(actor, "Human Actor / AI Agent", "Claims, works, delegates, and resolves WorkItems")
+
+  System(work, "casehub-work", "Human task lifecycle: WorkItem inbox, SLA enforcement, delegation, escalation, audit trail. Standalone or integrated.")
+
+  System_Ext(engine, "casehub-engine", "Consumes casehub-work-core (WorkBroker) and casehub-work-api (WorkItemCallerRef). Drives WorkItem creation; receives lifecycle events.")
+  System_Ext(ledger, "casehub-ledger", "Provides LedgerEntry base class; WorkItemLedgerEntry extends it. Trust scoring reads attestation records.")
+  System_Ext(platform, "casehub-platform-api", "Provides Path, Preferences, ActorType — used in SlaBreachContext and worker selection SPI signatures.")
+  System_Ext(consumers, "casehub-clinical, devtown, casehub-life", "Application-tier consumers embedding casehub-work runtime for domain WorkItem flows.")
+
+  Rel(actor, work, "REST /workitems — claim, start, complete, delegate")
+  Rel(engine, work, "Creates WorkItems via WorkBroker; observes WorkItemLifecycleEvent CDI")
+  Rel(work, ledger, "WorkItemLedgerEntry (optional module)")
+  Rel(work, platform, "SlaBreachContext, Path, ActorType in SPI signatures")
+  Rel(consumers, work, "Runtime dependency")
+```
+
+### Boundary Rules
+
+What casehub-work explicitly does NOT do:
+
+- Orchestrate case flow or interpret case state
+- Interpret `callerRef` content — stored and echoed opaquely; convention: `casehub-engine` sets `"caseId:planItemId"`
+- Provision AI agents — casehub-engine and Claudony own that
+- Decide when to spawn child WorkItems — callers drive spawn via `SpawnPort`
+- Implement trust scoring — casehub-ledger owns this; casehub-work fires events, ledger records and scores
+- Determine when heterogeneous plan items all complete — casehub-engine; homogeneous M-of-N IS casehub-work
