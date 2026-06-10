@@ -13,6 +13,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -21,6 +22,7 @@ import org.jboss.logging.Logger;
 
 import io.casehub.work.issuetracker.webhook.WebhookEvent;
 import io.casehub.work.issuetracker.webhook.WebhookEventHandler;
+import io.casehub.work.runtime.service.TenantHolder;
 
 /**
  * Receives inbound GitHub Issues webhook events.
@@ -34,7 +36,7 @@ import io.casehub.work.issuetracker.webhook.WebhookEventHandler;
  * casehub.work.issue-tracker.github.webhook-secret=your-secret
  * </pre>
  */
-@Path("/workitems/github-webhook")
+@Path("/workitems/github-webhook/{tenancyId}")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class GitHubWebhookResource {
@@ -52,6 +54,9 @@ public class GitHubWebhookResource {
     @Inject
     WebhookEventHandler handler;
 
+    @Inject
+    TenantHolder tenantHolder;
+
     /**
      * Receive a GitHub Issues webhook event.
      *
@@ -61,8 +66,15 @@ public class GitHubWebhookResource {
      */
     @POST
     public Response receive(
+            @PathParam("tenancyId") final String tenancyId,
             @HeaderParam("X-Hub-Signature-256") final String signature,
             final String body) {
+
+        if (tenancyId == null || tenancyId.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "tenancyId path parameter is required"))
+                    .build();
+        }
 
         final String secret = config.webhookSecret().filter(s -> !s.isBlank()).orElse(null);
         if (secret == null) {
@@ -75,9 +87,9 @@ public class GitHubWebhookResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
+        tenantHolder.setTenancyId(tenancyId);
+
         try {
-            // GitHub event type is read from the action field in the JSON body;
-            // X-GitHub-Event header is not currently consumed by the parser.
             final WebhookEvent event = parser.parse(Map.of(), body);
             if (event != null) {
                 handler.handle(event);

@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -17,6 +18,7 @@ import org.jboss.logging.Logger;
 
 import io.casehub.work.issuetracker.webhook.WebhookEvent;
 import io.casehub.work.issuetracker.webhook.WebhookEventHandler;
+import io.casehub.work.runtime.service.TenantHolder;
 
 /**
  * Receives inbound Jira webhook events.
@@ -33,7 +35,7 @@ import io.casehub.work.issuetracker.webhook.WebhookEventHandler;
  * casehub.work.issue-tracker.jira.webhook-secret=your-secret
  * </pre>
  */
-@Path("/workitems/jira-webhook")
+@Path("/workitems/jira-webhook/{tenancyId}")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class JiraWebhookResource {
@@ -49,6 +51,9 @@ public class JiraWebhookResource {
     @Inject
     WebhookEventHandler handler;
 
+    @Inject
+    TenantHolder tenantHolder;
+
     /**
      * Receive a Jira webhook event.
      *
@@ -58,8 +63,15 @@ public class JiraWebhookResource {
      */
     @POST
     public Response receive(
+            @PathParam("tenancyId") final String tenancyId,
             @QueryParam("secret") final String secret,
             final String body) {
+
+        if (tenancyId == null || tenancyId.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "tenancyId path parameter is required"))
+                    .build();
+        }
 
         final String configuredSecret = config.webhookSecret()
                 .filter(s -> !s.isBlank())
@@ -74,8 +86,9 @@ public class JiraWebhookResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
+        tenantHolder.setTenancyId(tenancyId);
+
         try {
-            // Jira does not send event type headers; event kind is derived from the payload.
             final WebhookEvent event = parser.parse(Map.of(), body);
             if (event != null) {
                 handler.handle(event);

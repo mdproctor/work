@@ -1,5 +1,6 @@
 package io.casehub.work.issuetracker.jira;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
@@ -11,7 +12,7 @@ import static io.restassured.RestAssured.given;
 class JiraWebhookResourceTest {
 
     private static final String SECRET = "test-jira-secret";
-    private static final String ENDPOINT = "/workitems/jira-webhook";
+    private static final String ENDPOINT = "/workitems/jira-webhook/" + TenancyConstants.DEFAULT_TENANT_ID;
 
     private String fixture(final String name) throws Exception {
         try (var stream = getClass().getResourceAsStream("/fixtures/jira/" + name)) {

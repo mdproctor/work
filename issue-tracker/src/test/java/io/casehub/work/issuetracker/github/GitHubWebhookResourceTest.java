@@ -1,5 +1,6 @@
 package io.casehub.work.issuetracker.github;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +15,7 @@ import static io.restassured.RestAssured.given;
 class GitHubWebhookResourceTest {
 
     private static final String SECRET = "test-webhook-secret";
-    private static final String ENDPOINT = "/workitems/github-webhook";
+    private static final String ENDPOINT = "/workitems/github-webhook/" + TenancyConstants.DEFAULT_TENANT_ID;
 
     private String sign(final String body) throws Exception {
         final Mac mac = Mac.getInstance("HmacSHA256");

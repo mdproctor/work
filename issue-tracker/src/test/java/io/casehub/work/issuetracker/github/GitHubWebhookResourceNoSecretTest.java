@@ -2,6 +2,7 @@ package io.casehub.work.issuetracker.github;
 
 import java.util.Map;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -27,7 +28,7 @@ class GitHubWebhookResourceNoSecretTest {
             .header("X-Hub-Signature-256", "sha256=anything")
             .body("{}")
         .when()
-            .post("/workitems/github-webhook")
+            .post("/workitems/github-webhook/" + TenancyConstants.DEFAULT_TENANT_ID)
         .then()
             .statusCode(401);
     }
