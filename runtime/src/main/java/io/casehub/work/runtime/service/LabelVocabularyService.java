@@ -81,8 +81,7 @@ public class LabelVocabularyService {
         def.vocabularyId = vocabularyId;
         def.description = description;
         def.createdBy = createdBy;
-        def.persist();
-        return def;
+        return labelDefinitionStore.put(def);
     }
 
     /**

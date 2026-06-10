@@ -11,7 +11,9 @@ import jakarta.transaction.Transactional;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.runtime.model.RoutingCursor;
+import io.casehub.work.runtime.model.RoutingCursorId;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -28,15 +30,16 @@ class RoutingCursorCleanupJobTest {
     void cleanup_deletesRowsOlderThanCutoff() {
         final String staleHash = "stale-" + UUID.randomUUID();
         final RoutingCursor stale = new RoutingCursor(staleHash);
+        stale.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         stale.lastAccessed = Instant.now().minus(35, ChronoUnit.DAYS);
         stale.persist();
         RoutingCursor.flush();
 
         cleanupJob.cleanup();
-        // Bulk delete bypasses Hibernate first-level cache — clear session before asserting.
         RoutingCursor.getEntityManager().clear();
 
-        assertThat((RoutingCursor) RoutingCursor.findById(staleHash)).isNull();
+        assertThat((RoutingCursor) RoutingCursor.findById(
+                new RoutingCursorId(staleHash, TenancyConstants.DEFAULT_TENANT_ID))).isNull();
     }
 
     @Test
@@ -44,6 +47,7 @@ class RoutingCursorCleanupJobTest {
     void cleanup_preservesRecentRows() {
         final String freshHash = "fresh-" + UUID.randomUUID();
         final RoutingCursor fresh = new RoutingCursor(freshHash);
+        fresh.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         fresh.lastAccessed = Instant.now().minus(1, ChronoUnit.DAYS);
         fresh.persist();
         RoutingCursor.flush();
@@ -51,6 +55,7 @@ class RoutingCursorCleanupJobTest {
         cleanupJob.cleanup();
         RoutingCursor.getEntityManager().clear();
 
-        assertThat((RoutingCursor) RoutingCursor.findById(freshHash)).isNotNull();
+        assertThat((RoutingCursor) RoutingCursor.findById(
+                new RoutingCursorId(freshHash, TenancyConstants.DEFAULT_TENANT_ID))).isNotNull();
     }
 }

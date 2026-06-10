@@ -13,6 +13,7 @@ import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemService;
@@ -43,6 +44,7 @@ class MultiInstanceClaimGuardTest {
             t.instanceCount = 3;
             t.requiredCount = 2;
             t.allowSameAssignee = allowSameAssignee;
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test").id;
         });

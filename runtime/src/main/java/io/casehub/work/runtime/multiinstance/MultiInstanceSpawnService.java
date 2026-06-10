@@ -92,6 +92,7 @@ public class MultiInstanceSpawnService {
         group.onThresholdReached = template.onThresholdReached;
         group.allowSameAssignee = Boolean.TRUE.equals(template.allowSameAssignee);
         group.parentRole = template.parentRole != null ? template.parentRole : ParentRole.COORDINATOR.name();
+        group.tenancyId = parent.tenancyId;
         group.persist();
 
         // 3. Create N child instances and wire PART_OF relations
@@ -106,6 +107,7 @@ public class MultiInstanceSpawnService {
             rel.targetId = parent.id;
             rel.relationType = WorkItemRelationType.PART_OF;
             rel.createdBy = "system:multi-instance:" + group.id;
+            rel.tenancyId = parent.tenancyId;
             rel.persist();
 
             children.add(child);

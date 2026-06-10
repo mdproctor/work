@@ -17,6 +17,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.api.GroupStatus;
 import io.casehub.work.api.WorkItemGroupLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
@@ -51,6 +52,7 @@ class WorkItemGroupLifecycleEventTest {
             t.createdBy = "test";
             t.instanceCount = 3;
             t.requiredCount = 2;
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test").id;
         });
@@ -81,6 +83,7 @@ class WorkItemGroupLifecycleEventTest {
             t.createdBy = "test";
             t.instanceCount = 3;
             t.requiredCount = 2;
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test").id;
         });
@@ -120,6 +123,7 @@ class WorkItemGroupLifecycleEventTest {
             t.createdBy = "test";
             t.instanceCount = 2;
             t.requiredCount = 2;
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test", callerRef).id;
         });

@@ -9,8 +9,10 @@ import jakarta.inject.Inject;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.core.strategy.RoutingCursorStore;
 import io.casehub.work.runtime.model.RoutingCursor;
+import io.casehub.work.runtime.model.RoutingCursorId;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -30,7 +32,8 @@ class RoutingCursorLastAccessedTest {
 
         cursorStore.acquireNext(poolHash, 3);
 
-        final RoutingCursor cursor = RoutingCursor.findById(poolHash);
+        final RoutingCursor cursor = RoutingCursor.findById(
+                new RoutingCursorId(poolHash, TenancyConstants.DEFAULT_TENANT_ID));
         assertThat(cursor).isNotNull();
         assertThat(cursor.lastAccessed).isNotNull();
         assertThat(cursor.lastAccessed).isAfter(before);

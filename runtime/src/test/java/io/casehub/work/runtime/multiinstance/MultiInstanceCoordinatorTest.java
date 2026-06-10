@@ -14,6 +14,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemSpawnGroup;
 import io.casehub.work.runtime.model.WorkItemStatus;
@@ -48,6 +49,7 @@ class MultiInstanceCoordinatorTest {
             t.createdBy = "test";
             t.instanceCount = instanceCount;
             t.requiredCount = requiredCount;
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test").id;
         });
@@ -102,6 +104,7 @@ class MultiInstanceCoordinatorTest {
             t.instanceCount = 5;
             t.requiredCount = 2;
             t.onThresholdReached = "CANCEL";
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test").id;
         });
@@ -133,6 +136,7 @@ class MultiInstanceCoordinatorTest {
             t.instanceCount = 3;
             t.requiredCount = 2;
             t.onThresholdReached = "KEEP";
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test").id;
         });
@@ -188,6 +192,7 @@ class MultiInstanceCoordinatorTest {
             t.createdBy = "test";
             t.instanceCount = 3;
             t.requiredCount = 2;
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return spawnService.createGroup(t, null, null, "test", callerRef).id;
         });

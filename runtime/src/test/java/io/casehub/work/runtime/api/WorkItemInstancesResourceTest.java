@@ -12,6 +12,7 @@ import jakarta.transaction.Transactional;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemPriority;
 import io.casehub.work.runtime.model.WorkItemStatus;
@@ -35,6 +36,7 @@ class WorkItemInstancesResourceTest {
             t.createdBy = "test";
             t.instanceCount = 3;
             t.requiredCount = 2;
+            t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             t.persist();
             return templateService.instantiate(t, null, null, "test").id.toString();
         });
@@ -68,6 +70,7 @@ class WorkItemInstancesResourceTest {
             item.status = WorkItemStatus.PENDING;
             item.priority = WorkItemPriority.MEDIUM;
             item.createdBy = "test";
+            item.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
             item.persist();
             return item.id.toString();
         });

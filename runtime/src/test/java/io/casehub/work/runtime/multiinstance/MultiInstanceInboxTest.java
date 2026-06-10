@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.api.GroupStatus;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemPriority;
@@ -37,6 +38,7 @@ class MultiInstanceInboxTest {
         item.priority = WorkItemPriority.MEDIUM;
         item.title = "Standalone";
         item.createdBy = "test";
+        item.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         item.persist();
 
         List<WorkItemRootView> roots = store.scanRoots("alice-inbox-test", null, List.of());
@@ -55,6 +57,7 @@ class MultiInstanceInboxTest {
         t.createdBy = "test";
         t.instanceCount = 3;
         t.requiredCount = 2;
+        t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         t.persist();
 
         WorkItem parent = templateService.instantiate(t, null, null, "test");
@@ -78,6 +81,7 @@ class MultiInstanceInboxTest {
         t.instanceCount = 2;
         t.requiredCount = 1;
         t.parentRole = "COORDINATOR";
+        t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         t.persist();
 
         WorkItem parent = templateService.instantiate(t, null, null, "test");
@@ -98,6 +102,7 @@ class MultiInstanceInboxTest {
         t.createdBy = "test";
         t.instanceCount = 2;
         t.requiredCount = 1;
+        t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         t.persist();
 
         templateService.instantiate(t, null, null, "test");

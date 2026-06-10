@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemRelation;
 import io.casehub.work.runtime.model.WorkItemRelationType;
@@ -40,6 +41,7 @@ class MultiInstanceCreateTest {
         template.createdBy = "test";
         template.instanceCount = 3;
         template.requiredCount = 2;
+        template.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         template.persist();
 
         WorkItem parent = templateService.instantiate(template, null, null, "test");
@@ -75,6 +77,7 @@ class MultiInstanceCreateTest {
         WorkItemTemplate template = new WorkItemTemplate();
         template.name = "Simple Task";
         template.createdBy = "test";
+        template.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         template.persist();
 
         WorkItem item = templateService.instantiate(template, null, null, "test");
