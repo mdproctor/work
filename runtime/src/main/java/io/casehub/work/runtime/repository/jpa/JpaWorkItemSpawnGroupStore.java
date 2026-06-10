@@ -20,53 +20,58 @@ import io.casehub.work.runtime.repository.WorkItemSpawnGroupStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemSpawnGroupStore implements WorkItemSpawnGroupStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemSpawnGroupStore extends TenantAwareStore implements WorkItemSpawnGroupStore {
 
     @Override
     public WorkItemSpawnGroup put(final WorkItemSpawnGroup group) {
-        if (group.tenancyId == null) {
-            group.tenancyId = currentPrincipal.tenancyId();
-        }
-        group.persistAndFlush();
-        return group;
+        return withTenantQuery(() -> {
+            if (group.tenancyId == null) {
+                group.tenancyId = currentPrincipal.tenancyId();
+            }
+            group.persistAndFlush();
+            return group;
+        });
     }
 
     @Override
     public Optional<WorkItemSpawnGroup> get(final UUID id) {
-        return WorkItemSpawnGroup.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemSpawnGroup.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<WorkItemSpawnGroup> findByParentId(final UUID parentId) {
-        return WorkItemSpawnGroup.list(
-                "parentId = ?1 AND tenancyId = ?2 ORDER BY createdAt DESC",
-                parentId, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemSpawnGroup.list(
+                        "parentId = ?1 AND tenancyId = ?2 ORDER BY createdAt DESC",
+                        parentId, currentPrincipal.tenancyId()));
     }
 
     @Override
     public Optional<WorkItemSpawnGroup> findByParentAndKey(final UUID parentId, final String groupKey) {
-        return WorkItemSpawnGroup.find(
-                "parentId = ?1 AND idempotencyKey = ?2 AND tenancyId = ?3",
-                parentId, groupKey, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemSpawnGroup.find(
+                        "parentId = ?1 AND idempotencyKey = ?2 AND tenancyId = ?3",
+                        parentId, groupKey, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public Optional<WorkItemSpawnGroup> findMultiInstanceByParentId(final UUID parentId) {
-        return WorkItemSpawnGroup.find(
-                "parentId = ?1 AND requiredCount IS NOT NULL AND tenancyId = ?2",
-                parentId, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemSpawnGroup.find(
+                        "parentId = ?1 AND requiredCount IS NOT NULL AND tenancyId = ?2",
+                        parentId, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = WorkItemSpawnGroup.delete("id = ?1 AND tenancyId = ?2",
-                id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = WorkItemSpawnGroup.delete("id = ?1 AND tenancyId = ?2",
+                    id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

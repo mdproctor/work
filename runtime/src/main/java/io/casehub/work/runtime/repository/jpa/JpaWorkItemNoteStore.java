@@ -19,45 +19,50 @@ import io.casehub.work.runtime.repository.WorkItemNoteStore;
  * when the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemNoteStore implements WorkItemNoteStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemNoteStore extends TenantAwareStore implements WorkItemNoteStore {
 
     @Override
     public WorkItemNote append(final WorkItemNote note) {
-        if (note.tenancyId == null) {
-            note.tenancyId = currentPrincipal.tenancyId();
-        }
-        note.persistAndFlush();
-        return note;
+        return withTenantQuery(() -> {
+            if (note.tenancyId == null) {
+                note.tenancyId = currentPrincipal.tenancyId();
+            }
+            note.persistAndFlush();
+            return note;
+        });
     }
 
     @Override
     public Optional<WorkItemNote> findById(final UUID noteId) {
-        return WorkItemNote.find("id = ?1 AND tenancyId = ?2", noteId, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemNote.find("id = ?1 AND tenancyId = ?2", noteId, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<WorkItemNote> findByWorkItemId(final UUID workItemId) {
-        return WorkItemNote.list("workItemId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
-                workItemId, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemNote.list("workItemId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
+                        workItemId, currentPrincipal.tenancyId()));
     }
 
     @Override
     public WorkItemNote update(final WorkItemNote note) {
-        if (note.tenancyId == null) {
-            note.tenancyId = currentPrincipal.tenancyId();
-        }
-        note.persistAndFlush();
-        return note;
+        return withTenantQuery(() -> {
+            if (note.tenancyId == null) {
+                note.tenancyId = currentPrincipal.tenancyId();
+            }
+            note.persistAndFlush();
+            return note;
+        });
     }
 
     @Override
     public boolean delete(final UUID noteId) {
-        // Tenant-scoped delete — only delete if it belongs to current tenant
-        long deleted = WorkItemNote.delete("id = ?1 AND tenancyId = ?2", noteId, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            // Tenant-scoped delete — only delete if it belongs to current tenant
+            long deleted = WorkItemNote.delete("id = ?1 AND tenancyId = ?2", noteId, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

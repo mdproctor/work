@@ -20,39 +20,43 @@ import io.casehub.work.runtime.repository.FilterRuleStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaFilterRuleStore implements FilterRuleStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaFilterRuleStore extends TenantAwareStore implements FilterRuleStore {
 
     @Override
     public FilterRule put(final FilterRule rule) {
-        if (rule.tenancyId == null) {
-            rule.tenancyId = currentPrincipal.tenancyId();
-        }
-        rule.persistAndFlush();
-        return rule;
+        return withTenantQuery(() -> {
+            if (rule.tenancyId == null) {
+                rule.tenancyId = currentPrincipal.tenancyId();
+            }
+            rule.persistAndFlush();
+            return rule;
+        });
     }
 
     @Override
     public Optional<FilterRule> get(final UUID id) {
-        return FilterRule.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                FilterRule.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<FilterRule> allEnabled() {
-        return FilterRule.list("enabled = true AND tenancyId = ?1 ORDER BY createdAt ASC", currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                FilterRule.list("enabled = true AND tenancyId = ?1 ORDER BY createdAt ASC", currentPrincipal.tenancyId()));
     }
 
     @Override
     public List<FilterRule> scanAll() {
-        return FilterRule.list("tenancyId = ?1 ORDER BY createdAt ASC", currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                FilterRule.list("tenancyId = ?1 ORDER BY createdAt ASC", currentPrincipal.tenancyId()));
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = FilterRule.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = FilterRule.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

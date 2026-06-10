@@ -34,43 +34,45 @@ import io.casehub.work.runtime.repository.WorkItemStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemStore implements WorkItemStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemStore extends TenantAwareStore implements WorkItemStore {
 
     @Inject
     WorkItemSpawnGroupStore spawnGroupStore;
 
     @Override
     public WorkItem put(final WorkItem workItem) {
-        if (workItem.tenancyId == null) {
-            workItem.tenancyId = currentPrincipal.tenancyId();
-        }
-        workItem.persistAndFlush();
-        return workItem;
+        return withTenantQuery(() -> {
+            if (workItem.tenancyId == null) {
+                workItem.tenancyId = currentPrincipal.tenancyId();
+            }
+            workItem.persistAndFlush();
+            return workItem;
+        });
     }
 
     @Override
     public Optional<WorkItem> get(final UUID id) {
-        return WorkItem.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItem.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public Optional<WorkItem> findByCallerRef(final String callerRef) {
-        return WorkItem.find("callerRef = ?1 AND tenancyId = ?2", callerRef, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItem.find("callerRef = ?1 AND tenancyId = ?2", callerRef, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<WorkItem> scan(final WorkItemQuery query) {
-        final Map<String, Object> params = new HashMap<>();
-        final StringBuilder jpql = new StringBuilder();
+        return withTenantQuery(() -> {
+            final Map<String, Object> params = new HashMap<>();
+            final StringBuilder jpql = new StringBuilder();
 
-        // ── Tenant isolation — always first ──────────────────────────────────
-        jpql.append("tenancyId = :tenancyId");
-        params.put("tenancyId", currentPrincipal.tenancyId());
+            // ── Tenant isolation — always first ──────────────────────────────────
+            jpql.append("tenancyId = :tenancyId");
+            params.put("tenancyId", currentPrincipal.tenancyId());
 
         // ── Assignment — OR logic ────────────────────────────────────────────
         final boolean hasAssigneeId = query.assigneeId() != null;
@@ -165,37 +167,41 @@ public class JpaWorkItemStore implements WorkItemStore {
             params.put("claimDeadlineOrBefore", query.claimDeadlineOrBefore());
         }
 
-        // ── Label pattern — requires JOIN ────────────────────────────────────
-        if (query.labelPattern() != null) {
-            return scanByLabelPattern(query.labelPattern());
-        }
+            // ── Label pattern — requires JOIN ────────────────────────────────────
+            if (query.labelPattern() != null) {
+                return scanByLabelPattern(query.labelPattern());
+            }
 
-        return WorkItem.find(jpql.toString(), params).list();
+            return WorkItem.find(jpql.toString(), params).list();
+        });
     }
 
     @Override
     public long countByParentAndAssignee(final UUID parentId, final String assigneeId, final UUID excludeId) {
-        // Only count non-terminal instances — terminal children no longer block new claims
-        return WorkItem.count(
-                "parentId = ?1 AND assigneeId = ?2 AND id != ?3 AND status NOT IN (?4) AND tenancyId = ?5",
-                parentId, assigneeId, excludeId,
-                List.of(io.casehub.work.runtime.model.WorkItemStatus.COMPLETED,
-                        io.casehub.work.runtime.model.WorkItemStatus.REJECTED,
-                        io.casehub.work.runtime.model.WorkItemStatus.CANCELLED,
-                        io.casehub.work.runtime.model.WorkItemStatus.ESCALATED),
-                currentPrincipal.tenancyId());
+        return withTenantQuery(() -> {
+            // Only count non-terminal instances — terminal children no longer block new claims
+            return WorkItem.count(
+                    "parentId = ?1 AND assigneeId = ?2 AND id != ?3 AND status NOT IN (?4) AND tenancyId = ?5",
+                    parentId, assigneeId, excludeId,
+                    List.of(io.casehub.work.runtime.model.WorkItemStatus.COMPLETED,
+                            io.casehub.work.runtime.model.WorkItemStatus.REJECTED,
+                            io.casehub.work.runtime.model.WorkItemStatus.CANCELLED,
+                            io.casehub.work.runtime.model.WorkItemStatus.ESCALATED),
+                    currentPrincipal.tenancyId());
+        });
     }
 
     @Override
     public List<WorkItemRootView> scanRoots(
             final String assignee, final String candidateUser, final List<String> userGroups) {
-        // Build visibility predicate using named params (same pattern as scan()).
-        // Tenant isolation is always the first predicate.
-        final StringBuilder pred = new StringBuilder();
-        final Map<String, Object> params = new HashMap<>();
+        return withTenantQuery(() -> {
+            // Build visibility predicate using named params (same pattern as scan()).
+            // Tenant isolation is always the first predicate.
+            final StringBuilder pred = new StringBuilder();
+            final Map<String, Object> params = new HashMap<>();
 
-        pred.append("tenancyId = :tenancyId");
-        params.put("tenancyId", currentPrincipal.tenancyId());
+            pred.append("tenancyId = :tenancyId");
+            params.put("tenancyId", currentPrincipal.tenancyId());
 
         // Each non-null dimension is an independent OR predicate, grouped in parens.
         final StringBuilder visibilityPred = new StringBuilder();
@@ -224,43 +230,44 @@ public class JpaWorkItemStore implements WorkItemStore {
         }
         pred.append(" AND (").append(visibilityPred).append(")");
 
-        // Find directly visible items
-        final List<WorkItem> directlyVisible = WorkItem.find(pred.toString(), params).list();
+            // Find directly visible items
+            final List<WorkItem> directlyVisible = WorkItem.find(pred.toString(), params).list();
 
-        // Collect roots (items with parentId IS NULL) including ancestors of visible children
-        final LinkedHashSet<UUID> rootIds = new LinkedHashSet<>();
-        final LinkedHashMap<UUID, WorkItem> rootItems = new LinkedHashMap<>();
-        final String tenancyId = currentPrincipal.tenancyId();
+            // Collect roots (items with parentId IS NULL) including ancestors of visible children
+            final LinkedHashSet<UUID> rootIds = new LinkedHashSet<>();
+            final LinkedHashMap<UUID, WorkItem> rootItems = new LinkedHashMap<>();
+            final String tenancyId = currentPrincipal.tenancyId();
 
-        for (final WorkItem item : directlyVisible) {
-            if (item.parentId == null) {
-                rootIds.add(item.id);
-                rootItems.put(item.id, item);
-            } else {
-                // Tenant-scoped parent lookup (replaces static WorkItem.findById)
-                final WorkItem parent = WorkItem.<WorkItem> find(
-                        "id = ?1 AND tenancyId = ?2", item.parentId, tenancyId).firstResult();
-                if (parent != null && parent.parentId == null) {
-                    rootIds.add(parent.id);
-                    rootItems.put(parent.id, parent);
+            for (final WorkItem item : directlyVisible) {
+                if (item.parentId == null) {
+                    rootIds.add(item.id);
+                    rootItems.put(item.id, item);
+                } else {
+                    // Tenant-scoped parent lookup (replaces static WorkItem.findById)
+                    final WorkItem parent = WorkItem.<WorkItem> find(
+                            "id = ?1 AND tenancyId = ?2", item.parentId, tenancyId).firstResult();
+                    if (parent != null && parent.parentId == null) {
+                        rootIds.add(parent.id);
+                        rootItems.put(parent.id, parent);
+                    }
                 }
             }
-        }
 
-        return rootIds.stream().map(id -> {
-            final WorkItem root = rootItems.get(id);
-            final WorkItemSpawnGroup group = spawnGroupStore.findMultiInstanceByParentId(id).orElse(null);
-            final int childCount = (int) WorkItem.count("parentId = ?1 AND tenancyId = ?2", id, tenancyId);
-            if (group != null) {
-                final GroupStatus status = group.policyTriggered
-                        ? (group.completedCount >= group.requiredCount
-                                ? GroupStatus.COMPLETED
-                                : GroupStatus.REJECTED)
-                        : GroupStatus.IN_PROGRESS;
-                return new WorkItemRootView(root, childCount, group.completedCount, group.requiredCount, status);
-            }
-            return new WorkItemRootView(root, childCount, null, null, null);
-        }).toList();
+            return rootIds.stream().map(id -> {
+                final WorkItem root = rootItems.get(id);
+                final WorkItemSpawnGroup group = spawnGroupStore.findMultiInstanceByParentId(id).orElse(null);
+                final int childCount = (int) WorkItem.count("parentId = ?1 AND tenancyId = ?2", id, tenancyId);
+                if (group != null) {
+                    final GroupStatus status = group.policyTriggered
+                            ? (group.completedCount >= group.requiredCount
+                                    ? GroupStatus.COMPLETED
+                                    : GroupStatus.REJECTED)
+                            : GroupStatus.IN_PROGRESS;
+                    return new WorkItemRootView(root, childCount, group.completedCount, group.requiredCount, status);
+                }
+                return new WorkItemRootView(root, childCount, null, null, null);
+            }).toList();
+        });
     }
 
     /**
@@ -293,23 +300,26 @@ public class JpaWorkItemStore implements WorkItemStore {
     @Override
     public List<WorkItem> findByParentIdExcludingStatuses(final UUID parentId,
             final List<io.casehub.work.runtime.model.WorkItemStatus> excludeStatuses) {
-        return WorkItem.<WorkItem> find(
-                "parentId = ?1 AND tenancyId = ?2 AND status NOT IN (?3)",
-                parentId, currentPrincipal.tenancyId(), excludeStatuses).list();
+        return withTenantQuery(() ->
+                WorkItem.<WorkItem> find(
+                        "parentId = ?1 AND tenancyId = ?2 AND status NOT IN (?3)",
+                        parentId, currentPrincipal.tenancyId(), excludeStatuses).list());
     }
 
     @Override
     public List<WorkItem> findByParentIdWithStatuses(final UUID parentId,
             final List<io.casehub.work.runtime.model.WorkItemStatus> statuses) {
-        return WorkItem.<WorkItem> find(
-                "parentId = ?1 AND tenancyId = ?2 AND status IN (?3)",
-                parentId, currentPrincipal.tenancyId(), statuses).list();
+        return withTenantQuery(() ->
+                WorkItem.<WorkItem> find(
+                        "parentId = ?1 AND tenancyId = ?2 AND status IN (?3)",
+                        parentId, currentPrincipal.tenancyId(), statuses).list());
     }
 
     @Override
     public List<WorkItem> findByParentId(final UUID parentId) {
-        return WorkItem.<WorkItem> find(
-                "parentId = ?1 AND tenancyId = ?2",
-                parentId, currentPrincipal.tenancyId()).list();
+        return withTenantQuery(() ->
+                WorkItem.<WorkItem> find(
+                        "parentId = ?1 AND tenancyId = ?2",
+                        parentId, currentPrincipal.tenancyId()).list());
     }
 }

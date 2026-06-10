@@ -20,35 +20,38 @@ import io.casehub.work.runtime.repository.LabelVocabularyStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaLabelVocabularyStore implements LabelVocabularyStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaLabelVocabularyStore extends TenantAwareStore implements LabelVocabularyStore {
 
     @Override
     public LabelVocabulary put(final LabelVocabulary vocabulary) {
-        if (vocabulary.tenancyId == null) {
-            vocabulary.tenancyId = currentPrincipal.tenancyId();
-        }
-        vocabulary.persistAndFlush();
-        return vocabulary;
+        return withTenantQuery(() -> {
+            if (vocabulary.tenancyId == null) {
+                vocabulary.tenancyId = currentPrincipal.tenancyId();
+            }
+            vocabulary.persistAndFlush();
+            return vocabulary;
+        });
     }
 
     @Override
     public Optional<LabelVocabulary> get(final UUID id) {
-        return LabelVocabulary.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                LabelVocabulary.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<LabelVocabulary> scanAll() {
-        return LabelVocabulary.find("tenancyId = ?1", currentPrincipal.tenancyId())
-                .list();
+        return withTenantQuery(() ->
+                LabelVocabulary.find("tenancyId = ?1", currentPrincipal.tenancyId())
+                        .list());
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = LabelVocabulary.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = LabelVocabulary.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

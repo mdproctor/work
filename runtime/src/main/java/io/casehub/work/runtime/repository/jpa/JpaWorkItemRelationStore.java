@@ -20,65 +20,72 @@ import io.casehub.work.runtime.repository.WorkItemRelationStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemRelationStore implements WorkItemRelationStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemRelationStore extends TenantAwareStore implements WorkItemRelationStore {
 
     @Override
     public WorkItemRelation put(final WorkItemRelation relation) {
-        if (relation.tenancyId == null) {
-            relation.tenancyId = currentPrincipal.tenancyId();
-        }
-        relation.persistAndFlush();
-        return relation;
+        return withTenantQuery(() -> {
+            if (relation.tenancyId == null) {
+                relation.tenancyId = currentPrincipal.tenancyId();
+            }
+            relation.persistAndFlush();
+            return relation;
+        });
     }
 
     @Override
     public Optional<WorkItemRelation> get(final UUID id) {
-        return WorkItemRelation.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemRelation.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<WorkItemRelation> findBySourceId(final UUID sourceId) {
-        return WorkItemRelation.list("sourceId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
-                sourceId, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemRelation.list("sourceId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
+                        sourceId, currentPrincipal.tenancyId()));
     }
 
     @Override
     public List<WorkItemRelation> findByTargetId(final UUID targetId) {
-        return WorkItemRelation.list("targetId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
-                targetId, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemRelation.list("targetId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
+                        targetId, currentPrincipal.tenancyId()));
     }
 
     @Override
     public List<WorkItemRelation> findBySourceAndType(final UUID sourceId, final String type) {
-        return WorkItemRelation.list(
-                "sourceId = ?1 AND relationType = ?2 AND tenancyId = ?3 ORDER BY createdAt ASC",
-                sourceId, type, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemRelation.list(
+                        "sourceId = ?1 AND relationType = ?2 AND tenancyId = ?3 ORDER BY createdAt ASC",
+                        sourceId, type, currentPrincipal.tenancyId()));
     }
 
     @Override
     public List<WorkItemRelation> findByTargetAndType(final UUID targetId, final String type) {
-        return WorkItemRelation.list(
-                "targetId = ?1 AND relationType = ?2 AND tenancyId = ?3 ORDER BY createdAt ASC",
-                targetId, type, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemRelation.list(
+                        "targetId = ?1 AND relationType = ?2 AND tenancyId = ?3 ORDER BY createdAt ASC",
+                        targetId, type, currentPrincipal.tenancyId()));
     }
 
     @Override
     public Optional<WorkItemRelation> findExisting(final UUID sourceId, final UUID targetId,
             final String relationType) {
-        return WorkItemRelation.find(
-                "sourceId = ?1 AND targetId = ?2 AND relationType = ?3 AND tenancyId = ?4",
-                sourceId, targetId, relationType, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemRelation.find(
+                        "sourceId = ?1 AND targetId = ?2 AND relationType = ?3 AND tenancyId = ?4",
+                        sourceId, targetId, relationType, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = WorkItemRelation.delete("id = ?1 AND tenancyId = ?2",
-                id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = WorkItemRelation.delete("id = ?1 AND tenancyId = ?2",
+                    id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
@@ -22,44 +20,45 @@ import io.casehub.work.runtime.repository.AuditQuery;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaAuditEntryStore implements AuditEntryStore {
-
-    @Inject
-    EntityManager em;
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaAuditEntryStore extends TenantAwareStore implements AuditEntryStore {
 
     @Override
     public void append(final AuditEntry entry) {
-        if (entry.tenancyId == null) {
-            entry.tenancyId = currentPrincipal.tenancyId();
-        }
-        entry.persist();
+        withTenantRun(() -> {
+            if (entry.tenancyId == null) {
+                entry.tenancyId = currentPrincipal.tenancyId();
+            }
+            entry.persist();
+        });
     }
 
     @Override
     public List<AuditEntry> findByWorkItemId(final UUID workItemId) {
-        return AuditEntry.list("workItemId = ?1 AND tenancyId = ?2 ORDER BY occurredAt ASC",
-                workItemId, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                AuditEntry.list("workItemId = ?1 AND tenancyId = ?2 ORDER BY occurredAt ASC",
+                        workItemId, currentPrincipal.tenancyId()));
     }
 
     @Override
     public List<AuditEntry> query(final AuditQuery query) {
-        final String jpql = buildJpql(query, false);
-        final TypedQuery<AuditEntry> q = em.createQuery(jpql, AuditEntry.class);
-        applyParams(q, query);
-        q.setFirstResult(query.page() * query.size());
-        q.setMaxResults(query.size());
-        return q.getResultList();
+        return withTenantQuery(() -> {
+            final String jpql = buildJpql(query, false);
+            final TypedQuery<AuditEntry> q = em.createQuery(jpql, AuditEntry.class);
+            applyParams(q, query);
+            q.setFirstResult(query.page() * query.size());
+            q.setMaxResults(query.size());
+            return q.getResultList();
+        });
     }
 
     @Override
     public long count(final AuditQuery query) {
-        final String jpql = buildJpql(query, true);
-        final TypedQuery<Long> q = em.createQuery(jpql, Long.class);
-        applyParams(q, query);
-        return q.getSingleResult();
+        return withTenantQuery(() -> {
+            final String jpql = buildJpql(query, true);
+            final TypedQuery<Long> q = em.createQuery(jpql, Long.class);
+            applyParams(q, query);
+            return q.getSingleResult();
+        });
     }
 
     private String buildJpql(final AuditQuery query, final boolean count) {

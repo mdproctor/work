@@ -21,43 +21,47 @@ import io.casehub.work.runtime.repository.WorkItemScheduleStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemScheduleStore implements WorkItemScheduleStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemScheduleStore extends TenantAwareStore implements WorkItemScheduleStore {
 
     @Override
     public WorkItemSchedule put(final WorkItemSchedule schedule) {
-        if (schedule.tenancyId == null) {
-            schedule.tenancyId = currentPrincipal.tenancyId();
-        }
-        schedule.persistAndFlush();
-        return schedule;
+        return withTenantQuery(() -> {
+            if (schedule.tenancyId == null) {
+                schedule.tenancyId = currentPrincipal.tenancyId();
+            }
+            schedule.persistAndFlush();
+            return schedule;
+        });
     }
 
     @Override
     public Optional<WorkItemSchedule> get(final UUID id) {
-        return WorkItemSchedule.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemSchedule.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<WorkItemSchedule> scanAll() {
-        return WorkItemSchedule.find("tenancyId = ?1 ORDER BY name ASC", currentPrincipal.tenancyId())
-                .list();
+        return withTenantQuery(() ->
+                WorkItemSchedule.find("tenancyId = ?1 ORDER BY name ASC", currentPrincipal.tenancyId())
+                        .list());
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = WorkItemSchedule.delete("id = ?1 AND tenancyId = ?2",
-                id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = WorkItemSchedule.delete("id = ?1 AND tenancyId = ?2",
+                    id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 
     @Override
     public List<WorkItemSchedule> findDue(final Instant now) {
-        return WorkItemSchedule.list(
-                "active = true AND nextFireAt IS NOT NULL AND nextFireAt <= ?1 AND tenancyId = ?2 ORDER BY nextFireAt ASC",
-                now, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemSchedule.list(
+                        "active = true AND nextFireAt IS NOT NULL AND nextFireAt <= ?1 AND tenancyId = ?2 ORDER BY nextFireAt ASC",
+                        now, currentPrincipal.tenancyId()));
     }
 }

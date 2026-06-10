@@ -20,41 +20,45 @@ import io.casehub.work.runtime.repository.WorkItemTemplateStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemTemplateStore implements WorkItemTemplateStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemTemplateStore extends TenantAwareStore implements WorkItemTemplateStore {
 
     @Override
     public WorkItemTemplate put(final WorkItemTemplate template) {
-        if (template.tenancyId == null) {
-            template.tenancyId = currentPrincipal.tenancyId();
-        }
-        template.persistAndFlush();
-        return template;
+        return withTenantQuery(() -> {
+            if (template.tenancyId == null) {
+                template.tenancyId = currentPrincipal.tenancyId();
+            }
+            template.persistAndFlush();
+            return template;
+        });
     }
 
     @Override
     public Optional<WorkItemTemplate> get(final UUID id) {
-        return WorkItemTemplate.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemTemplate.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public Optional<WorkItemTemplate> getByName(final String name) {
-        return WorkItemTemplate.find("name = ?1 AND tenancyId = ?2", name, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemTemplate.find("name = ?1 AND tenancyId = ?2", name, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<WorkItemTemplate> scanAll() {
-        return WorkItemTemplate.find("tenancyId = ?1 ORDER BY name ASC", currentPrincipal.tenancyId())
-                .list();
+        return withTenantQuery(() ->
+                WorkItemTemplate.find("tenancyId = ?1 ORDER BY name ASC", currentPrincipal.tenancyId())
+                        .list());
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = WorkItemTemplate.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = WorkItemTemplate.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

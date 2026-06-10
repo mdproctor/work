@@ -29,15 +29,12 @@ import io.casehub.work.runtime.model.RoutingCursorId;
  * the retry also fails, returns index 0 as a predictable fallback.
  */
 @ApplicationScoped
-public class JpaRoutingCursorStore implements RoutingCursorStore {
+public class JpaRoutingCursorStore extends TenantAwareStore implements RoutingCursorStore {
 
     private static final Logger LOG = Logger.getLogger(JpaRoutingCursorStore.class);
 
     @Inject
     JpaRoutingCursorStore self;
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
 
     @Override
     public int acquireNext(final String poolHash, final int poolSize) {
@@ -61,19 +58,21 @@ public class JpaRoutingCursorStore implements RoutingCursorStore {
      */
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public int doAcquire(final String poolHash, final int poolSize) {
-        final String tenancyId = currentPrincipal.tenancyId();
-        final RoutingCursorId id = new RoutingCursorId(poolHash, tenancyId);
+        return withTenantQuery(() -> {
+            final String tenancyId = currentPrincipal.tenancyId();
+            final RoutingCursorId id = new RoutingCursorId(poolHash, tenancyId);
 
-        RoutingCursor cursor = RoutingCursor.findById(id);
-        if (cursor == null) {
-            cursor = new RoutingCursor(poolHash);
-            cursor.tenancyId = tenancyId;
-            cursor.persist();
-            RoutingCursor.flush();
-        }
-        final int next = (cursor.lastIndex + 1) % poolSize;
-        cursor.lastIndex = next;
-        cursor.lastAccessed = Instant.now();
-        return next;
+            RoutingCursor cursor = RoutingCursor.findById(id);
+            if (cursor == null) {
+                cursor = new RoutingCursor(poolHash);
+                cursor.tenancyId = tenancyId;
+                cursor.persist();
+                RoutingCursor.flush();
+            }
+            final int next = (cursor.lastIndex + 1) % poolSize;
+            cursor.lastIndex = next;
+            cursor.lastAccessed = Instant.now();
+            return next;
+        });
     }
 }

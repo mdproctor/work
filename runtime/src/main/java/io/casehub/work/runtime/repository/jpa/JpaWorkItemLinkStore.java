@@ -20,43 +20,47 @@ import io.casehub.work.runtime.repository.WorkItemLinkStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemLinkStore implements WorkItemLinkStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemLinkStore extends TenantAwareStore implements WorkItemLinkStore {
 
     @Override
     public WorkItemLink put(final WorkItemLink link) {
-        if (link.tenancyId == null) {
-            link.tenancyId = currentPrincipal.tenancyId();
-        }
-        link.persistAndFlush();
-        return link;
+        return withTenantQuery(() -> {
+            if (link.tenancyId == null) {
+                link.tenancyId = currentPrincipal.tenancyId();
+            }
+            link.persistAndFlush();
+            return link;
+        });
     }
 
     @Override
     public Optional<WorkItemLink> get(final UUID id) {
-        return WorkItemLink.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                WorkItemLink.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<WorkItemLink> findByWorkItemId(final UUID workItemId) {
-        return WorkItemLink.list("workItemId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
-                workItemId, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemLink.list("workItemId = ?1 AND tenancyId = ?2 ORDER BY createdAt ASC",
+                        workItemId, currentPrincipal.tenancyId()));
     }
 
     @Override
     public List<WorkItemLink> findByWorkItemIdAndType(final UUID workItemId, final String type) {
-        return WorkItemLink.list(
-                "workItemId = ?1 AND relationType = ?2 AND tenancyId = ?3 ORDER BY createdAt ASC",
-                workItemId, type, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+                WorkItemLink.list(
+                        "workItemId = ?1 AND relationType = ?2 AND tenancyId = ?3 ORDER BY createdAt ASC",
+                        workItemId, type, currentPrincipal.tenancyId()));
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = WorkItemLink.delete("id = ?1 AND tenancyId = ?2",
-                id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = WorkItemLink.delete("id = ?1 AND tenancyId = ?2",
+                    id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

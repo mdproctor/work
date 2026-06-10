@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -25,6 +26,10 @@ import io.quarkus.test.junit.QuarkusTest;
 /**
  * Tests that {@link CrossTenantWorkItemStore} sees items from all tenants,
  * while the tenant-scoped {@link WorkItemStore} respects tenant isolation.
+ *
+ * <p>Data is persisted in committed transactions (via {@link #inTx}) because the
+ * cross-tenant store uses {@code @Transactional(REQUIRES_NEW)} — it cannot see
+ * uncommitted data from the test's transaction.
  */
 @QuarkusTest
 class CrossTenantWorkItemStoreTest {
@@ -45,19 +50,13 @@ class CrossTenantWorkItemStoreTest {
     }
 
     @Test
-    @Transactional
     void findActiveWithDeadlines_returns_items_from_all_tenants() {
-        // Create item A in tenant-a with expiresAt
         principal.setTenancyId("tenant-a");
-        WorkItem itemA = createItemWithExpiresAt("tenant-a");
-        tenantStore.put(itemA);
+        WorkItem itemA = inTx(() -> tenantStore.put(createItemWithExpiresAt("tenant-a")));
 
-        // Create item B in tenant-b with claimDeadline
         principal.setTenancyId("tenant-b");
-        WorkItem itemB = createItemWithClaimDeadline("tenant-b");
-        tenantStore.put(itemB);
+        WorkItem itemB = inTx(() -> tenantStore.put(createItemWithClaimDeadline("tenant-b")));
 
-        // Cross-tenant store should see both (at minimum)
         var all = crossTenantStore.findActiveWithDeadlines();
         var created = all.stream()
             .filter(wi -> wi.id.equals(itemA.id) || wi.id.equals(itemB.id))
@@ -68,42 +67,34 @@ class CrossTenantWorkItemStoreTest {
     }
 
     @Test
-    @Transactional
     void findActiveWithDeadlines_excludes_terminal_statuses() {
         principal.setTenancyId("tenant-a");
 
-        // Active item with deadline
         WorkItem active = createItemWithExpiresAt("tenant-a");
         active.status = WorkItemStatus.IN_PROGRESS;
-        tenantStore.put(active);
+        inTx(() -> tenantStore.put(active));
 
-        // Completed item with deadline (should be excluded)
         WorkItem completed = createItemWithExpiresAt("tenant-a");
         completed.status = WorkItemStatus.COMPLETED;
-        tenantStore.put(completed);
+        inTx(() -> tenantStore.put(completed));
 
-        // Expired item with deadline (should be excluded)
         WorkItem expired = createItemWithExpiresAt("tenant-a");
         expired.status = WorkItemStatus.EXPIRED;
-        tenantStore.put(expired);
+        inTx(() -> tenantStore.put(expired));
 
         var results = crossTenantStore.findActiveWithDeadlines();
-        // Should contain the active item, but not the completed or expired ones
         assertThat(results.stream().anyMatch(wi -> wi.id.equals(active.id))).isTrue();
         assertThat(results.stream().noneMatch(wi -> wi.id.equals(completed.id))).isTrue();
         assertThat(results.stream().noneMatch(wi -> wi.id.equals(expired.id))).isTrue();
     }
 
     @Test
-    @Transactional
     void findActiveWithDeadlines_excludes_items_without_deadlines() {
         principal.setTenancyId("tenant-a");
 
-        // Item with deadline
         WorkItem withDeadline = createItemWithExpiresAt("tenant-a");
-        tenantStore.put(withDeadline);
+        inTx(() -> tenantStore.put(withDeadline));
 
-        // Item without deadline
         WorkItem withoutDeadline = new WorkItem();
         withoutDeadline.id = UUID.randomUUID();
         withoutDeadline.tenancyId = "tenant-a";
@@ -112,19 +103,16 @@ class CrossTenantWorkItemStoreTest {
         withoutDeadline.priority = WorkItemPriority.MEDIUM;
         withoutDeadline.expiresAt = null;
         withoutDeadline.claimDeadline = null;
-        tenantStore.put(withoutDeadline);
+        inTx(() -> tenantStore.put(withoutDeadline));
 
         var results = crossTenantStore.findActiveWithDeadlines();
-        // Should contain the item with deadline
         assertThat(results.stream().anyMatch(wi -> wi.id.equals(withDeadline.id))).isTrue();
-        // Should NOT contain the item without deadline
         assertThat(results.stream().noneMatch(wi -> wi.id.equals(withoutDeadline.id))).isTrue();
     }
 
     @Test
     @Transactional
     void tenantScopedStore_never_returns_cross_tenant_data() {
-        // Create items in two tenants
         principal.setTenancyId("tenant-a");
         WorkItem itemA = createItemWithExpiresAt("tenant-a");
         tenantStore.put(itemA);
@@ -133,18 +121,26 @@ class CrossTenantWorkItemStoreTest {
         WorkItem itemB = createItemWithExpiresAt("tenant-b");
         tenantStore.put(itemB);
 
-        // Even with crossTenantAdmin flag, tenant-scoped store only sees tenant-a
         principal.setCrossTenantAdmin(true);
         principal.setTenancyId("tenant-a");
         var results = tenantStore.scan(WorkItemQuery.all());
         assertThat(results).hasSize(1);
         assertThat(results).allSatisfy(wi -> assertThat(wi.tenancyId).isEqualTo("tenant-a"));
 
-        // Switch to tenant-b, should only see tenant-b
         principal.setTenancyId("tenant-b");
         results = tenantStore.scan(WorkItemQuery.all());
         assertThat(results).hasSize(1);
         assertThat(results).allSatisfy(wi -> assertThat(wi.tenancyId).isEqualTo("tenant-b"));
+    }
+
+    @Transactional
+    <T> T inTx(Supplier<T> s) {
+        return s.get();
+    }
+
+    @Transactional
+    void inTx(Runnable r) {
+        r.run();
     }
 
     private WorkItem createItemWithExpiresAt(String tenancyId) {

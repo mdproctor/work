@@ -11,16 +11,16 @@ import io.casehub.work.runtime.repository.CrossTenantRoutingCursorStore;
 /**
  * Cross-tenant JPA implementation of {@link CrossTenantRoutingCursorStore}.
  *
- * <p>Does NOT inject {@link io.casehub.platform.api.identity.CurrentPrincipal}
- * and does NOT filter by {@code tenancyId} — queries operate on cursors from all tenants.
+ * <p>Extends {@link TenantAwareStore} and uses {@link #withCrossTenantQuery} to
+ * execute {@code SET LOCAL ROLE casehub_crosstenancy} — bypassing RLS policies.
  * Only injected into system-level services via the {@code @CrossTenant} qualifier.
  */
 @ApplicationScoped
-public class JpaCrossTenantRoutingCursorStore implements CrossTenantRoutingCursorStore {
+public class JpaCrossTenantRoutingCursorStore extends TenantAwareStore implements CrossTenantRoutingCursorStore {
 
     @Override
-    @Transactional
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
     public long cleanupStale(Instant cutoff) {
-        return RoutingCursor.delete("lastAccessed < ?1", cutoff);
+        return withCrossTenantQuery(() -> RoutingCursor.delete("lastAccessed < ?1", cutoff));
     }
 }

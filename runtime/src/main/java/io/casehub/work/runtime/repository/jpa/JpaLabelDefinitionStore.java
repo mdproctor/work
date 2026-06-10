@@ -21,41 +21,45 @@ import io.casehub.work.runtime.repository.LabelDefinitionStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaLabelDefinitionStore implements LabelDefinitionStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaLabelDefinitionStore extends TenantAwareStore implements LabelDefinitionStore {
 
     @Override
     public LabelDefinition put(final LabelDefinition definition) {
-        if (definition.tenancyId == null) {
-            definition.tenancyId = currentPrincipal.tenancyId();
-        }
-        definition.persistAndFlush();
-        return definition;
+        return withTenantQuery(() -> {
+            if (definition.tenancyId == null) {
+                definition.tenancyId = currentPrincipal.tenancyId();
+            }
+            definition.persistAndFlush();
+            return definition;
+        });
     }
 
     @Override
     public Optional<LabelDefinition> get(final UUID id) {
-        return LabelDefinition.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+                LabelDefinition.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                        .firstResultOptional());
     }
 
     @Override
     public List<LabelDefinition> findByVocabularyId(final UUID vocabularyId) {
-        return LabelDefinition.find("vocabularyId = ?1 AND tenancyId = ?2", vocabularyId, currentPrincipal.tenancyId())
-                .list();
+        return withTenantQuery(() ->
+                LabelDefinition.find("vocabularyId = ?1 AND tenancyId = ?2", vocabularyId, currentPrincipal.tenancyId())
+                        .list());
     }
 
     @Override
     public List<LabelDefinition> findByPath(final Path path) {
-        return LabelDefinition.find("path = ?1 AND tenancyId = ?2", path, currentPrincipal.tenancyId())
-                .list();
+        return withTenantQuery(() ->
+                LabelDefinition.find("path = ?1 AND tenancyId = ?2", path, currentPrincipal.tenancyId())
+                        .list());
     }
 
     @Override
     public boolean delete(final UUID id) {
-        final long deleted = LabelDefinition.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = LabelDefinition.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }
