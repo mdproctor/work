@@ -6,8 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.ledger.api.model.LedgerEntryType;
@@ -15,6 +13,7 @@ import io.casehub.ledger.runtime.model.LedgerAttestation;
 import io.casehub.ledger.runtime.model.LedgerEntry;
 import io.casehub.work.ledger.model.WorkItemLedgerEntry;
 import io.casehub.work.ledger.repository.WorkItemLedgerEntryRepository;
+import io.casehub.work.runtime.repository.jpa.TenantAwareStore;
 
 /**
  * Hibernate ORM / EntityManager implementation of {@link WorkItemLedgerEntryRepository}.
@@ -28,51 +27,51 @@ import io.casehub.work.ledger.repository.WorkItemLedgerEntryRepository;
  * methods receive {@code tenancyId} explicitly from the caller.
  */
 @ApplicationScoped
-public class JpaWorkItemLedgerEntryRepository implements WorkItemLedgerEntryRepository {
-
-    @Inject
-    EntityManager em;
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemLedgerEntryRepository extends TenantAwareStore implements WorkItemLedgerEntryRepository {
 
     // ── WorkItem-specific methods (tenant resolved from CurrentPrincipal) ─────
 
     /** {@inheritDoc} */
     @Override
     public List<WorkItemLedgerEntry> findByWorkItemId(final UUID workItemId) {
-        return em.createQuery(
-                "SELECT e FROM WorkItemLedgerEntry e WHERE e.subjectId = :subjectId AND e.tenancyId = :tenancyId ORDER BY e.sequenceNumber ASC",
-                WorkItemLedgerEntry.class)
-                .setParameter("subjectId", workItemId)
-                .setParameter("tenancyId", currentPrincipal.tenancyId())
-                .getResultList();
+        return withTenantQuery(() ->
+            em.createQuery(
+                    "SELECT e FROM WorkItemLedgerEntry e WHERE e.subjectId = :subjectId AND e.tenancyId = :tenancyId ORDER BY e.sequenceNumber ASC",
+                    WorkItemLedgerEntry.class)
+                    .setParameter("subjectId", workItemId)
+                    .setParameter("tenancyId", currentPrincipal.tenancyId())
+                    .getResultList()
+        );
     }
 
     /** {@inheritDoc} */
     @Override
     public Optional<WorkItemLedgerEntry> findLatestByWorkItemId(final UUID workItemId) {
-        return em.createQuery(
-                "SELECT e FROM WorkItemLedgerEntry e WHERE e.subjectId = :subjectId AND e.tenancyId = :tenancyId ORDER BY e.sequenceNumber DESC",
-                WorkItemLedgerEntry.class)
-                .setParameter("subjectId", workItemId)
-                .setParameter("tenancyId", currentPrincipal.tenancyId())
-                .setMaxResults(1)
-                .getResultStream()
-                .findFirst();
+        return withTenantQuery(() ->
+            em.createQuery(
+                    "SELECT e FROM WorkItemLedgerEntry e WHERE e.subjectId = :subjectId AND e.tenancyId = :tenancyId ORDER BY e.sequenceNumber DESC",
+                    WorkItemLedgerEntry.class)
+                    .setParameter("subjectId", workItemId)
+                    .setParameter("tenancyId", currentPrincipal.tenancyId())
+                    .setMaxResults(1)
+                    .getResultStream()
+                    .findFirst()
+        );
     }
 
     /** {@inheritDoc} */
     @Override
     public Optional<WorkItemLedgerEntry> findEarliestByWorkItemId(final UUID workItemId) {
-        return em.createQuery(
-                "SELECT e FROM WorkItemLedgerEntry e WHERE e.subjectId = :subjectId AND e.tenancyId = :tenancyId ORDER BY e.sequenceNumber ASC",
-                WorkItemLedgerEntry.class)
-                .setParameter("subjectId", workItemId)
-                .setParameter("tenancyId", currentPrincipal.tenancyId())
-                .setMaxResults(1)
-                .getResultStream()
-                .findFirst();
+        return withTenantQuery(() ->
+            em.createQuery(
+                    "SELECT e FROM WorkItemLedgerEntry e WHERE e.subjectId = :subjectId AND e.tenancyId = :tenancyId ORDER BY e.sequenceNumber ASC",
+                    WorkItemLedgerEntry.class)
+                    .setParameter("subjectId", workItemId)
+                    .setParameter("tenancyId", currentPrincipal.tenancyId())
+                    .setMaxResults(1)
+                    .getResultStream()
+                    .findFirst()
+        );
     }
 
     // ── Inherited LedgerEntryRepository methods ──────────────────────────────

@@ -4,11 +4,11 @@ import java.util.List;
 import java.util.Optional;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.work.ai.repository.WorkerSkillProfileStore;
 import io.casehub.work.ai.skill.WorkerSkillProfile;
+import io.casehub.work.runtime.repository.jpa.TenantAwareStore;
 
 /**
  * Default JPA/Panache implementation of {@link WorkerSkillProfileStore}.
@@ -18,36 +18,41 @@ import io.casehub.work.ai.skill.WorkerSkillProfile;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkerSkillProfileStore implements WorkerSkillProfileStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkerSkillProfileStore extends TenantAwareStore implements WorkerSkillProfileStore {
 
     @Override
     public WorkerSkillProfile put(final WorkerSkillProfile profile) {
-        if (profile.tenancyId == null) {
-            profile.tenancyId = currentPrincipal.tenancyId();
-        }
-        profile.persistAndFlush();
-        return profile;
+        return withTenantQuery(() -> {
+            if (profile.tenancyId == null) {
+                profile.tenancyId = currentPrincipal.tenancyId();
+            }
+            profile.persistAndFlush();
+            return profile;
+        });
     }
 
     @Override
     public Optional<WorkerSkillProfile> get(final String workerId) {
-        return WorkerSkillProfile.find("workerId = ?1 AND tenancyId = ?2",
-                workerId, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+            WorkerSkillProfile.find("workerId = ?1 AND tenancyId = ?2",
+                    workerId, currentPrincipal.tenancyId())
+                    .firstResultOptional()
+        );
     }
 
     @Override
     public List<WorkerSkillProfile> scanAll() {
-        return WorkerSkillProfile.list("tenancyId", currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+            WorkerSkillProfile.list("tenancyId", currentPrincipal.tenancyId())
+        );
     }
 
     @Override
     public boolean delete(final String workerId) {
-        final long deleted = WorkerSkillProfile.delete("workerId = ?1 AND tenancyId = ?2",
-                workerId, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            final long deleted = WorkerSkillProfile.delete("workerId = ?1 AND tenancyId = ?2",
+                    workerId, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

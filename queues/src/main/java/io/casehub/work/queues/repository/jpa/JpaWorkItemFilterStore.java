@@ -5,11 +5,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.queues.repository.WorkItemFilterStore;
+import io.casehub.work.runtime.repository.jpa.TenantAwareStore;
 
 /**
  * Default JPA/Panache implementation of {@link WorkItemFilterStore}.
@@ -19,40 +19,47 @@ import io.casehub.work.queues.repository.WorkItemFilterStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaWorkItemFilterStore implements WorkItemFilterStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaWorkItemFilterStore extends TenantAwareStore implements WorkItemFilterStore {
 
     @Override
     public WorkItemFilter put(final WorkItemFilter filter) {
-        if (filter.tenancyId == null) {
-            filter.tenancyId = currentPrincipal.tenancyId();
-        }
-        filter.persistAndFlush();
-        return filter;
+        return withTenantQuery(() -> {
+            if (filter.tenancyId == null) {
+                filter.tenancyId = currentPrincipal.tenancyId();
+            }
+            filter.persistAndFlush();
+            return filter;
+        });
     }
 
     @Override
     public Optional<WorkItemFilter> get(final UUID id) {
-        return WorkItemFilter.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+            WorkItemFilter.find("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId())
+                    .firstResultOptional()
+        );
     }
 
     @Override
     public List<WorkItemFilter> findActive() {
-        return WorkItemFilter.list("active = true AND conditionLanguage != 'lambda' AND tenancyId = ?1",
-                currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+            WorkItemFilter.list("active = true AND conditionLanguage != 'lambda' AND tenancyId = ?1",
+                    currentPrincipal.tenancyId())
+        );
     }
 
     @Override
     public List<WorkItemFilter> scanAll() {
-        return WorkItemFilter.list("tenancyId", currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+            WorkItemFilter.list("tenancyId", currentPrincipal.tenancyId())
+        );
     }
 
     @Override
     public boolean delete(final UUID id) {
-        long deleted = WorkItemFilter.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
-        return deleted > 0;
+        return withTenantQuery(() -> {
+            long deleted = WorkItemFilter.delete("id = ?1 AND tenancyId = ?2", id, currentPrincipal.tenancyId());
+            return deleted > 0;
+        });
     }
 }

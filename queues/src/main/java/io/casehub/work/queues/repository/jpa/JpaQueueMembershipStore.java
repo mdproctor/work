@@ -4,11 +4,11 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.work.queues.model.WorkItemQueueMembership;
 import io.casehub.work.queues.repository.QueueMembershipStore;
+import io.casehub.work.runtime.repository.jpa.TenantAwareStore;
 
 /**
  * Default JPA/Panache implementation of {@link QueueMembershipStore}.
@@ -18,30 +18,33 @@ import io.casehub.work.queues.repository.QueueMembershipStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaQueueMembershipStore implements QueueMembershipStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaQueueMembershipStore extends TenantAwareStore implements QueueMembershipStore {
 
     @Override
     public WorkItemQueueMembership put(final WorkItemQueueMembership membership) {
-        if (membership.tenancyId == null) {
-            membership.tenancyId = currentPrincipal.tenancyId();
-        }
-        membership.persistAndFlush();
-        return membership;
+        return withTenantQuery(() -> {
+            if (membership.tenancyId == null) {
+                membership.tenancyId = currentPrincipal.tenancyId();
+            }
+            membership.persistAndFlush();
+            return membership;
+        });
     }
 
     @Override
     public List<WorkItemQueueMembership> findByWorkItemId(final UUID workItemId) {
-        return WorkItemQueueMembership.list(
-                "workItemId = ?1 AND tenancyId = ?2 ORDER BY queueName ASC",
-                workItemId, currentPrincipal.tenancyId());
+        return withTenantQuery(() ->
+            WorkItemQueueMembership.list(
+                    "workItemId = ?1 AND tenancyId = ?2 ORDER BY queueName ASC",
+                    workItemId, currentPrincipal.tenancyId())
+        );
     }
 
     @Override
     public void deleteByWorkItemId(final UUID workItemId) {
-        WorkItemQueueMembership.delete("workItemId = ?1 AND tenancyId = ?2",
-                workItemId, currentPrincipal.tenancyId());
+        withTenantRun(() ->
+            WorkItemQueueMembership.delete("workItemId = ?1 AND tenancyId = ?2",
+                    workItemId, currentPrincipal.tenancyId())
+        );
     }
 }

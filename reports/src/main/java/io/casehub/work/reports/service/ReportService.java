@@ -8,27 +8,27 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
+import jakarta.transaction.Transactional;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemPriority;
 import io.casehub.work.runtime.model.WorkItemStatus;
+import io.casehub.work.runtime.repository.jpa.TenantAwareStore;
 import io.quarkus.cache.CacheResult;
 
 @ApplicationScoped
-public class ReportService {
-
-    @Inject
-    EntityManager em;
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class ReportService extends TenantAwareStore {
 
 
+    @Transactional
     public SlaBreachReport slaBreaches(final Instant from, final Instant to,
+            final String category, final WorkItemPriority priority) {
+        return withTenantQuery(() -> slaBreachesInternal(from, to, category, priority));
+    }
+
+    private SlaBreachReport slaBreachesInternal(final Instant from, final Instant to,
             final String category, final WorkItemPriority priority) {
         final Instant now = Instant.now();
 
@@ -105,9 +105,14 @@ public class ReportService {
     }
 
 
+    @Transactional
     public ActorReport actorPerformance(final String actorId, final Instant from,
             final Instant to, final String category) {
+        return withTenantQuery(() -> actorPerformanceInternal(actorId, from, to, category));
+    }
 
+    private ActorReport actorPerformanceInternal(final String actorId, final Instant from,
+            final Instant to, final String category) {
         final long totalAssigned = countAuditEvents(actorId, "ASSIGNED", from, to, category);
         final long totalCompleted = countAuditEvents(actorId, "COMPLETED", from, to, category);
         final long totalRejected = countAuditEvents(actorId, "REJECTED", from, to, category);
@@ -195,15 +200,22 @@ public class ReportService {
     }
 
 
+    @Transactional
     public ThroughputReport throughput(final Instant from, final Instant to, final String groupBy) {
-        final List<Object[]> dayCreated = queryDayBuckets("createdAt", from, to, null);
-        final List<Object[]> dayCompleted = queryDayBucketsCompleted(from, to);
-        final List<ThroughputBucket> buckets = ThroughputBucketAggregator.aggregate(dayCreated, dayCompleted, groupBy);
-        return new ThroughputReport(from, to, groupBy, buckets);
+        return withTenantQuery(() -> {
+            final List<Object[]> dayCreated = queryDayBuckets("createdAt", from, to, null);
+            final List<Object[]> dayCompleted = queryDayBucketsCompleted(from, to);
+            final List<ThroughputBucket> buckets = ThroughputBucketAggregator.aggregate(dayCreated, dayCompleted, groupBy);
+            return new ThroughputReport(from, to, groupBy, buckets);
+        });
     }
 
-
+    @Transactional
     public QueueHealthReport queueHealth(final String category, final WorkItemPriority priority) {
+        return withTenantQuery(() -> queueHealthInternal(category, priority));
+    }
+
+    private QueueHealthReport queueHealthInternal(final String category, final WorkItemPriority priority) {
         final Instant now = Instant.now();
         final List<WorkItemStatus> activeStatuses = List.of(
                 WorkItemStatus.PENDING, WorkItemStatus.ASSIGNED, WorkItemStatus.IN_PROGRESS,

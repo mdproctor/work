@@ -4,11 +4,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.work.queues.model.WorkItemQueueState;
 import io.casehub.work.queues.repository.QueueStateStore;
+import io.casehub.work.runtime.repository.jpa.TenantAwareStore;
 
 /**
  * Default JPA/Panache implementation of {@link QueueStateStore}.
@@ -18,35 +18,38 @@ import io.casehub.work.queues.repository.QueueStateStore;
  * the entity does not already carry one.
  */
 @ApplicationScoped
-public class JpaQueueStateStore implements QueueStateStore {
-
-    @Inject
-    CurrentPrincipal currentPrincipal;
+public class JpaQueueStateStore extends TenantAwareStore implements QueueStateStore {
 
     @Override
     public WorkItemQueueState put(final WorkItemQueueState state) {
-        if (state.tenancyId == null) {
-            state.tenancyId = currentPrincipal.tenancyId();
-        }
-        state.persistAndFlush();
-        return state;
+        return withTenantQuery(() -> {
+            if (state.tenancyId == null) {
+                state.tenancyId = currentPrincipal.tenancyId();
+            }
+            state.persistAndFlush();
+            return state;
+        });
     }
 
     @Override
     public Optional<WorkItemQueueState> get(final UUID workItemId) {
-        return WorkItemQueueState.find("workItemId = ?1 AND tenancyId = ?2",
-                workItemId, currentPrincipal.tenancyId())
-                .firstResultOptional();
+        return withTenantQuery(() ->
+            WorkItemQueueState.find("workItemId = ?1 AND tenancyId = ?2",
+                    workItemId, currentPrincipal.tenancyId())
+                    .firstResultOptional()
+        );
     }
 
     @Override
     public WorkItemQueueState findOrCreate(final UUID workItemId) {
-        return get(workItemId).orElseGet(() -> {
-            final WorkItemQueueState s = new WorkItemQueueState();
-            s.workItemId = workItemId;
-            s.tenancyId = currentPrincipal.tenancyId();
-            s.persistAndFlush();
-            return s;
-        });
+        return withTenantQuery(() ->
+            get(workItemId).orElseGet(() -> {
+                final WorkItemQueueState s = new WorkItemQueueState();
+                s.workItemId = workItemId;
+                s.tenancyId = currentPrincipal.tenancyId();
+                s.persistAndFlush();
+                return s;
+            })
+        );
     }
 }
