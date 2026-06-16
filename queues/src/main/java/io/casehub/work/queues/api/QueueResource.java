@@ -20,7 +20,6 @@ import org.jboss.resteasy.reactive.RestStreamElementType;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.work.queues.event.WorkItemQueueEvent;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.repository.QueueViewStore;
 import io.casehub.work.queues.service.ExpressionDescriptor;
@@ -58,14 +57,13 @@ public class QueueResource {
      *
      * @param name display name
      * @param labelPattern label pattern used to populate the queue
-     * @param scope visibility scope
-     * @param ownerId owner identity for PERSONAL-scoped views
+     * @param scope visibility scope as a Path string (null/blank = root)
      * @param additionalConditions optional extra filter conditions
      * @param sortField field to sort results by
      * @param sortDirection sort direction (ASC or DESC)
      */
-    public record CreateQueueRequest(String name, String labelPattern, FilterScope scope,
-            String ownerId, String additionalConditions, String sortField, String sortDirection) {
+    public record CreateQueueRequest(String name, String labelPattern, String scope,
+            String additionalConditions, String sortField, String sortDirection) {
     }
 
     /**
@@ -78,7 +76,7 @@ public class QueueResource {
     public List<Map<String, Object>> list() {
         return queueViewStore.scanAll().stream()
                 .map(q -> Map.<String, Object> of(
-                        "id", q.id, "name", q.name, "labelPattern", q.labelPattern, "scope", q.scope))
+                        "id", q.id, "name", q.name, "labelPattern", q.labelPattern, "scope", q.scope.value()))
                 .toList();
     }
 
@@ -97,8 +95,16 @@ public class QueueResource {
         final QueueView q = new QueueView();
         q.name = req.name();
         q.labelPattern = req.labelPattern();
-        q.scope = req.scope() != null ? req.scope() : FilterScope.ORG;
-        q.ownerId = req.ownerId();
+        final io.casehub.platform.api.path.Path scopePath;
+        try {
+            scopePath = (req.scope() == null || req.scope().isBlank())
+                    ? io.casehub.platform.api.path.Path.root()
+                    : io.casehub.platform.api.path.Path.parse(req.scope());
+        } catch (IllegalArgumentException e) {
+            return Response.status(400)
+                    .entity(Map.of("error", "invalid scope: " + e.getMessage())).build();
+        }
+        q.scope = scopePath;
         q.additionalConditions = req.additionalConditions();
         q.sortField = req.sortField() != null ? req.sortField() : "createdAt";
         q.sortDirection = req.sortDirection() != null ? req.sortDirection() : "ASC";

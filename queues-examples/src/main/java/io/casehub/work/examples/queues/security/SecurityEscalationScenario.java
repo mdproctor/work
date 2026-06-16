@@ -18,7 +18,6 @@ import io.casehub.work.examples.queues.QueueScenarioStep;
 import io.casehub.work.examples.queues.lifecycle.QueueEventLog;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.queues.model.FilterAction;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.api.LabelPersistence;
@@ -74,7 +73,7 @@ public class SecurityEscalationScenario {
 
         final WorkItemFilter filterA = new WorkItemFilter();
         filterA.name = "Security-A: Incident Detection";
-        filterA.scope = FilterScope.ORG;
+        filterA.scope = io.casehub.platform.api.path.Path.root();
         filterA.conditionLanguage = "jexl";
         filterA.conditionExpression = "category == 'security'";
         filterA.actions = WorkItemFilter.serializeActions(List.of(
@@ -85,7 +84,7 @@ public class SecurityEscalationScenario {
 
         final WorkItemFilter filterB = new WorkItemFilter();
         filterB.name = "Security-B: Critical Priority Flag";
-        filterB.scope = FilterScope.ORG;
+        filterB.scope = io.casehub.platform.api.path.Path.root();
         filterB.conditionLanguage = "jexl";
         filterB.conditionExpression = "priority == 'URGENT'";
         filterB.actions = WorkItemFilter.serializeActions(List.of(
@@ -96,7 +95,7 @@ public class SecurityEscalationScenario {
 
         final WorkItemFilter filterC = new WorkItemFilter();
         filterC.name = "Security-C: Critical Incident → Executive Escalation";
-        filterC.scope = FilterScope.ORG;
+        filterC.scope = io.casehub.platform.api.path.Path.root();
         filterC.conditionLanguage = "jexl";
         filterC.conditionExpression = "labels.contains('security/incident') && labels.contains('priority/critical')";
         filterC.actions = WorkItemFilter.serializeActions(List.of(
@@ -113,21 +112,21 @@ public class SecurityEscalationScenario {
         final QueueView incidents = new QueueView();
         incidents.name = "Security Incidents Queue";
         incidents.labelPattern = "security/incident";
-        incidents.scope = FilterScope.ORG;
+        incidents.scope = io.casehub.platform.api.path.Path.root();
         incidents.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         incidents.persist();
 
         final QueueView critical = new QueueView();
         critical.name = "Priority Critical Queue";
         critical.labelPattern = "priority/critical";
-        critical.scope = FilterScope.ORG;
+        critical.scope = io.casehub.platform.api.path.Path.root();
         critical.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         critical.persist();
 
         final QueueView exec = new QueueView();
         exec.name = "Security Exec Escalation Queue";
         exec.labelPattern = "security/exec-escalate";
-        exec.scope = FilterScope.ORG;
+        exec.scope = io.casehub.platform.api.path.Path.root();
         exec.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         exec.persist();
     }

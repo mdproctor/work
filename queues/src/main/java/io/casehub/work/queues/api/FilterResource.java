@@ -18,7 +18,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import io.casehub.work.queues.model.FilterAction;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.queues.repository.WorkItemFilterStore;
 import io.casehub.work.queues.service.ExpressionDescriptor;
@@ -43,7 +42,7 @@ public class FilterResource {
     @Inject
     WorkItemFilterStore filterStore;
 
-    public record CreateFilterRequest(String name, FilterScope scope, String ownerId,
+    public record CreateFilterRequest(String name, String scope,
             String conditionLanguage, String conditionExpression, List<FilterAction> actions) {
     }
 
@@ -60,7 +59,7 @@ public class FilterResource {
     public List<Map<String, Object>> list() {
         return filterStore.scanAll().stream()
                 .map(f -> Map.<String, Object> of(
-                        "id", f.id, "name", f.name, "scope", f.scope,
+                        "id", f.id, "name", f.name, "scope", f.scope.value(),
                         "conditionLanguage", f.conditionLanguage, "active", f.active))
                 .toList();
     }
@@ -75,8 +74,16 @@ public class FilterResource {
         }
         final WorkItemFilter f = new WorkItemFilter();
         f.name = req.name();
-        f.scope = req.scope() != null ? req.scope() : FilterScope.ORG;
-        f.ownerId = req.ownerId();
+        final io.casehub.platform.api.path.Path scopePath;
+        try {
+            scopePath = (req.scope() == null || req.scope().isBlank())
+                    ? io.casehub.platform.api.path.Path.root()
+                    : io.casehub.platform.api.path.Path.parse(req.scope());
+        } catch (IllegalArgumentException e) {
+            return Response.status(400)
+                    .entity(Map.of("error", "invalid scope: " + e.getMessage())).build();
+        }
+        f.scope = scopePath;
         f.conditionLanguage = req.conditionLanguage();
         f.conditionExpression = req.conditionExpression();
         f.actions = WorkItemFilter.serializeActions(req.actions() != null ? req.actions() : List.of());

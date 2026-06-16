@@ -4,12 +4,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+
+import io.casehub.platform.api.path.Path;
+import io.casehub.work.runtime.model.PathAttributeConverter;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 
@@ -33,14 +35,10 @@ public class QueueView extends PanacheEntityBase {
     @Column(name = "label_pattern", nullable = false, length = 500)
     public String labelPattern;
 
-    /** Visibility scope of this queue view. */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    public FilterScope scope;
-
-    /** Owner identity for PERSONAL-scoped views; null for TEAM/ORG. */
-    @Column(name = "owner_id", length = 255)
-    public String ownerId;
+    /** Visibility scope of this queue view. Path.root() is the widest scope (visible to all). */
+    @Convert(converter = PathAttributeConverter.class)
+    @Column(nullable = false, length = 500)
+    public Path scope;
 
     /** Optional additional filter conditions applied on top of the label pattern. */
     @Column(name = "additional_conditions", length = 2000)

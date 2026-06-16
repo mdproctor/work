@@ -18,7 +18,6 @@ import io.casehub.work.examples.queues.QueueScenarioStep;
 import io.casehub.work.examples.queues.lifecycle.QueueEventLog;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.queues.model.FilterAction;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.api.LabelPersistence;
@@ -74,7 +73,7 @@ public class FinanceApprovalScenario {
 
         final WorkItemFilter filterA = new WorkItemFilter();
         filterA.name = "Finance-A: Standard Approval Queue";
-        filterA.scope = FilterScope.ORG;
+        filterA.scope = io.casehub.platform.api.path.Path.root();
         filterA.conditionLanguage = "jexl";
         filterA.conditionExpression = "category == 'finance' && assigneeId == null";
         filterA.actions = WorkItemFilter.serializeActions(List.of(
@@ -85,7 +84,7 @@ public class FinanceApprovalScenario {
 
         final WorkItemFilter filterB = new WorkItemFilter();
         filterB.name = "Finance-B: Critical Spend to Executive Review";
-        filterB.scope = FilterScope.ORG;
+        filterB.scope = io.casehub.platform.api.path.Path.root();
         filterB.conditionLanguage = "jexl";
         filterB.conditionExpression = "category == 'finance' && priority == 'URGENT'";
         filterB.actions = WorkItemFilter.serializeActions(List.of(
@@ -102,14 +101,14 @@ public class FinanceApprovalScenario {
         final QueueView approval = new QueueView();
         approval.name = "Finance Approval Queue";
         approval.labelPattern = "finance/approval";
-        approval.scope = FilterScope.ORG;
+        approval.scope = io.casehub.platform.api.path.Path.root();
         approval.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         approval.persist();
 
         final QueueView exec = new QueueView();
         exec.name = "Finance Exec Review Queue";
         exec.labelPattern = "finance/exec-review";
-        exec.scope = FilterScope.ORG;
+        exec.scope = io.casehub.platform.api.path.Path.root();
         exec.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         exec.persist();
     }

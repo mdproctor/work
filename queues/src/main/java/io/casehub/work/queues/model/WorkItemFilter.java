@@ -5,12 +5,14 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+
+import io.casehub.platform.api.path.Path;
+import io.casehub.work.runtime.model.PathAttributeConverter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -34,12 +36,9 @@ public class WorkItemFilter extends PanacheEntityBase {
     @Column(nullable = false, length = 255)
     public String name;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    public FilterScope scope;
-
-    @Column(name = "owner_id", length = 255)
-    public String ownerId;
+    @Convert(converter = PathAttributeConverter.class)
+    @Column(nullable = false, length = 500)
+    public Path scope;
 
     @Column(name = "condition_language", nullable = false, length = 20)
     public String conditionLanguage;

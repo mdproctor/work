@@ -17,7 +17,6 @@ import org.jboss.logging.Logger;
 
 import io.casehub.work.examples.StepLog;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.model.WorkItemQueueState;
 import io.casehub.work.runtime.api.AuditEntryResponse;
@@ -159,8 +158,7 @@ public class QueueModuleScenario {
         final QueueView queueView = new QueueView();
         queueView.name = "Contract Review Queue";
         queueView.labelPattern = QUEUE_PATTERN;
-        queueView.scope = FilterScope.TEAM;
-        queueView.ownerId = null;
+        queueView.scope = io.casehub.platform.api.path.Path.of("team");
         queueView.sortField = "createdAt";
         queueView.sortDirection = "ASC";
         queueView.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;

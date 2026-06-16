@@ -18,7 +18,6 @@ import io.casehub.work.examples.queues.QueueScenarioStep;
 import io.casehub.work.examples.queues.lifecycle.QueueEventLog;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.queues.model.FilterAction;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.api.LabelPersistence;
@@ -73,7 +72,7 @@ public class SupportTriageScenario {
 
         final WorkItemFilter filterA = new WorkItemFilter();
         filterA.name = "Triage-A: Critical SLA";
-        filterA.scope = FilterScope.ORG;
+        filterA.scope = io.casehub.platform.api.path.Path.root();
         filterA.conditionLanguage = "jexl";
         filterA.conditionExpression = "priority == 'URGENT'";
         filterA.actions = WorkItemFilter.serializeActions(List.of(
@@ -85,7 +84,7 @@ public class SupportTriageScenario {
 
         final WorkItemFilter filterB = new WorkItemFilter();
         filterB.name = "Triage-B: High Unassigned to Intake";
-        filterB.scope = FilterScope.ORG;
+        filterB.scope = io.casehub.platform.api.path.Path.root();
         filterB.conditionLanguage = "jexl";
         filterB.conditionExpression = "priority == 'HIGH' && assigneeId == null";
         filterB.actions = WorkItemFilter.serializeActions(List.of(
@@ -96,7 +95,7 @@ public class SupportTriageScenario {
 
         final WorkItemFilter filterC = new WorkItemFilter();
         filterC.name = "Triage-C: Intake Triage → Support Lead";
-        filterC.scope = FilterScope.ORG;
+        filterC.scope = io.casehub.platform.api.path.Path.root();
         filterC.conditionLanguage = "jexl";
         filterC.conditionExpression = "labels.contains('intake/triage')";
         filterC.actions = WorkItemFilter.serializeActions(List.of(
@@ -113,28 +112,28 @@ public class SupportTriageScenario {
         final QueueView slaCritical = new QueueView();
         slaCritical.name = "SLA Critical Queue";
         slaCritical.labelPattern = "sla/critical";
-        slaCritical.scope = FilterScope.ORG;
+        slaCritical.scope = io.casehub.platform.api.path.Path.root();
         slaCritical.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         slaCritical.persist();
 
         final QueueView fastTrack = new QueueView();
         fastTrack.name = "Fast Track Queue";
         fastTrack.labelPattern = "queue/fast-track";
-        fastTrack.scope = FilterScope.ORG;
+        fastTrack.scope = io.casehub.platform.api.path.Path.root();
         fastTrack.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         fastTrack.persist();
 
         final QueueView intake = new QueueView();
         intake.name = "Intake Triage Queue";
         intake.labelPattern = "intake/triage";
-        intake.scope = FilterScope.ORG;
+        intake.scope = io.casehub.platform.api.path.Path.root();
         intake.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         intake.persist();
 
         final QueueView supportLead = new QueueView();
         supportLead.name = "Support Lead Queue";
         supportLead.labelPattern = "team/support-lead";
-        supportLead.scope = FilterScope.ORG;
+        supportLead.scope = io.casehub.platform.api.path.Path.root();
         supportLead.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         supportLead.persist();
     }

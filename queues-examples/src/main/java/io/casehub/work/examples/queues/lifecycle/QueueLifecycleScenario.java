@@ -13,7 +13,6 @@ import jakarta.ws.rs.core.MediaType;
 
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.queues.event.QueueEventType;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
@@ -197,7 +196,7 @@ public class QueueLifecycleScenario {
         final QueueView queue = new QueueView();
         queue.name = name;
         queue.labelPattern = pattern;
-        queue.scope = FilterScope.ORG;
+        queue.scope = io.casehub.platform.api.path.Path.root();
         queue.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         queue.persist();
         return queue;

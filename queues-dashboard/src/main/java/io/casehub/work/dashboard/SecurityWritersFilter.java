@@ -5,7 +5,6 @@ import java.util.List;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import io.casehub.work.queues.model.FilterAction;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.service.WorkItemFilterBean;
 import io.casehub.work.runtime.model.WorkItem;
 
@@ -40,10 +39,5 @@ public class SecurityWritersFilter implements WorkItemFilterBean {
     @Override
     public List<FilterAction> actions() {
         return List.of(FilterAction.applyLabel("review/urgent"));
-    }
-
-    @Override
-    public FilterScope scope() {
-        return FilterScope.ORG;
     }
 }

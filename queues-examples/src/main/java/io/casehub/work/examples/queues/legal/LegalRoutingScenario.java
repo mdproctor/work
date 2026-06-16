@@ -18,7 +18,6 @@ import io.casehub.work.examples.queues.QueueScenarioStep;
 import io.casehub.work.examples.queues.lifecycle.QueueEventLog;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.queues.model.FilterAction;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.api.LabelPersistence;
@@ -74,7 +73,7 @@ public class LegalRoutingScenario {
 
         final WorkItemFilter filterA = new WorkItemFilter();
         filterA.name = "Legal-A: Route to Legal Review";
-        filterA.scope = FilterScope.ORG;
+        filterA.scope = io.casehub.platform.api.path.Path.root();
         filterA.conditionLanguage = "jexl";
         filterA.conditionExpression = "category == 'legal'";
         filterA.actions = WorkItemFilter.serializeActions(List.of(
@@ -85,7 +84,7 @@ public class LegalRoutingScenario {
 
         final WorkItemFilter filterB = new WorkItemFilter();
         filterB.name = "Legal-B: High Priority to Urgent Queue (JQ)";
-        filterB.scope = FilterScope.ORG;
+        filterB.scope = io.casehub.platform.api.path.Path.root();
         filterB.conditionLanguage = "jq";
         filterB.conditionExpression = ".category == \"legal\" and .priority == \"HIGH\"";
         filterB.actions = WorkItemFilter.serializeActions(List.of(
@@ -102,14 +101,14 @@ public class LegalRoutingScenario {
         final QueueView review = new QueueView();
         review.name = "Legal Review Queue";
         review.labelPattern = "legal/review";
-        review.scope = FilterScope.ORG;
+        review.scope = io.casehub.platform.api.path.Path.root();
         review.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         review.persist();
 
         final QueueView urgent = new QueueView();
         urgent.name = "Legal Urgent Queue";
         urgent.labelPattern = "legal/urgent";
-        urgent.scope = FilterScope.ORG;
+        urgent.scope = io.casehub.platform.api.path.Path.root();
         urgent.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
         urgent.persist();
     }

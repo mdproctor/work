@@ -12,8 +12,8 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.platform.api.path.Path;
 import io.casehub.work.queues.model.FilterAction;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.queues.service.WorkItemFilterBean;
 import io.casehub.work.runtime.model.WorkItem;
@@ -311,7 +311,7 @@ public class ReviewStepService {
             final List<FilterAction> actions) {
         final WorkItemFilter f = new WorkItemFilter();
         f.name = name;
-        f.scope = FilterScope.ORG;
+        f.scope = Path.root();
         f.conditionLanguage = lang;
         f.conditionExpression = expr;
         f.actions = WorkItemFilter.serializeActions(actions);

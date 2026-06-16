@@ -9,8 +9,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.casehub.platform.api.path.Path;
 import io.casehub.work.queues.model.FilterChain;
-import io.casehub.work.queues.model.FilterScope;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.queues.repository.FilterChainStore;
 import io.casehub.work.queues.repository.WorkItemFilterStore;
@@ -46,7 +46,7 @@ class JpaFilterChainStoreTenancyTest {
     private UUID createParentFilter(String name) {
         WorkItemFilter f = new WorkItemFilter();
         f.name = name;
-        f.scope = FilterScope.ORG;
+        f.scope = Path.root();
         f.conditionLanguage = "jexl";
         f.conditionExpression = "true";
         f.active = true;

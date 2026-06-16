@@ -9,7 +9,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.work.queues.model.FilterScope;
+import io.casehub.platform.api.path.Path;
 import io.casehub.work.queues.model.QueueView;
 import io.casehub.work.queues.repository.QueueViewStore;
 import io.casehub.work.queues.test.MutableCurrentPrincipal;
@@ -41,7 +41,7 @@ class JpaQueueViewStoreTenancyTest {
         QueueView qv = new QueueView();
         qv.name = name;
         qv.labelPattern = "test/" + name + "/**";
-        qv.scope = FilterScope.ORG;
+        qv.scope = Path.root();
         return qv;
     }
 

@@ -9,7 +9,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import io.casehub.work.queues.model.FilterScope;
+import io.casehub.platform.api.path.Path;
 import io.casehub.work.queues.model.WorkItemFilter;
 import io.casehub.work.queues.repository.WorkItemFilterStore;
 import io.casehub.work.queues.test.MutableCurrentPrincipal;
@@ -40,7 +40,7 @@ class JpaWorkItemFilterStoreTenancyTest {
     private WorkItemFilter newFilter(String name) {
         WorkItemFilter f = new WorkItemFilter();
         f.name = name;
-        f.scope = FilterScope.ORG;
+        f.scope = Path.root();
         f.conditionLanguage = "jexl";
         f.conditionExpression = "true";
         f.active = true;
