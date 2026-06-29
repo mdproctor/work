@@ -4,19 +4,20 @@
 
 ## Last Session
 
-First real code landed — P1–P3 channel utility blocks extracted from DraftHouse (#2, closed). Four classes in `io.casehub.blocks.channel`: ChannelMessageMeta, ContextTracker, ContextSnapshot, BoundedProjectionDecorator. 34 tests. DraftHouse is the first consumer.
+P4 channel agent dispatch landed (#3, closed). Five classes added to `io.casehub.blocks.channel`: ChannelAgentHandler SPI, ChannelAgentDispatcher, ChannelAgentRequest, AgentTask, AgentResultParseException. 40 tests total. DraftHouse subclasses the dispatcher for debate-specific error encoding.
+
+Key design decision: dispatcher uses `Function<AgentTask, String>` and `Consumer<MessageDispatch>` instead of depending on qhorus runtime `MessageService` — keeps blocks at the API dependency level.
 
 ## Immediate Next Step
 
-P4 (channel agent dispatch) is next per parent#310. The SPI interface + dispatcher pattern — S/Low complexity.
+P5 (structured conversation protocol) is next per parent#310. This is the big one — needs design brainstorm first on naming (debate→conversation?), entry type generality, and agent role model.
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| — | P4: Channel agent dispatch SPI + dispatcher | S | Low | Unblocks P5 |
-| — | P5: Structured conversation protocol | L | High | The main value — what Claudony needs |
-| — | P6: Oversight gate lifecycle | M | Med | From openclaw, unblocks openclaw#31 |
+| — | P5: Structured conversation protocol | L | High | Needs brainstorm before implementation |
+| — | P6: Oversight gate lifecycle | M | Med | From openclaw, guidance posted on openclaw#31 |
 
 ## References
 
