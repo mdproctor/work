@@ -1,3 +1,5 @@
+*Updated: #8 closed — removed from backlog.*
+
 # Handover — 2026-07-01
 
 **Branch:** `main` (issue-8-routing-enrichment-accountability merged)
@@ -14,7 +16,6 @@ Pick up the next #10 child. #13 (LlmDecomposition — goal-to-plan) is the natur
 
 ## What's Left
 
-- `#8` — DONE (this session)
 - `#20` — inter-agent channel setup during execution · M · Med
 - `#4` — refactor conversation as debate composition · M · Med
 
