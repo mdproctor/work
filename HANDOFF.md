@@ -1,23 +1,21 @@
-# Handover — 2026-06-30
+# Handover — 2026-07-01
 
-**Branch:** `main`
+**Branch:** `main` (issue-14-engine-integration merged)
 
 ## Last Session
 
-Two branches landed. #5 delivered the compositional agentic orchestration framework — five SPIs (routing, decomposition, activation, aggregation, termination), two execution drivers, eight pattern builders, 206 tests. #9 added LlmSelectedRouting using platform's AgentProvider — the supervisor pattern now uses an LLM to select agents from eidos-enriched candidates.
+Landed engine integration (#14, #15). AbstractExecutionDriver extracted from both drivers — eliminated 330 lines of duplication, added tracked activation state (activationCounts, consecutiveIdleCounts, lastAggregationResult). AgentInvoker<T> dispatch SPI on the driver constructor. BackoffStrategy enum on AgentRetryPolicy. ExecutionEventListener lifecycle hooks (onExecutionStart/onExecutionComplete in finally block). StageAwareCandidateSupplier with StageGate interface for stage binding gating.
 
-Also created: execution backend architecture doc (two-backend model — Quarkus Flow for workflow patterns, custom drivers for runtime-adaptive), DSL Style Guide in parent, engine#595 epic with 11 execution model issues (#596–#606), and blocks#10 supervisor mode epic with 5 child issues (#11–#16).
-
-Key design decision: five compositional concerns (not one Planner interface) as the abstraction layer above both workflow and custom driver backends.
+Design-reviewed the spec (4 rounds, 18 issues, all resolved at $16.50). Key review outcomes: AgentInvoker moved from ExecutionModel to driver constructor, polling replaced with event-driven observation pattern (CorrelationObserver/WorkItemObserver), dependency tier compliance enforced (StageGate instead of direct Stage reference).
 
 ## Immediate Next Step
 
-Pick up blocks#10 (supervisor mode epic) — #11 (routing enrichment: state-aware prompts, reason preservation) is the natural first issue. Alternatively, ContextBridge<T> (engine#203) unblocks the generic `<T>` across all SPIs.
+Pick up the next blocks#10 child. #11 (routing enrichment) or #12 (routing accountability — EventLogListener, LedgerExecutionListener) are natural next issues. PlatformAgentInvoker (#14 deferred) is blocked on qhorus#315 and work#285.
 
 ## What's Left
 
-- `blocks#6` — extract AbstractExecutionDriver (driver duplication) · S · Low
-- `blocks#7` — populate ActivationContext fields · S · Low (subsumed by #14)
+- `blocks#20` — inter-agent channel setup during execution · M · Med
+- `blocks#6` — extract AbstractExecutionDriver · DONE (this session)
 - `blocks#8` — batch minor findings · S · Low
 - `blocks#4` — refactor conversation as debate composition · M · Med
 
@@ -25,18 +23,15 @@ Pick up blocks#10 (supervisor mode epic) — #11 (routing enrichment: state-awar
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #11 | Routing enrichment — state-aware prompts, reason preservation | S | Low | First child of #10 |
-| #12 | Routing accountability — EventLog + Ledger listeners | M | Med | |
+| #11 | Routing enrichment — state-aware prompts, reason preservation | S | Low | First remaining child of #10 |
+| #12 | Routing accountability — EventLogListener, LedgerExecutionListener | M | Med | |
 | #13 | LlmDecomposition — goal-to-plan | M | High | |
-| #14 | Engine integration — stage gating, resilience, real dispatch | L | High | Subsumes #7 |
-| #15 | Channel coordination — qhorus inter-agent comms | M | High | |
+| #20 | Inter-agent channel setup during execution | M | Med | Deferred from #15 |
 | #16 | RAG-enriched routing — CbrCaseMemoryStore integration | M | High | Depends on neural-text#20 |
-| — | P6: Oversight gate lifecycle | M | Med | From openclaw |
+| — | PlatformAgentInvoker | M | Med | Blocked on qhorus#315, work#285 |
 
 ## References
 
-- Design spec: `docs/superpowers/specs/2026-06-30-agentic-orchestration-design.md`
+- Design spec: `docs/superpowers/specs/2026-06-30-engine-integration-design.md`
 - Architecture: `docs/execution-backend-architecture.md`
-- Research: `docs/agentic-orchestration-research.md`
-- DSL Guide: `parent/docs/DSL-STYLE-GUIDE.md`
 - Engine epic: engine#595 | Blocks epic: blocks#10
