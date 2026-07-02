@@ -25,7 +25,7 @@ Pick the next consolidation item from epic #28. #22 or #23 are both ready but L/
 | # | Title | Scale | Complexity | Ready? | Destination | Migrates from | Downstream consumers |
 |---|-------|-------|------------|--------|-------------|---------------|---------------------|
 | #17 | Trust routing YAML | M | Med | **Done** | blocks | aml, devtown, clinical, life, ops, soc | aml, devtown, clinical, life, ops, soc, fsitrading |
-| #22 | Debate channel infrastructure | L | High | Yes but large | blocks | drafthouse | drafthouse, devtown, clinical, aml, claudony |
+| #22 | Debate channel infrastructure | L | High | **Done** | blocks | drafthouse | drafthouse, devtown, clinical, aml, claudony |
 | #23 | Oversight gate lifecycle + risk classification | L | High | Yes but large | blocks | openclaw, engine-api | openclaw, aml, soc, life, devtown, clinical, iot, claudony |
 | #24 | Universal pluggable routing strategy | L | High | Design-first | blocks | engine, work | engine, work, qhorus, eidos |
 | #25 | Worker data coordination (DataExchange/DataChannel) | L | High | Blocked on engine#528 | blocks | engine | engine, workers, desiredstate |
