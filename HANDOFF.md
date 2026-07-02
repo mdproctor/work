@@ -1,23 +1,35 @@
-*Updated: #8 closed — removed from backlog.*
+# Handover — 2026-07-02
 
-# Handover — 2026-07-01
-
-**Branch:** `main` (issue-8-routing-enrichment-accountability merged)
+**Branch:** `main` (cross-repo consolidation session, no branch)
 
 ## Last Session
 
-Landed routing enrichment and accountability (#8, #11, #12). Enriched the RoutingCandidate→RoutingContext→RoutingDecision→ExecutionEventListener data flow: ExecutionModel task field with null validation, RoutingDecision.Selected reason field, LlmSelectedRouting state rendering via typed `Function<T, String>`, enriched agent cards with Worker.description. Wired DebateBuilder.judge() via JudgeConvergence termination with `AgentInvoker<List<AgentResult>>` typing. HtnBuilder.rootTask() pre-decomposes task trees at execute() time. EventLogListener and LedgerExecutionListener for operational and compliance audit via functional sinks.
+Cross-repo scan of all 26 CaseHub repos to find duplicated patterns worth extracting to blocks. Created consolidation epic #28 with 6 child issues. Transferred 5 issues from drafthouse, openclaw, and engine to blocks. Closed 4 duplicates/superseded issues. Merged claudony#141 content into blocks#23. Implemented #17 (trust routing YAML consolidation) across 4 repos — blocks, aml, devtown, life.
 
-Design-reviewed (2 rounds, 21 issues, all resolved). Three cross-repo issues filed: eidos#77 (AgentCapability.description), engine#626 (event write SPI), ledger#168 (ledger write SPI).
+Updated CLAUDE.md with blocks scope criteria, trust routing architecture, consolidation tracking, cross-repo conventions.
 
 ## Immediate Next Step
 
-Pick up the next #10 child. #13 (LlmDecomposition — goal-to-plan) is the natural next — it builds on the HTN pre-decomposition infrastructure just landed. Or #20 (inter-agent channel setup) for collaborative patterns.
+Pick the next consolidation item from epic #28. #22 (debate channel infrastructure from drafthouse) or #23 (oversight gate lifecycle) are both ready but large (L/High). #27 (layered event summarisation) is not ready yet — quarkmind is still evolving it. #25 is blocked on engine#528. #24 needs a design phase first. Run `/work` to start a branch for whichever is chosen.
 
 ## What's Left
 
-- `#20` — inter-agent channel setup during execution · M · Med
-- `#4` — refactor conversation as debate composition · M · Med
+Epic #28 remaining items:
+
+| # | Title | Scale | Complexity | Ready? | Destination | Migrates from | Downstream consumers |
+|---|-------|-------|------------|--------|-------------|---------------|---------------------|
+| #22 | Debate channel infrastructure | L | High | Yes but large | blocks | drafthouse | drafthouse, devtown, clinical, aml |
+| #23 | Oversight gate lifecycle + risk classification | L | High | Yes but large | blocks | openclaw, engine-api | openclaw, aml, soc, life, devtown, clinical, iot, claudony |
+| #24 | Universal pluggable routing strategy | L | High | Design-first | blocks | engine, work | engine, work, qhorus, eidos |
+| #25 | Worker data coordination (DataExchange/DataChannel) | L | High | Blocked on engine#528 | blocks | engine | engine, workers, desiredstate |
+| #27 | Layered event summarisation | M | Med | Not yet | blocks | quarkmind | quarkmind, iot, aml, clinical |
+
+- Compliance record consolidation (RoutingDecisionRecord, TrustRoutingRequirement, RequirementStatus) deferred from #17 — shared types exist in blocks but aml/devtown haven't migrated to them yet. Requires adding blocks dependency to aml-api module, which is a heavier decision. · S · Med
+
+## Cross-Module
+
+**We're blocking:**
+- fsitrading — first consumer of the shared `TrustRoutingPolicyKeys` pattern (blocks#17 landed)
 
 ## What's Next
 
@@ -27,12 +39,27 @@ Pick up the next #10 child. #13 (LlmDecomposition — goal-to-plan) is the natur
 | #20 | Inter-agent channel setup during execution | M | Med | Deferred from #15 |
 | #16 | RAG-enriched routing — CbrCaseMemoryStore | M | High | Depends on neural-text#20 |
 | — | PlatformAgentInvoker | M | Med | Blocked on qhorus#315, work#285 |
-| — | AgentCapability.description in prompts | S | Low | Blocked on eidos#77 |
-| — | CaseHubRuntime.recordEvent() for EventLogListener | S | Med | Blocked on engine#626 |
-| — | LedgerAppender for LedgerExecutionListener | S | Med | Blocked on ledger#168 |
+
+## Issues Moved/Closed This Session
+
+**Transferred to blocks:**
+- drafthouse#76 → blocks#22, drafthouse#42 → closed (superseded by #22), blocks#4 → closed (superseded by #22)
+- openclaw#31 → blocks#23, engine#438 → closed (superseded by #23)
+- engine#442 → blocks#24
+- engine#532 → blocks#25
+- engine#584 → blocks#29 → closed (already implemented)
+- claudony#141 → merged into blocks#23, closed
+- quarkmind#182 → blocks#27 (new, tracking only — not ready to move)
+
+## Pre-existing Compilation Issues in Peer Repos
+
+Encountered during #17 migration — not caused by blocks changes:
+- **aml:** `Worker.Builder.capabilities()` API mismatch in `AmlOversightCaseHub.java`
+- **devtown:** missing version for `casehub-memory-inmem` in app/pom.xml
+- **life:** `LifeChannelInitializer` — qhorus runtime store API changes
 
 ## References
 
+- Consolidation epic: blocks#28
+- CLAUDE.md: updated with scope criteria, architecture, consolidation tracking
 - Design spec: `docs/superpowers/specs/2026-07-01-routing-enrichment-accountability-design.md`
-- Architecture: `docs/execution-backend-architecture.md`
-- Engine epic: engine#595 | Blocks epic: blocks#10
