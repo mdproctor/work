@@ -1,14 +1,16 @@
+*Updated: #23 closed — removed from backlog.*
+
 # Handover — 2026-07-02
 
 **Branch:** `main` (consolidation session, no branch)
 
 ## Last Session
 
-Closed #22 (debate channel infrastructure) — extraction was already complete via drafthouse P1–P5 (drafthouse#79, #80, #81, #83). Added conversation package documentation to CLAUDE.md (14 classes), updated consumers table and consolidation tracking. Epic #28 is now 2/6 done.
+Closed #22 (debate channel infrastructure) and #23 (oversight gate lifecycle + risk classification). #23 moved oversight + routing SPIs to engine-api, leaving blocks as AI-only. Epic #28 is now 3/6 done.
 
 ## Immediate Next Step
 
-Pick next consolidation item from epic #28. #23 is the recommended next. Run `/work` to start a branch.
+Pick next consolidation item from epic #28. #30 (AI routing strategy impls) is ready but blocked on engine#634. #13 or #20 are unblocked alternatives. Run `/work` to start a branch.
 
 ## Cross-Module
 
@@ -26,7 +28,7 @@ Pick next consolidation item from epic #28. #23 is the recommended next. Run `/w
 |---|-------|-------|------------|--------|
 | #17 | Trust routing YAML | M | Med | **Done** |
 | #22 | Debate channel infrastructure | L | High | **Done** |
-| #23 | Oversight gate lifecycle + risk classification | L | High | Yes but large |
+| #23 | Oversight gate lifecycle + risk classification | L | High | **Done** |
 | #24 | Universal pluggable routing strategy | L | High | Design-first |
 | #25 | Worker data coordination (DataExchange/DataChannel) | L | High | Blocked on engine#528 |
 | #27 | Layered event summarisation | M | Med | Not yet — quarkmind still baking |
@@ -35,7 +37,6 @@ Pick next consolidation item from epic #28. #23 is the recommended next. Run `/w
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| #23 | Oversight gate lifecycle + risk classification | L | High | 7+ consumer repos, GatePolicy unification |
 | #13 | LlmDecomposition — goal-to-plan | M | High | Builds on HTN pre-decomposition |
 | #20 | Inter-agent channel setup during execution | M | Med | Deferred from #15 |
 | #16 | RAG-enriched routing — CbrCaseMemoryStore | M | High | Depends on neural-text#20 |
