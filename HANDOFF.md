@@ -1,36 +1,38 @@
 # Handover — 2026-07-05
 
-**Branch:** `main` (issue-7-activation-context-metrics-hardening closed)
+**Branch:** `main`
 
 ## Last Session
 
-Closed #7 (ActivationContext type-tightening), #21 (MetricsListener with OTel), #31 (AI routing strategy hardening) on a single branch. Type-tightened `Optional<Object>` → `Optional<AggregationResult>`. Added stateless `MetricsListener` with 6 OTel instruments using `provided`-scope dependency. Fixed `AgentResult.duration` (was always ZERO). Enriched `onExecutionComplete` with `Duration` and `int iterationCount`. Extracted duplicated trust classification to `TrustFilterOutcome` sealed interface in `RoutingSupport`. Jackson parser replaces manual indexOf. `@ConfigProperty` for CBR topK/minSimilarity. NullNode filtering. Adversarial design review (9 issues, all resolved). Garden entry GE-20260705-01788f (NullNode gotcha).
+Completed compliance record consolidation (trailing from #17). Created `RequirementStatus`, `RoutingDecisionRecord`, `TrustRoutingRequirement` in `io.casehub.blocks.routing`. Migrated aml (branch `issue-91-aml-workbench-ui`, commit `a85feb7`) and devtown (branch `issue-094-housekeeping-batch`, commit `8d6e89c`). Design decision: shared record captures routing decision facts (5 fields); domain-specific evidence quality metadata (`reconstructed`/`observerFailed`) stays in domain services. Discovered neural-text#20 is CLOSED — unblocks #16.
 
 ## Immediate Next Step
 
-Pick next work from #28 or backlog. Run `/work` to start a branch.
+Pick #16 (RAG-enriched routing) — now unblocked. Run `/work` to start a branch.
 
 ## Cross-Module
 
-**Breaking change shipped — consumer repos need updating:**
-- `ExecutionEventListener.onExecutionComplete` signature changed: `(ExecutionResult)` → `(ExecutionResult, Duration, int)`. Any consumer overriding the old signature needs updating. `@Override` will cause a compile error (detectable).
+**Breaking change from prior session — still pending consumer updates:**
+- `ExecutionEventListener.onExecutionComplete` signature changed: `(ExecutionResult)` → `(ExecutionResult, Duration, int)`. `@Override` will cause a compile error.
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+**Commits landed on peer repo branches (will merge with their branch work):**
+- aml `issue-91-aml-workbench-ui` — migrated compliance records to blocks types
+- devtown `issue-094-housekeeping-batch` — migrated compliance records to blocks types
 
 ## What's Left
 
-- Compliance record consolidation deferred from #17 — shared types exist but aml/devtown haven't migrated · S · Med
+*Nothing trailing.*
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
+| #16 | RAG-enriched routing — CbrCaseMemoryStore | M | High | **Unblocked** — neural-text#20 closed |
 | #13 | LlmDecomposition — goal-to-plan | M | High | Builds on HTN pre-decomposition |
 | #20 | Inter-agent channel setup during execution | M | Med | Deferred from #15 |
 | #27 | Layered event summarisation | M | Med | Not yet — quarkmind still baking |
-| #16 | RAG-enriched routing — CbrCaseMemoryStore | M | High | Depends on neural-text#20 |
 
 ## References
 
-- Design spec: `docs/specs/2026-07-05-activation-metrics-routing-hardening-design.md` (project)
-- Garden entry: `jvm/GE-20260705-01788f.md` (NullNode.toString() gotcha)
+- Diary: `blog/2026-07-05-mdp01-where-the-line-is.md` (workspace)
+- Garden entry: `jvm/GE-20260705-01788f.md` (NullNode.toString() gotcha, prior session)
