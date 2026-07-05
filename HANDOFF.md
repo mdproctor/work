@@ -1,12 +1,10 @@
 # Handover — 2026-07-05
 
-**Branch:** `main` (issue-30-ai-routing-strategy-impls closed)
+**Branch:** `main` (issue-7-activation-context-metrics-hardening closed)
 
 ## Last Session
 
-Closed #30 (AI routing strategy implementations). Two new `AgentRoutingStrategy` impls landed in blocks: `LlmAgentRoutingStrategy` (id: "llm") and `CbrAgentRoutingStrategy` (id: "cbr"). Both use optional trust classification via `Instance<T>`. Also filed engine#650 (AgentAssignment rationale), engine#651 (AgentRoutingContext tenantId), ledger#172 (OutcomeRecord supplementary data) — all three landed during the session. Epic #28 consolidation is now 4/6 done.
-
-Also created two new garden protocols: `casehub-dependency-tier-order` and rewrote `platform-api-scope` — establishing platform-api as the universal shared dependency. Updated PLATFORM.md to match.
+Closed #7 (ActivationContext type-tightening), #21 (MetricsListener with OTel), #31 (AI routing strategy hardening) on a single branch. Type-tightened `Optional<Object>` → `Optional<AggregationResult>`. Added stateless `MetricsListener` with 6 OTel instruments using `provided`-scope dependency. Fixed `AgentResult.duration` (was always ZERO). Enriched `onExecutionComplete` with `Duration` and `int iterationCount`. Extracted duplicated trust classification to `TrustFilterOutcome` sealed interface in `RoutingSupport`. Jackson parser replaces manual indexOf. `@ConfigProperty` for CBR topK/minSimilarity. NullNode filtering. Adversarial design review (9 issues, all resolved). Garden entry GE-20260705-01788f (NullNode gotcha).
 
 ## Immediate Next Step
 
@@ -14,14 +12,13 @@ Pick next work from #28 or backlog. Run `/work` to start a branch.
 
 ## Cross-Module
 
-**Consumer repos need routing strategy migration (engine#644):**
-- Add `id()` to ActionRiskClassifier implementations: devtown, aml, clinical, life, soc, iot
-- Add `id()` to TrustRoutingPolicyProvider implementations: devtown, aml, clinical, life, quarkmind, ops
-- casehub-work#287 — retrofit WorkerSelectionStrategy, InstanceAssignmentStrategy, ClaimSlaPolicy
+**Breaking change shipped — consumer repos need updating:**
+- `ExecutionEventListener.onExecutionComplete` signature changed: `(ExecutionResult)` → `(ExecutionResult, Duration, int)`. Any consumer overriding the old signature needs updating. `@Override` will cause a compile error (detectable).
+
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
 ## What's Left
 
-- blocks#31 — AI routing strategy hardening: MP config for topK/minSimilarity, parser hardening, mixed-pool edge case tests · S · Low
 - Compliance record consolidation deferred from #17 — shared types exist but aml/devtown haven't migrated · S · Med
 
 ## What's Next
@@ -35,6 +32,5 @@ Pick next work from #28 or backlog. Run `/work` to start a branch.
 
 ## References
 
-- Design spec: `docs/specs/2026-07-04-ai-routing-strategies-design.md` (project)
-- Dependency tier order protocol: `garden/docs/protocols/casehub/casehub-dependency-tier-order.md`
-- Routing audit: `engine/docs/specs/2026-07-02-universal-routing-strategy-audit.md`
+- Design spec: `docs/specs/2026-07-05-activation-metrics-routing-hardening-design.md` (project)
+- Garden entry: `jvm/GE-20260705-01788f.md` (NullNode.toString() gotcha)
