@@ -1,34 +1,22 @@
-# Handover — 2026-07-06
+# Handover — 2026-07-07
 
 **Branch:** `main`
 
 ## Last Session
 
-Completed RAG-enriched routing (#16). Built composable prompt enrichment pipeline (RoutingPromptSection SPI + RoutingPromptAssembler), CBR-backed outcome recording via engine-api RoutingOutcomeRecorder SPI, and domain-pluggable feature extraction (RoutingFeatureExtractor). Design review caught a critical data-flow bug — WorkerOutcomeResolvedEvent fires only for failures (garden entry GE-20260706-56a75c). Cross-repo: engine-api SPI + engine runtime integration committed to engine main.
+Completed structured feature extraction (#33). No new blocks infrastructure — the RoutingFeatureExtractor SPI was already complete. Implemented domain extractors in AML (6 features from prior context + entity resolution) and clinical (7 features with CTCAE grade enum parsing). Design review caught wrong JSON paths, silent grade-to-int coercion, and over-specified CDI pattern — all fixed before implementation. Also fixed pre-existing AgentRoutingContext 5-arg constructor breakage across all routing tests (garden entry GE-20260707-5673c0).
 
 ## Immediate Next Step
 
-Pick from What's Next — #13 (LlmDecomposition) or #20 (inter-agent channels). Run `/work` to start.
+Pick up #36 (gate rejection bias in outcome recording). Run `/work` to start. The fix is primarily in engine — wiring `RoutingOutcomeRecorder` into the gate rejection handler. No domain repo changes needed.
 
 ## Cross-Module
 
-**Breaking change from prior session — still pending consumer updates:**
-- `ExecutionEventListener.onExecutionComplete` signature changed: `(ExecutionResult)` → `(ExecutionResult, Duration, int)`. `@Override` will cause a compile error.
+**Commits landed on peer repo mains this session:**
+- aml `c00a719`, `6660a2a` — AmlRoutingFeatureExtractor + putBoolIfPresent fix
+- clinical `dc6ea0b` — ClinicalRoutingFeatureExtractor
 
-**Commits landed on engine main this session:**
-- `afd452a9` — RoutingOutcomeRecorder SPI in engine-api
-- `09d69394` — WorkflowExecutionCompletedHandler integration (records routing outcomes)
-
-**Commits landed on peer repo branches (will merge with their branch work):**
-- aml `issue-91-aml-workbench-ui` — migrated compliance records to blocks types
-- devtown `issue-094-housekeeping-batch` — migrated compliance records to blocks types
-
-**Follow-up issues filed from design review:**
-- #32 — Plan-Based CBR plan composition matching
-- #33 — Structured feature extraction for specific domains
-- #34 — General signal enrichment for non-LLM strategies
-- #35 — Semantic embedding enrichment
-- #36 — Gate rejection bias in outcome recording
+*Unchanged — `git show HEAD~1:HANDOFF.md`*: breaking change from prior session (ExecutionEventListener signature), engine commits from prior session, peer branches (aml issue-91, devtown issue-094), follow-up issues #32-#36.
 
 ## What's Left
 
@@ -38,12 +26,13 @@ Pick from What's Next — #13 (LlmDecomposition) or #20 (inter-agent channels). 
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
+| #36 | Gate rejection bias in outcome recording | S | Low | Engine change — wire RoutingOutcomeRecorder into gate rejection handler |
 | #13 | LlmDecomposition — goal-to-plan | M | High | Builds on HTN pre-decomposition |
 | #20 | Inter-agent channel setup during execution | M | Med | Deferred from #15 |
 | #27 | Layered event summarisation | M | Med | Not yet — quarkmind still baking |
 
 ## References
 
-- Diary: `blog/2026-07-06-mdp01-composable-routing-enrichment.md` (workspace)
-- Spec: `docs/specs/2026-07-06-rag-enriched-routing-design.md` (project)
-- Garden: `casehub-engine/GE-20260706-56a75c.md` (WorkerOutcomeResolvedEvent gotcha)
+- Diary: `blog/2026-07-07-mdp01-the-spi-that-didnt-need-building.md` (workspace)
+- Spec: `docs/specs/2026-07-06-structured-feature-extractor-design.md` (project)
+- Garden: `jvm/GE-20260707-5673c0.md` (record field addition silent breakage)
