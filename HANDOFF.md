@@ -18,7 +18,7 @@ Pick from What's Next. engine#700 (orchestration unification) is the most archit
 - engine#696 — Multi-level recovery protocol (P2)
 - engine#697 — Plan versioning (P3)
 - engine#698 — Context isolation per task (P3)
-- engine#700 — Orchestration model unification (XL/High) — blackboard, workflow, agentic patterns as peers with shared types, recursive nesting, type-safe Context Bridge
+- engine#700 — Orchestration model unification (XL/High) — blackboard, workflow, agentic patterns as peers with shared types, recursive nesting, type-safe Context Bridge. **Overlaps with engine#101** (LLM supervisor mode) — both cross-referenced. Without #700, engine#101 Gap 1 would duplicate blocks' LlmDecomposition as a parallel LlmPlanningStrategy.
 
 ## What's Left
 
