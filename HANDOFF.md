@@ -1,44 +1,41 @@
-# Handover — 2026-07-10
+# Handover — 2026-07-12
 
-**Branch:** `main`
+**Branch:** `issue-52-shared-orchestration-types` (open, mid-work)
 
 ## Last Session
 
-Completed weighted outcome scoring (#43) and LlmDecomposition + LeafTask hierarchy (#13). Researched 8 agent planning frameworks, created epic #44 with 10 child issues across blocks and engine. Filed engine#700 for orchestration model unification (blackboard, workflow, agentic patterns as peers with shared types + recursive nesting via Context Bridge). Design review ran 4 rounds (15 issues, all resolved). All 469 tests pass.
+Closed engine#694 branch (ExecutionPlan DAG type landed on main). Completed #52 (SubTaskStatus → TaskStatus). Reviewed engine#700 shipped types against our design — resolved 5 items, widened #51 scope to LeafTask extends TaskDescriptor (not just PlannedTask). Updated research doc with implementation status. Filed IntelliJ MCP bug report for `ide_replace_text_in_file` content duplication.
 
 ## Immediate Next Step
 
-Pick from What's Next. engine#700 (orchestration unification) is the most architecturally significant item. Run `/work` to start.
-
-## Cross-Module
-
-**Issues filed on engine this session:**
-- engine#694 — DAG plan structure (P1)
-- engine#695 — DAG-aware parallel execution driver (P1)
-- engine#696 — Multi-level recovery protocol (P2)
-- engine#697 — Plan versioning (P3)
-- engine#698 — Context isolation per task (P3)
-- engine#700 — Orchestration model unification (XL/High) — blackboard, workflow, agentic patterns as peers with shared types, recursive nesting, type-safe Context Bridge. **Overlaps with engine#101** (LLM supervisor mode) — both cross-referenced. Without #700, engine#101 Gap 1 would duplicate blocks' LlmDecomposition as a parallel LlmPlanningStrategy.
+Branch `issue-52-shared-orchestration-types` is open for #52 (done), #50, #51. Run `/work` to continue. Next task: #50 (AgentRef extends ExecutorRef).
 
 ## What's Left
 
-*Nothing trailing.*
+- **#50** — AgentRef extends ExecutorRef. Each of 5 sealed variants implements `name()`/`description()`. · S · Med
+- **#51** — LeafTask extends TaskDescriptor. Both variants gain `id` + `createdAt`. Default `executor()` delegates to `agent()`. Blocked by #50. · M · Med
+- **engine#101 revision** — Update issue to reflect Gaps 2+3 done, close or narrow to remaining Gap 1 (LlmPlanningStrategy as composition, not greenfield). · XS · Low
 
 ## What's Next
 
 | # | Description | Scale | Complexity | Notes |
 |---|-------------|-------|------------|-------|
-| engine#700 | Orchestration model unification — shared types, peer coordination | XL | High | Architectural. Spans engine + blocks. Context Bridge pattern. |
-| engine#694 | DAG plan structure (ExecutionPlan) | L | High | P1 — unlocks parallelism. Depends on #13 (done). |
-| engine#695 | DAG-aware parallel execution driver | L | High | P1 — depends on engine#694 |
-| #45 | Hybrid decomposition (ChatHTN-style static + LLM fallback) | M | Med | P2 — depends on #13 (done) |
-| #46 | Output contracts on TaskNode | M | Med | P2 — depends on engine#694 |
-| #40 | Qhorus channel integration for summarisation | L | High | Bidirectional bridge, alongside qhorus#328 |
-| #41 | Generalised summarisation pipeline viewer | M | Med | May be subsumed by #40 |
+| engine#700 | Orchestration model unification — Phases 2-3 remaining | XL | High | Phase 1+4 done. DAG plan + CoordinationStrategy next. |
+| #45 | Hybrid decomposition (ChatHTN-style) | M | Med | Depends on #13 (done) |
+| #46 | Output contracts on TaskNode | M | Med | Depends on engine#694 (done) |
+| #40 | Qhorus channel integration for summarisation | L | High | Alongside qhorus#328 |
+
+## Cross-Module
+
+**Engine issues filed from blocks sessions:**
+- engine#694 — DAG plan structure: **landed on blocks main** this session (ExecutionPlan type)
+- engine#695–698 — parallel driver, recovery, versioning, context isolation (all open)
+- engine#700 — orchestration unification: **Phase 1+4 done**, shared types shipped. Overlaps engine#101.
+- engine#101 — LLM supervisor mode: Gaps 2+3 done elsewhere, Gap 1 reframed by #700
 
 ## References
 
-- Research: `docs/research/2026-07-09-task-decomposition-and-agent-planning-landscape.md` (project)
-- Spec: `docs/specs/2026-07-10-weighted-outcomes-and-llm-decomposition-design.md` (project)
-- Epic: blocks#44 (agentic planning architecture — 10 child issues)
-- Garden: `jvm/GE-20260701-5c818b.md` (AgentProvider not functional interface)
+- Research: `docs/research/2026-07-10-orchestration-model-unification.md` (has implementation status header)
+- Research: `docs/research/2026-07-09-task-decomposition-and-agent-planning-landscape.md`
+- Design: #51 issue body has the full LeafTask + TaskDescriptor design with code
+- Design: #50 issue body has per-variant ExecutorRef mapping
