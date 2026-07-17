@@ -25,6 +25,7 @@ Pick from What's Next. Run `/work` to start.
 | #56 | SHOP-style forward reasoning with effects | S | Med | Apply PrimitiveTask effects during planning |
 | #57 | Task tree construction DSL | S | Low | compound/primitive factory methods |
 | #53 | Predecessor-specific plan composition analysis | S | Med | engine#718 done — unblocked |
+| #62 | Integrate structured progress into conversation rendering | M | Med | Blocked by work#237 + engine#84; #49 builds the rendering surface |
 
 ## Cross-Module
 
