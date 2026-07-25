@@ -1,10 +1,10 @@
-# Handover — 2026-07-23
+# Handover — 2026-07-25
 
 **Branch:** `main` (clean)
 
 ## Last Session
 
-Completed SummaryUpdateHook implementation (#64). Two-repo change: enriched qhorus `SummaryUpdateContext` with `recentMessages` + `messageQuery`, then implemented `HeuristicChannelSummariser` (`@DefaultBean`, append-only) and `LlmChannelSummariser` (`@Alternative @Priority(1)`, edit-mode via AgentProvider). Qhorus commit on main (94b30155). Also spent time on unified execution model design doc consolidation (#60) — three overlapping docs merged into one, design-reviewed ($37, 10 rounds).
+Completed observation accumulator (#68) — 7 types in `io.casehub.blocks.summarisation.observation`. Terminal consumer of the summarisation pipeline with tiered rendering (verbatim/grouped/summarised), demand-driven drain, and RAG-able chunk production. Design-reviewed (4 rounds, 11 issues, all verified). Squashed to 1 commit, pushed to upstream.
 
 ## Immediate Next Step
 
@@ -29,16 +29,13 @@ Pick from What's Next. Run `/work` to start.
 
 ## Cross-Module
 
-**Qhorus changes from this session:**
-- qhorus main: `SummaryUpdateContext` enriched (94b30155) — backward-compatible
-
 **Engine issues from blocks sessions:**
 - engine#696–698 — recovery, versioning, context isolation (all open)
-- engine#101 — LLM supervisor mode: Gap 1 reframed by engine#700 (closed)
-- engine#717 — ExperiencePlanStep.stepOutcome() should return RoutingOutcome
+- engine#101 — LLM supervisor mode: Gap 1 reframed by engine#700
+- engine#717 — `ExperiencePlanStep.stepOutcome()` should return RoutingOutcome
 
 ## References
 
-- Spec: `docs/specs/2026-07-21-summary-update-hook-design.md`
-- Blog: `blog/2026-07-23-mdp01-the-glue-that-was-always-missing.md`
+- Spec: `docs/specs/2026-07-25-observation-accumulator-design.md` (promoted to project)
+- Blog: `blog/2026-07-25-mdp01-the-last-mile.md`
 - Unified model: `docs/specs/2026-07-15-unified-execution-model.md` (consolidated)
