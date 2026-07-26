@@ -2,6 +2,7 @@
 
 | Entry | Date | Summary |
 |-------|------|---------|
+| [2026-07-26-mdp01-planning-the-unified-model.md](2026-07-26-mdp01-planning-the-unified-model.md) | 2026-07-26 | Unified execution model — 12-phase plan, doc cleanup, prerequisite audit, work-slot setup |
 | [2026-07-25-mdp01-the-last-mile.md](2026-07-25-mdp01-the-last-mile.md) | 2026-07-25 | Observation accumulator — tiered rendering for LLM agent prompts with RAG-able chunk production |
 | [2026-07-23-mdp01-the-glue-that-was-always-missing.md](2026-07-23-mdp01-the-glue-that-was-always-missing.md) | 2026-07-23 | Channel summary hooks — HeuristicChannelSummariser and LlmChannelSummariser bridging blocks to qhorus |
 | [2026-07-21-conversation-folds.md](2026-07-21-conversation-folds.md) | 2026-07-21 | Conversation folds — epistemic common ground and convergence detection |
