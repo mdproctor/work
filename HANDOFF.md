@@ -1,41 +1,33 @@
-# Handover — 2026-07-25
+# Handover — 2026-07-26
 
 **Branch:** `main` (clean)
 
 ## Last Session
 
-Completed observation accumulator (#68) — 7 types in `io.casehub.blocks.summarisation.observation`. Terminal consumer of the summarisation pipeline with tiered rendering (verbatim/grouped/summarised), demand-driven drain, and RAG-able chunk production. Design-reviewed (4 rounds, 11 issues, all verified). Squashed to 1 commit, pushed to upstream.
+Planned unified execution model migration (#60) end-to-end. Wrote 12-phase implementation plan (Phases 0–8, with 3A-3D). Created work-slot 38 with engine+blocks worktrees. Cleaned up 3 subsumed docs, updated engine#101 gap status, stamped stale workspace branch.
 
 ## Immediate Next Step
 
-Pick from What's Next. Run `/work` to start.
+Open a CLI in `worktrees/38/engine` and run `/work` to begin Phase 0 of the unified execution model migration.
 
 ## What's Left
 
-- **engine#101 revision** — Update issue to reflect Gaps 2+3 done, close or narrow to remaining Gap 1. · XS · Low
-- **Unified execution model doc cleanup** — three source docs still exist alongside the consolidated version. Replace with pointers once consolidated doc is reviewed. · S · Low
+- **Unified execution model doc cleanup** — consolidated spec exists in both engine and blocks (`docs/specs/2026-07-15-unified-execution-model.md`). Blocks copy may be stale vs engine canonical. Verify sync or remove blocks copy. · XS · Low
 
 ## What's Next
 
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| #60 | Unified execution model migration | XL | High | Spec reviewed and consolidated; parked until builds stable |
-| #62 | Integrate structured progress into conversation rendering | M | Med | Blocked by work#237 + engine#84 |
-| #46 | Output contracts on TaskNode | M | Med | Depends on engine#694 (done) |
-| #54 | Recursive LLM decomposition | M | Med | LLM returns CompoundTasks |
-| #56 | SHOP-style forward reasoning with effects | S | Med | Apply PrimitiveTask effects during planning |
-| #57 | Task tree construction DSL | S | Low | compound/primitive factory methods |
-| #53 | Predecessor-specific plan composition analysis | S | Med | engine#718 done — unblocked |
+*Unchanged — `git show HEAD~1:HANDOFF.md`*
 
 ## Cross-Module
 
 **Engine issues from blocks sessions:**
 - engine#696–698 — recovery, versioning, context isolation (all open)
-- engine#101 — LLM supervisor mode: Gap 1 reframed by engine#700
+- engine#101 — LLM supervisor mode: Gaps 2+3 done, Gap 1 subsumed by #60
 - engine#717 — `ExperiencePlanStep.stepOutcome()` should return RoutingOutcome
 
 ## References
 
-- Spec: `docs/specs/2026-07-25-observation-accumulator-design.md` (promoted to project)
-- Blog: `blog/2026-07-25-mdp01-the-last-mile.md`
-- Unified model: `docs/specs/2026-07-15-unified-execution-model.md` (consolidated)
+- Plan: `plans/2026-07-26-unified-execution-model-migration.md`
+- Slot: `worktrees/38/` (engine + blocks, branch `issue-60-unified-execution-model`)
+- Design review: `~/adr/casehub-engine/unified-execution-model-20260715-212753/`
+- Blog: `blog/2026-07-26-mdp01-planning-the-unified-model.md`
