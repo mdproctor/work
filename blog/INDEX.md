@@ -2,6 +2,9 @@
 
 | Entry | Date | Summary |
 |-------|------|---------|
+| [2026-07-25-mdp01-the-last-mile.md](2026-07-25-mdp01-the-last-mile.md) | 2026-07-25 | Observation accumulator — tiered rendering for LLM agent prompts with RAG-able chunk production |
+| [2026-07-23-mdp01-the-glue-that-was-always-missing.md](2026-07-23-mdp01-the-glue-that-was-always-missing.md) | 2026-07-23 | Channel summary hooks — HeuristicChannelSummariser and LlmChannelSummariser bridging blocks to qhorus |
+| [2026-07-21-conversation-folds.md](2026-07-21-conversation-folds.md) | 2026-07-21 | Conversation folds — epistemic common ground and convergence detection |
 | [2026-07-14-mdp01-the-grouped-window-nobody-had.md](2026-07-14-mdp01-the-grouped-window-nobody-had.md) | 2026-07-14 | KeyedAccumulator for correlation-aware grouping, two thin channel adapters bridging qhorus to the summarisation framework |
 | [2026-07-12-mdp02-two-interfaces-one-vocabulary.md](2026-07-12-mdp02-two-interfaces-one-vocabulary.md) | 2026-07-12 | AgentRef extends ExecutorRef, LeafTask extends TaskDescriptor — pattern-matching utility methods collapse to delegation, ExternalAgent gains a label |
 | [2026-07-12-mdp01-closing-the-description-thread.md](2026-07-12-mdp01-closing-the-description-thread.md) | 2026-07-12 | Engine ships shared orchestration types; blocks adopts TaskStatus; five-item review aligns design with shipped types |
