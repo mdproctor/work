@@ -18,10 +18,12 @@ Open a CLI in `worktrees/38/engine` and run `/work` to begin Phase 0 of the unif
 
 *Unchanged — `git show HEAD~1:HANDOFF.md`*
 
+*Updated: engine#698 closed — removed from backlog.*
+
 ## Cross-Module
 
 **Engine issues from blocks sessions:**
-- engine#696–698 — recovery, versioning, context isolation (all open)
+- engine#696, #697 — recovery, versioning (both open)
 - engine#101 — LLM supervisor mode: Gaps 2+3 done, Gap 1 subsumed by #60
 - engine#717 — `ExperiencePlanStep.stepOutcome()` should return RoutingOutcome
 
