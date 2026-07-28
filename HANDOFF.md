@@ -1,24 +1,22 @@
-# Handover — 2026-07-26
+# Handover — 2026-07-28
 
-**Branch:** `main` (clean)
+**Branch:** `main` (clean — `issue-69-affordance-renderer` closed)
 
 ## Last Session
 
-Planned unified execution model migration (#60) end-to-end. Wrote 12-phase implementation plan (Phases 0–8, with 3A-3D). Created work-slot 38 with engine+blocks worktrees. Cleaned up 3 subsumed docs, updated engine#101 gap status, stamped stale workspace branch.
+Built AffordanceRenderer (#69) end-to-end — brainstorm, adversarial design review (3 rounds, 13 issues, $10.72), TDD implementation (5 types, 74 tests), code review clean. Delivered grounded observation rendering for LLM agents with per-entity affordance chains and typed section assembly.
 
 ## Immediate Next Step
 
-Open a CLI in `worktrees/38/engine` and run `/work` to begin Phase 0 of the unified execution model migration.
+Open a CLI in `worktrees/38/engine` and run `/work` to begin Phase 0 of the unified execution model migration (#60).
 
 ## What's Left
 
-- **Unified execution model doc cleanup** — consolidated spec exists in both engine and blocks (`docs/specs/2026-07-15-unified-execution-model.md`). Blocks copy may be stale vs engine canonical. Verify sync or remove blocks copy. · XS · Low
+- **Unified execution model doc cleanup** — consolidated spec exists in both engine and blocks (`docs/specs/2026-07-15-unified-execution-model.md`). Blocks copy replaced with pointer to engine canonical. Verify pointer is correct. · XS · Low
 
 ## What's Next
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
-
-*Updated: engine#698 closed — removed from backlog.*
+*Unchanged — `git show HEAD~2:HANDOFF.md`*
 
 ## Cross-Module
 
@@ -29,7 +27,8 @@ Open a CLI in `worktrees/38/engine` and run `/work` to begin Phase 0 of the unif
 
 ## References
 
-- Plan: `plans/2026-07-26-unified-execution-model-migration.md`
-- Slot: `worktrees/38/` (engine + blocks, branch `issue-60-unified-execution-model`)
-- Design review: `~/adr/casehub-engine/unified-execution-model-20260715-212753/`
-- Blog: `blog/2026-07-26-mdp01-planning-the-unified-model.md`
+- Spec: `specs/issue-69-affordance-renderer/2026-07-28-affordance-renderer-design.md`
+- Design review: `~/adr/casehub-blocks/affordance-renderer-20260728-110956/`
+- Blog: `blog/2026-07-28-mdp01-the-format-that-makes-llms-act.md`
+- Plan: `plans/attic/issue-69-affordance-renderer/2026-07-28-affordance-renderer.md`
+- Slot 38: `worktrees/38/` (engine + blocks, branch `issue-60-unified-execution-model`)
