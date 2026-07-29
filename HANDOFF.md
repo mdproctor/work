@@ -1,23 +1,22 @@
-# Handover — 2026-07-28
+# Handover — 2026-07-29
 
-**Branch:** `main` (clean — `issue-72-cdi-bean-leak-fix` closed)
+**Branch:** `main` (clean — builds green, 765 tests pass)
 
 ## Last Session
 
-Fixed #72 — removed the Jandex maven plugin from blocks. The Jandex index was unconditionally exposing blocks' CDI beans (routing strategies, channel summarisers) to all Quarkus consumers, causing `UnsatisfiedResolutionException` for EntityManager in consumers like wacky-manor that only needed pure types.
+Fixed #72 (removed Jandex index — CDI beans no longer auto-discovered by consumers). Then fixed blocks main build breakage caused by slot 38 pushing commits against unreleased dep versions: installed engine-api from #60 branch, installed upstream qhorus-api, and adapted `DispositionAwareRouting` to upstream `AgentDisposition.get()` API (`List<DispositionValue>` not `Optional`). Added `.mvn/maven.config` to `.gitignore` to prevent slot-local `.m2` paths leaking into commits. Filed soredium#106 for the work-slot pre-push dependency gate.
 
 ## Immediate Next Step
 
-**Build breakage on main.** After rebasing onto upstream, blocks fails to compile — engine-api restructured `io.casehub.engine.plan.*` types (DecompositionStrategy, TaskNode, etc.) as part of the #60 unified execution model work. Fix the imports/references in blocks' agentic decomposition package before any other work.
+Pick up next work from the What's Next table, or continue #60 unified execution model in slot.
 
 ## What's Left
 
-- **Engine-api API breakage** — blocks references `io.casehub.engine.plan.DecompositionStrategy`, `TaskNode`, `DecompositionContext`, `DecompositionMethod` which no longer exist at those locations. Align blocks' decomposition package with the new engine-api structure. · M · Med
 - **Unified execution model doc cleanup** — verify pointer from blocks spec copy to engine canonical is correct · XS · Low
 
 ## What's Next
 
-*Unchanged — `git show HEAD~1:HANDOFF.md`*
+*Unchanged — `git show HEAD~4:HANDOFF.md`*
 
 ## Cross-Module
 
@@ -26,6 +25,9 @@ Fixed #72 — removed the Jandex maven plugin from blocks. The Jandex index was 
 - engine#101 — LLM supervisor mode: Gaps 2+3 done, Gap 1 subsumed by #60
 - engine#717 — `ExperiencePlanStep.stepOutcome()` should return RoutingOutcome
 
+**Soredium:**
+- soredium#106 — work-slot pre-push gate should verify cross-repo deps have landed
+
 ## References
 
-- Slot 38: `worktrees/38/` (engine + blocks, branch `issue-60-unified-execution-model`)
+- Slot 38: archived (was engine + blocks for #60)
