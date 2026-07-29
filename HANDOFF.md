@@ -1,14 +1,16 @@
 # Handover — 2026-07-29
 
+*Updated: #60, #72 closed — removed from backlog.*
+
 **Branch:** `main` (clean — builds green, 765 tests pass)
 
 ## Last Session
 
-Fixed #72 (removed Jandex index — CDI beans no longer auto-discovered by consumers). Then fixed blocks main build breakage caused by slot 38 pushing commits against unreleased dep versions: installed engine-api from #60 branch, installed upstream qhorus-api, and adapted `DispositionAwareRouting` to upstream `AgentDisposition.get()` API (`List<DispositionValue>` not `Optional`). Added `.mvn/maven.config` to `.gitignore` to prevent slot-local `.m2` paths leaking into commits. Filed soredium#106 for the work-slot pre-push dependency gate.
+Fixed #72 (Jandex index removal) and #60 (unified execution model) — both now closed. Adapted `DispositionAwareRouting` to upstream API changes, added `.mvn/maven.config` to `.gitignore`.
 
 ## Immediate Next Step
 
-Pick up next work from the What's Next table, or continue #60 unified execution model in slot.
+Pick up next work from the What's Next table.
 
 ## What's Left
 
@@ -16,7 +18,14 @@ Pick up next work from the What's Next table, or continue #60 unified execution 
 
 ## What's Next
 
-*Unchanged — `git show HEAD~4:HANDOFF.md`*
+| # | Description | Scale | Complexity | Notes |
+|---|-------------|-------|------------|-------|
+| #62 | Integrate structured progress into conversation rendering | M | Med | Blocked by work#237 + engine#84 |
+| #46 | Output contracts on TaskNode | M | Med | Depends on engine#694 (done) |
+| #54 | Recursive LLM decomposition | M | Med | LLM returns CompoundTasks |
+| #56 | SHOP-style forward reasoning with effects | S | Med | Apply PrimitiveTask effects during planning |
+| #57 | Task tree construction DSL | S | Low | compound/primitive factory methods |
+| #53 | Predecessor-specific plan composition analysis | S | Med | engine#718 done — unblocked |
 
 ## Cross-Module
 
