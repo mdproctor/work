@@ -2,6 +2,10 @@
 
 | Entry | Date | Summary |
 |-------|------|---------|
+| [2026-07-30-mdp01-closing-the-loop-on-supervisor-mode.md](2026-07-30-mdp01-closing-the-loop-on-supervisor-mode.md) | 2026-07-30 | Closed engine#101 and blocks#10 — seventy classes across eight sub-packages delivering what started as three gaps |
+| [2026-07-29-mdp01-the-planning-primitives.md](2026-07-29-mdp01-the-planning-primitives.md) | 2026-07-29 | Tasks DSL, forward reasoning, output contracts, predecessor routing, hybrid fallback context, ContentSummariser |
+| [2026-07-29-mdp01-the-summary-that-knows-what-it-is.md](2026-07-29-mdp01-the-summary-that-knows-what-it-is.md) | 2026-07-29 | ContentSummariser SPI — tiered dispatch, VerbatimContentSummariser, pipeline adapter |
+| [2026-07-28-mdp01-the-format-that-makes-llms-act.md](2026-07-28-mdp01-the-format-that-makes-llms-act.md) | 2026-07-28 | OutputContract on TaskNode — typed validation gates between task steps |
 | [2026-07-26-mdp01-planning-the-unified-model.md](2026-07-26-mdp01-planning-the-unified-model.md) | 2026-07-26 | Unified execution model — 12-phase plan, doc cleanup, prerequisite audit, work-slot setup |
 | [2026-07-25-mdp01-the-last-mile.md](2026-07-25-mdp01-the-last-mile.md) | 2026-07-25 | Observation accumulator — tiered rendering for LLM agent prompts with RAG-able chunk production |
 | [2026-07-23-mdp01-the-glue-that-was-always-missing.md](2026-07-23-mdp01-the-glue-that-was-always-missing.md) | 2026-07-23 | Channel summary hooks — HeuristicChannelSummariser and LlmChannelSummariser bridging blocks to qhorus |
