@@ -1,8 +1,8 @@
-# Handover — 2026-07-29
+# Handover — 2026-07-30
 
 *Updated: #39, #46, #53, #55, #56, #57, #58 closed — removed from backlog.*
 
-**Branch:** `main` (clean — builds green, 835 tests pass)
+**Branch:** `main` (clean — builds green, CI green, 835 tests pass)
 
 ## Last Session
 
