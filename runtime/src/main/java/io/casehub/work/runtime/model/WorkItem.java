@@ -355,6 +355,12 @@ public class WorkItem extends PanacheEntityBase {
     @Column(name = "resolution_type_name")
     public String resolutionTypeName;
 
+    @Column(name = "candidate_scores", columnDefinition = "TEXT")
+    public String candidateScores;
+
+    @Column(name = "routing_experiences", columnDefinition = "TEXT")
+    public String routingExperiences;
+
     /** Progress percentage reported by the actor (0–100). Nullable — null means no progress reported. */
     @Column(name = "percent_complete")
     public Integer percentComplete;

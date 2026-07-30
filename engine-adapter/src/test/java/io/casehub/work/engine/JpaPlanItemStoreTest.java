@@ -40,7 +40,7 @@ class JpaPlanItemStoreTest {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
     store.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             planItemId,
             "test-binding",
@@ -62,7 +62,7 @@ class JpaPlanItemStoreTest {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
     store.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             planItemId,
             "test-binding",

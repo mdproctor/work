@@ -34,7 +34,9 @@ public final class WorkItemMapper {
                 wi.excludedUsers,
                 wi.scope,
                 wi.percentComplete,
-                wi.statusNote);
+                wi.statusNote,
+                wi.candidateScores,
+                wi.routingExperiences);
     }
 
     public static io.casehub.work.api.AuditEntryResponse toAuditResponse(final AuditEntry e) {
@@ -66,7 +68,9 @@ public final class WorkItemMapper {
                 wi.excludedUsers,
                 wi.scope,
                 wi.percentComplete,
-                wi.statusNote);
+                wi.statusNote,
+                wi.candidateScores,
+                wi.routingExperiences);
     }
 
     public static WorkItemCreateRequest toServiceRequest(final CreateWorkItemRequest req) {

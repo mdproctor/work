@@ -16,7 +16,7 @@
     <dependencies>
         <dependency>
             <groupId>io.casehub</groupId>
-            <artifactId>casehub-engine-blackboard</artifactId>
+            <artifactId>casehub-engine-planning</artifactId>
         </dependency>
         <dependency>
             <groupId>io.casehub</groupId>

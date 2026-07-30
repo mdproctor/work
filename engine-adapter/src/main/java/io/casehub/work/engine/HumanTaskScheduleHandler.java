@@ -20,9 +20,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.blackboard.plan.CasePlanModel;
-import io.casehub.blackboard.plan.PlanItem;
-import io.casehub.blackboard.registry.BlackboardRegistry;
+import io.casehub.api.spi.routing.RetrievedExperience;
+import io.casehub.engine.planning.plan.CasePlanModel;
+import io.casehub.engine.planning.plan.PlanItem;
+import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
@@ -136,7 +137,9 @@ public class HumanTaskScheduleHandler {
             .candidateUsers(toCsv(event.resolvedCandidateUsers()))
             .expiresAt(earliestOf(event.expiresAtDeadline(), event.caseBudgetDeadline()))
             .payloadTypeName(event.payloadTypeName())
-            .resolutionTypeName(event.resolutionTypeName());
+            .resolutionTypeName(event.resolutionTypeName())
+            .candidateScores(serializeScores(event.candidateScores()))
+            .routingExperiences(serializeExperiences(event.experiences()));
     if (target.outcomes() != null && !target.outcomes().isEmpty()) {
       requestBuilder.permittedOutcomes(toOutcomeList(target.outcomes()));
     }
@@ -151,7 +154,7 @@ public class HumanTaskScheduleHandler {
     }
 
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             event.caseId(),
             item.getPlanItemId(),
             item.getBindingName(),
@@ -177,9 +180,11 @@ public class HumanTaskScheduleHandler {
         event.expiresAtDeadline(),
         event.caseBudgetDeadline(),
         event.payloadTypeName(),
-        event.resolutionTypeName());
+        event.resolutionTypeName(),
+        event.candidateScores(),
+        event.experiences());
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             event.caseId(),
             item.getPlanItemId(),
             item.getBindingName(),
@@ -202,7 +207,9 @@ public class HumanTaskScheduleHandler {
       Instant expiresAtDeadline,
       Instant caseBudgetDeadline,
       String payloadTypeName,
-      String resolutionTypeName) {
+      String resolutionTypeName,
+      Map<String, Double> candidateScores,
+      List<RetrievedExperience> experiences) {
     String payload = serializePayload(inputData);
     Instant taskDeadline =
         target.expiresIn() != null ? Instant.now().plus(target.expiresIn()) : null;
@@ -221,7 +228,9 @@ public class HumanTaskScheduleHandler {
             .callerRef(callerRef)
             .scope(target.scope())
             .payloadTypeName(payloadTypeName)
-            .resolutionTypeName(resolutionTypeName);
+            .resolutionTypeName(resolutionTypeName)
+            .candidateScores(serializeScores(candidateScores))
+            .routingExperiences(serializeExperiences(experiences));
     if (target.outcomes() != null && !target.outcomes().isEmpty()) {
       requestBuilder.permittedOutcomes(toOutcomeList(target.outcomes()));
     }
@@ -249,7 +258,28 @@ public class HumanTaskScheduleHandler {
     }
   }
 
-  private static List<Outcome> toOutcomeList(Set<String> outcomeNames) {
+    private String serializeScores(Map<String, Double> scores) {
+        if (scores == null || scores.isEmpty()) {return null;}
+        try {
+            return MAPPER.writeValueAsString(scores);
+        } catch (JsonProcessingException e) {
+            LOG.warnf(e, "Failed to serialize candidateScores — using null");
+            return null;
+        }
+    }
+
+    private String serializeExperiences(List<RetrievedExperience> experiences) {
+        if (experiences == null || experiences.isEmpty()) {return null;}
+        try {
+            return MAPPER.writeValueAsString(experiences);
+        } catch (JsonProcessingException e) {
+            LOG.warnf(e, "Failed to serialize routing experiences — using null");
+            return null;
+        }
+    }
+
+
+    private static List<Outcome> toOutcomeList(Set<String> outcomeNames) {
     return outcomeNames.stream().map(name -> new Outcome(name, null, null)).toList();
   }
 

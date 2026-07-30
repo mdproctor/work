@@ -15,15 +15,13 @@
  */
 package io.casehub.work.engine;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-
 import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.blackboard.plan.PlanItem;
-import io.casehub.blackboard.registry.BlackboardRegistry;
+import io.casehub.api.model.TaskStatus;
+import io.casehub.api.spi.routing.RetrievedExperience;
+import io.casehub.engine.planning.plan.PlanItem;
+import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
-import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.persistence.memory.InMemoryPlanItemStore;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -37,15 +35,20 @@ import io.casehub.work.runtime.repository.WorkItemTemplateStore;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 /**
  * Verifies HumanTaskScheduleHandler logic by invoking the handler directly (no event bus dispatch),
@@ -1017,7 +1020,72 @@ class HumanTaskScheduleHandlerTest {
         .isEmpty();
   }
 
-  WorkItemTemplate persistTemplate(final String name) {
+
+// ── Routing context threading ──────────────────────────────────────
+
+    @Test
+    void inlineMode_withCandidateScoresAndExperiences_threadsToWorkItem() {
+        HumanTaskTarget     target = HumanTaskTarget.inline().title("Scored Review").build();
+        Map<String, Double> scores = Map.of("alice", 0.85, "bob", 0.72);
+        List<RetrievedExperience> experiences = List.of(
+                new RetrievedExperience(
+                        "similar case", "applied plan A", "COMPLETED", 0.9, 0.85,
+                        Map.of("domain", "clinical"), List.of(), Map.of()));
+
+        handler.onHumanTaskSchedule(
+                new HumanTaskScheduleEvent(
+                        caseId, TENANCY_ID, "irb-binding", target, Map.of(),
+                        null, null, null, null, null, null, null, null, null,
+                        experiences, scores));
+
+        String expectedCallerRef = PlanItemCallerRef.encode(caseId, planItem.getPlanItemId());
+        WorkItem created = workItemStore.scanAll().stream()
+                                        .filter(w -> expectedCallerRef.equals(w.callerRef))
+                                        .findFirst().orElseThrow();
+        assertThat(created.candidateScores).isNotNull();
+        assertThat(created.candidateScores).contains("alice").contains("0.85");
+        assertThat(created.candidateScores).contains("bob").contains("0.72");
+        assertThat(created.routingExperiences).isNotNull();
+        assertThat(created.routingExperiences).contains("similar case").contains("applied plan A");
+    }
+
+    @Test
+    void inlineMode_nullScoresAndExperiences_workItemFieldsAreNull() {
+        HumanTaskTarget target = HumanTaskTarget.inline().title("No Routing Context").build();
+
+        handler.onHumanTaskSchedule(
+                new HumanTaskScheduleEvent(
+                        caseId, TENANCY_ID, "irb-binding", target, Map.of(),
+                        null, null, null, null, null, null, null, null, null,
+                        null, null));
+
+        WorkItem created = workItemStore.scanAll().stream().findFirst().orElseThrow();
+        assertThat(created.candidateScores).isNull();
+        assertThat(created.routingExperiences).isNull();
+    }
+
+    @Test
+    void templateMode_withCandidateScoresAndExperiences_threadsToWorkItem() {
+        WorkItemTemplate    tmpl   = persistTemplate("Scored Template");
+        Map<String, Double> scores = Map.of("charlie", 0.95);
+        List<RetrievedExperience> experiences = List.of(
+                new RetrievedExperience(
+                        "past case", "used plan B", "FAULTED", 0.3, 0.60,
+                        Map.of(), List.of(), Map.of()));
+
+        handler.onHumanTaskSchedule(
+                new HumanTaskScheduleEvent(
+                        caseId, TENANCY_ID, "irb-binding",
+                        HumanTaskTarget.template(tmpl.id.toString()).build(),
+                        Map.of(), null, null, null, null, null, null, null, null, null,
+                        experiences, scores));
+
+        WorkItem created = workItemStore.scanAll().stream().findFirst().orElseThrow();
+        assertThat(created.candidateScores).contains("charlie").contains("0.95");
+        assertThat(created.routingExperiences).contains("past case").contains("used plan B");
+    }
+
+    WorkItemTemplate persistTemplate(final String name) {
     return persistTemplate(name, null);
   }
 

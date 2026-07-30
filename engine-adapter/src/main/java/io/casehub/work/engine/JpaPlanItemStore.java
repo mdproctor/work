@@ -105,7 +105,7 @@ public class JpaPlanItemStore implements PlanItemStore {
   }
 
   private PlanItemRecord toRecord(WorkAdapterPlanItemEntity e) {
-    return new PlanItemRecord(
+    return PlanItemRecord.primitive(
         e.caseId,
         e.planItemId,
         e.bindingName,

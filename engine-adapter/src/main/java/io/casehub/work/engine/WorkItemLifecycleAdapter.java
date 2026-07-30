@@ -17,9 +17,9 @@ package io.casehub.work.engine;
 
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.blackboard.plan.CasePlanModel;
-import io.casehub.blackboard.plan.PlanItem;
-import io.casehub.blackboard.registry.BlackboardRegistry;
+import io.casehub.engine.planning.plan.CasePlanModel;
+import io.casehub.engine.planning.plan.PlanItem;
+import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.model.CaseInstance;

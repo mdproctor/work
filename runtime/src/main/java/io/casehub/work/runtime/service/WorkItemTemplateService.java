@@ -154,6 +154,8 @@ public class WorkItemTemplateService {
                 .excludedUsers(expandedExcludedUsers != null ? expandedExcludedUsers : request.excludedUsers)
                 .scope(request.scope != null ? request.scope : template.scope)
                 .tenancyId(request.tenancyId)
+                .candidateScores(request.candidateScores)
+                .routingExperiences(request.routingExperiences)
                 .build();
     }
 

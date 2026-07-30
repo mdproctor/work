@@ -65,6 +65,8 @@ Returned by most lifecycle endpoints.
 | `scope` | string (nullable) | Hierarchical scope path |
 | `percentComplete` | integer (nullable) | Progress percentage (0–100), updated via `PUT /workitems/{id}/progress` |
 | `statusNote` | string (nullable) | Free-text status note from actor |
+| `candidateScores` | string (nullable) | JSON map of actor ID → routing score (e.g. `{"alice":0.85,"bob":0.72}`) |
+| `routingExperiences` | string (nullable) | JSON array of past similar cases from CBR routing |
 
 ### WorkItemStatus
 

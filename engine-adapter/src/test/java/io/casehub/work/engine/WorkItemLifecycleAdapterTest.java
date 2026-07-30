@@ -17,8 +17,8 @@ package io.casehub.work.engine;
 
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.blackboard.plan.PlanItem;
-import io.casehub.blackboard.registry.BlackboardRegistry;
+import io.casehub.engine.planning.plan.PlanItem;
+import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.internal.context.CaseContextImpl;

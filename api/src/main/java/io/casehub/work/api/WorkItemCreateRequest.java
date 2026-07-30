@@ -47,6 +47,8 @@ public final class WorkItemCreateRequest {
 
     public final String payloadTypeName;
     public final String resolutionTypeName;
+    public final String candidateScores;
+    public final String routingExperiences;
 
     private WorkItemCreateRequest(final Builder b) {
         this.title                      = b.title;
@@ -79,6 +81,8 @@ public final class WorkItemCreateRequest {
         this.tenancyId                  = b.tenancyId;
         this.payloadTypeName            = b.payloadTypeName;
         this.resolutionTypeName         = b.resolutionTypeName;
+        this.candidateScores            = b.candidateScores;
+        this.routingExperiences         = b.routingExperiences;
     }
 
     public static Builder builder() {
@@ -122,7 +126,9 @@ public final class WorkItemCreateRequest {
                 && Objects.equals(templateVersion, r.templateVersion)
                 && Objects.equals(tenancyId, r.tenancyId)
                 && Objects.equals(payloadTypeName, r.payloadTypeName)
-                && Objects.equals(resolutionTypeName, r.resolutionTypeName);
+                && Objects.equals(resolutionTypeName, r.resolutionTypeName)
+                && Objects.equals(candidateScores, r.candidateScores)
+                && Objects.equals(routingExperiences, r.routingExperiences);
     }
 
     @Override
@@ -133,7 +139,8 @@ public final class WorkItemCreateRequest {
                 confidenceScore, callerRef, claimDeadlineBusinessHours, expiresAtBusinessHours,
                 templateId, permittedOutcomes, inputDataSchema, outputDataSchema, excludedUsers, scope,
                 auditDetail, templateVersion, tenancyId,
-                payloadTypeName, resolutionTypeName);
+                payloadTypeName, resolutionTypeName,
+                candidateScores, routingExperiences);
     }
 
     /** Intentionally omits payload, schemas, callerRef, and credentials — log-safety. */
@@ -176,6 +183,8 @@ public final class WorkItemCreateRequest {
         private String tenancyId;
         private String payloadTypeName;
         private String resolutionTypeName;
+        private String candidateScores;
+        private String routingExperiences;
 
         private Builder() {}
 
@@ -210,6 +219,8 @@ public final class WorkItemCreateRequest {
             this.tenancyId                  = src.tenancyId;
             this.payloadTypeName            = src.payloadTypeName;
             this.resolutionTypeName         = src.resolutionTypeName;
+            this.candidateScores            = src.candidateScores;
+            this.routingExperiences         = src.routingExperiences;
         }
 
         public Builder title(final String v)                          { this.title = v; return this; }
@@ -242,6 +253,8 @@ public final class WorkItemCreateRequest {
         public Builder tenancyId(final String v)                      { this.tenancyId = v; return this; }
         public Builder payloadTypeName(final String v)               { this.payloadTypeName = v; return this; }
         public Builder resolutionTypeName(final String v)            { this.resolutionTypeName = v; return this; }
+        public Builder candidateScores(final String v)              { this.candidateScores = v; return this; }
+        public Builder routingExperiences(final String v)           { this.routingExperiences = v; return this; }
 
         public WorkItemCreateRequest build() {
             if (templateId == null && (title == null || title.isBlank()))

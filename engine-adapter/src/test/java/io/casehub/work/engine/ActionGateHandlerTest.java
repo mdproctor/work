@@ -109,7 +109,7 @@ class ActionGateHandlerTest {
             "SAR filing requires MLRO sign-off",
             false,
             StaticSetStrategy.of("mlro", "analyst"),
-            null, null, null);
+            null, null, null, null);
     final PlannedAction action =
         PlannedAction.of("File SAR", "sar.file", Map.of("accountId", "ACC-123"));
 
@@ -133,7 +133,7 @@ class ActionGateHandlerTest {
   @Transactional
   void onActionGateSchedule_noExpiresAt_whenExpiresInIsNull() {
     final UUID caseId = UUID.randomUUID();
-    final GateRequired gate = new GateRequired("Confirm action", true, null, null, null, null);
+    final GateRequired gate = new GateRequired("Confirm action", true, null, null, null, null, null);
     final PlannedAction action = PlannedAction.of("Do something", "action.type", Map.of());
 
     actionGateWorkItemHandler.onActionGateSchedule(
@@ -156,7 +156,7 @@ class ActionGateHandlerTest {
     final Instant before = Instant.now();
     final GateRequired gate =
         new GateRequired(
-            "Urgent review", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null, null);
+            "Urgent review", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null, null, null);
 
     actionGateWorkItemHandler.onActionGateSchedule(
         new ActionGateScheduleEvent(

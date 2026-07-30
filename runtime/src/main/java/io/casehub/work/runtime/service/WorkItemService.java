@@ -131,6 +131,8 @@ public class WorkItemService {
         item.tenancyId = request.tenancyId;
         item.payloadTypeName = request.payloadTypeName;
         item.resolutionTypeName = request.resolutionTypeName;
+        item.candidateScores = request.candidateScores;
+        item.routingExperiences = request.routingExperiences;
 
         final Instant now = Instant.now();
         item.createdAt = now;
