@@ -2,6 +2,7 @@
 
 | Entry | Date | Summary |
 |-------|------|---------|
+| [2026-08-02-mdp01-the-planner-that-decides-its-own-depth.md](2026-08-02-mdp01-the-planner-that-decides-its-own-depth.md) | 2026-08-02 | Recursive LlmDecomposition with maxDepth — LLM decides what needs further breakdown, full tree materialised as DagPlan before execution |
 | [2026-08-01-mdp01-teaching-a-planner-to-rank.md](2026-08-01-mdp01-teaching-a-planner-to-rank.md) | 2026-08-01 | DecompositionHeuristic SPI, HeuristicDecomposition with backtracking, context-carried decomposer pattern, three heuristic implementations |
 | [2026-07-30-mdp01-closing-the-loop-on-supervisor-mode.md](2026-07-30-mdp01-closing-the-loop-on-supervisor-mode.md) | 2026-07-30 | Closed engine#101 and blocks#10 — seventy classes across eight sub-packages delivering what started as three gaps |
 | [2026-07-29-mdp01-the-planning-primitives.md](2026-07-29-mdp01-the-planning-primitives.md) | 2026-07-29 | Tasks DSL, forward reasoning, output contracts, predecessor routing, hybrid fallback context, ContentSummariser |
