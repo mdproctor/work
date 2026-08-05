@@ -8,16 +8,15 @@ Implemented #59 — thread summary integration. Push-based `ThreadSummaryObserve
 
 Design review (light, 4 dimensions) caught HANDOFF exclusion and concurrency guard requirements — both addressed in final spec. 2 garden entries submitted. Blog entry written.
 
+*Updated: engine#830, engine#831 closed — removed from backlog.*
+
 ## Immediate Next Step
 
-Pick next work. engine#830 (A2A outbound) is the highest-leverage remaining item. #59 is done; #59's unblock of downstream connectors thread UI integration is now possible.
+Pick next work. #59 is done; downstream connectors thread UI integration is now possible. See `casehubio/blocks` open issues for current backlog.
 
 ## What's Next
 
-| # | Description | Scale | Complexity | Notes |
-|---|-------------|-------|------------|-------|
-| engine#830 | A2A outbound worker provisioning | M | Med | Slot 67 — do before #831 |
-| engine#831 | MCP tool integration | M | Med | Slot 67 — after #830 |
+See `casehubio/blocks` open issues.
 
 ## References
 
