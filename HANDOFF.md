@@ -4,15 +4,11 @@
 
 ## Last Session
 
-Implemented #59 — thread summary integration. Push-based `ThreadSummaryObserver` detects DONE/FAILURE messages with correlationId, delegates to `ContentSummariser<Message>`, writes to `ThreadSummaryStore`. Cross-repo: qhorus#388 added ThreadSummary storage (3 commits on qhorus main). Landed as e77d58a on blocks main.
-
-Design review (light, 4 dimensions) caught HANDOFF exclusion and concurrency guard requirements — both addressed in final spec. 2 garden entries submitted. Blog entry written.
-
-*Updated: engine#830, engine#831 closed — removed from backlog.*
+Implemented #78, #79, #80, #81 on one branch. Three trust-lifecycle SPIs (`LifecycleAttestationObserver`, `IntakeClassifier`, `VouchService`) in new `blocks.attestation` and `blocks.trust` packages. Diversity-aware `FewShotOptimiser` via `DiversityStrategy` SPI with `OutcomeAwareDiversityStrategy` (outcome seeding + Jaccard MMR). Also fixed pre-existing test compile errors from upstream `ProgressInstance`, `AgentCandidate`, `AgentRoutingContext` record changes. Light design review (4 dimensions + cross-cutting, $2.43). Landed as f89311c on main.
 
 ## Immediate Next Step
 
-Pick next work. #59 is done; downstream connectors thread UI integration is now possible. See `casehubio/blocks` open issues for current backlog.
+Pick next work. See `casehubio/blocks` open issues for current backlog — #75 (DecompositionMethod name field) is XS and needs engine-api change first.
 
 ## What's Next
 
@@ -20,6 +16,4 @@ See `casehubio/blocks` open issues.
 
 ## References
 
-- Blog: `blog/2026-08-04-mdp02-push-not-pull-thread-summaries.md`
-- Spec: `docs/specs/issue-59-thread-summary-integration/2026-08-04-thread-summary-integration-design.md`
-- qhorus issue: casehubio/qhorus#388 (3 commits on main — api types, in-memory store, JPA)
+- Spec: `docs/specs/issues-78-79-80-81/2026-08-05-trust-attestation-spis-and-diversity-selection-design.md`
