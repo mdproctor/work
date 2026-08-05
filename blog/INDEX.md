@@ -22,3 +22,4 @@
 | [2026-07-05-mdp01-where-the-line-is.md](2026-07-05-mdp01-where-the-line-is.md) | 2026-07-05 | Compliance record type extraction — where domain-specific evidence metadata stays vs what the shared record captures |
 | [2026-07-02-mdp01-what-belongs-in-a-shared-library.md](2026-07-02-mdp01-what-belongs-in-a-shared-library.md) | 2026-07-02 | Cross-repo scan of 26 repos for duplicated patterns; scope criteria for what belongs in blocks vs platform; implemented trust routing YAML consolidation |
 | [2026-07-01-mdp01-wiring-the-audit-spine.md](2026-07-01-mdp01-wiring-the-audit-spine.md) | 2026-07-01 | Enriched the routing data flow with task descriptions, state rendering, reason preservation, judge convergence, and accountability listeners |
+| [2026-08-06-mdp01-the-package-that-didnt-belong.md](2026-08-06-mdp01-the-package-that-didnt-belong.md) | 2026-08-06 | Package cohesion by compile-time dependency, VouchService TOCTOU trade-off, Set.of() duplicate crash |
