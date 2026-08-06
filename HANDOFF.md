@@ -17,3 +17,4 @@ See `casehubio/blocks` open issues.
 ## References
 
 - Spec: `docs/specs/issues-78-79-80-81/2026-08-05-trust-attestation-spis-and-diversity-selection-design.md`
+- Blog: published to personal-notes + casehub-notes — "The Package That Didn't Belong"
