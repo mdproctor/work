@@ -25,8 +25,12 @@ replacing pending ones.
 3. **Worker-outcome driven.** v1 triggers after worker completions within
    decomposed compounds. Future triggers (reflection, signals) use the same SPI
    without changes.
-4. **Shared materialization.** Initial decomposition and plan revision share the
-   same plan materialization logic — extracted into `PlanMaterializer`.
+4. **Compound replacement, not mutation.** Initial decomposition and plan
+   adaptation are structurally different operations. Initial decomposition creates
+   a complete compound via `registerDefinition()` (populates scopedBindings,
+   childrenIndex, definitions at once). Adaptation replaces the compound
+   definition — unregisters the old, registers a new one with updated bindings.
+   This is a definition-layer replacement, not an additive child operation.
 
 ## Architecture
 
@@ -51,16 +55,17 @@ Worker completes within decomposed compound
   → PlanItemCompletionHandler marks PlanItem COMPLETED (success path)
     OR WorkerRetryExhaustionHandler marks PlanItem FAULTED (failure path)
   → PlanAdaptationEvaluator.evaluateAdaptation(...)   ← NEW (both paths)
-      1. Is this step in a decomposed compound? (parentCompoundId != null)
-      2. Acquire per-compound ReentrantLock
-      3. Build AdaptationContext (completed steps + outputs, pending, running)
-      4. Resolve AdaptationTrigger → evaluate(context) → AdaptationSignal
-      5. If Skip → release lock, return
-      6. Resolve PlanRevisionStrategy → revise(revisionContext) → RevisedPlan
-      7. Apply: obsolete pending, materialise new steps
-      8. Write PLAN_ADAPTED EventLog
-      9. Release lock
-  → CompoundCompletionEvaluator evaluates (with potentially revised children)
+      1. Resolve CaseInstance, CaseDefinition, CaseContext from caseId
+      2. Is this step in a decomposed compound? (parentCompoundId != null)
+      3. Acquire per-compound Semaphore (bounded concurrency)
+      4. Build AdaptationContext (completed steps + outputs, pending, running)
+      5. Resolve AdaptationTrigger → evaluate(context) → AdaptationSignal
+      6. If Skip → release permit, return
+      7. Resolve PlanRevisionStrategy → revise(revisionContext) → RevisedPlan
+      8. Apply: replace compound definition, obsolete pending PlanItems, create new
+      9. Write PLAN_ADAPTED EventLog
+      10. Release permit
+  → CompoundCompletionEvaluator evaluates (with revised compound definition)
   → CONTEXT_CHANGED published
 ```
 
@@ -68,6 +73,35 @@ Adaptation fires AFTER step status change but BEFORE compound completion
 evaluation. This ensures the compound evaluates the revised plan, not the stale
 one. Both success and failure paths trigger adaptation — `OnFailureTrigger`
 relies on the failure path; `EveryStepTrigger` fires on both.
+
+**Synchronous execution with bounded concurrency:** Adaptation must be
+synchronous — `CompoundCompletionEvaluator` must evaluate the revised plan,
+not the stale one. To prevent worker thread pool starvation during LLM calls,
+a `Semaphore` bounds concurrent adaptations (default: 3). Excess requests
+queue on the semaphore. This trades latency for correctness — a queued
+adaptation delays its compound's completion evaluation but never produces a
+stale evaluation.
+
+### SPI signature — thin call site
+
+The `PlanAdaptationEvaluator` SPI accepts only data available at both call
+sites:
+
+```java
+public interface PlanAdaptationEvaluator {
+    void evaluateAdaptation(
+        UUID caseId,
+        String tenancyId,
+        String completedBindingName,
+        TaskStatus completedStatus);
+}
+```
+
+The implementation resolves `CaseInstance`, `CaseDefinition`, and
+`MutableCaseContext` internally from its injected dependencies
+(`CaseInstanceRepository`, `CaseDefinitionRegistry`). This keeps call sites
+thin — `PlanItemCompletionHandler` and `WorkerRetryExhaustionHandler` pass
+only what they already have.
 
 ## Foundation SPIs (engine-api)
 
@@ -83,18 +117,22 @@ public interface AdaptationTrigger extends NamedStrategy {
 ```
 
 **`AdaptationSignal`** — sealed interface:
-- `Proceed(AdaptationCause cause)` — adaptation warranted
+- `Proceed` — adaptation warranted
 - `Skip` — current plan is still valid
 
-**`AdaptationCause`** — sealed interface capturing what triggered adaptation:
+The signal is a pure decision — proceed or skip. `AdaptationCause` is
+constructed by the orchestrator (not the trigger) from the event data it
+already has. This separates the decision concern (trigger) from the
+description concern (orchestrator). The cause is passed directly to
+`RevisionContext`, not returned by the trigger.
+
+**`AdaptationCause`** — sealed interface describing what triggered adaptation:
 - `StepCompleted(String stepId, String capabilityName, Map<String, Object> output)`
-  — normal completion with new information
-- `StepFailed(String stepId, String reason)` — step failed, plan assumption
-  violated
+- `StepFailed(String stepId, String reason)`
 
 Extension points for future triggers (not implemented in v1):
-- `ContextDiverged(Set<String> changedKeys)` — external context change
-- `InsightReceived(String insight)` — reflection produced insight
+- `ContextDiverged(Set<String> changedKeys)`
+- `InsightReceived(String insight)`
 
 **`AdaptationContext`** — record carrying evaluation state:
 
@@ -105,14 +143,34 @@ public record AdaptationContext(
     String compoundId,
     String goalName,
     List<CompletedStep> completedSteps,
-    List<GoalStep> pendingSteps,
-    List<GoalStep> runningSteps,
+    List<PlanStepDescriptor> pendingSteps,
+    List<PlanStepDescriptor> runningSteps,
     JsonNode currentContext,
     CaseDefinition definition,
     TaskStatus latestStatus,
-    String latestBindingName
+    String latestBindingName,
+    int adaptationGeneration
 )
 ```
+
+`adaptationGeneration` is a monotonically increasing counter per compound,
+incremented on each adaptation. Used for idempotency — after acquiring the
+semaphore, the evaluator re-checks the generation. If it's changed since the
+event was triggered, the adaptation was superseded and is skipped.
+
+**`PlanStepDescriptor`** — engine-api record for plan steps in SPI types.
+Replaces `GoalStep` in all api-level types to avoid the engine-api → planning
+module dependency:
+
+```java
+public record PlanStepDescriptor(
+    String id,
+    String description,
+    String capabilityName
+)
+```
+
+`GoalStep` (planning module) maps to `PlanStepDescriptor` at the SPI boundary.
 
 **`CompletedStep`** — record for completed step history:
 
@@ -137,7 +195,7 @@ public interface PlanRevisionStrategy extends NamedStrategy {
 }
 ```
 
-**`RevisionContext`** — extends `AdaptationContext` with revision-specific fields:
+**`RevisionContext`** — carries everything the revision strategy needs:
 
 ```java
 public record RevisionContext(
@@ -152,18 +210,14 @@ public record RevisionContext(
 
 ```java
 public record RevisedPlan(
-    List<GoalStep> steps,
+    List<PlanStepDescriptor> steps,
     String rationale
 )
 ```
 
 `steps` is the complete forward plan — all pending steps to materialise. The
-orchestrator marks ALL existing pending steps OBSOLETE and creates new ones from
-`steps`. No diffing — full replacement is correct, simple, and avoids edge
-cases. The "waste" of recreating equivalent steps is negligible (PlanItem
-records, not running work).
-
-`rationale` is the LLM's explanation for the revision (nullable, for audit).
+orchestrator replaces the compound definition entirely and creates new
+PlanItems. `rationale` is the LLM's explanation (nullable, for audit).
 
 ### Relationship to DecompositionStrategy
 
@@ -175,21 +229,19 @@ separate concerns with different prompt requirements:
   context, and remaining capabilities, plan the remaining work"
 
 `ForwardReplanRevision` constructs its own prompt and interacts with
-`ChatModelProvider` directly. This avoids coupling revision to decomposition
-prompt construction.
+`ChatModelProvider` directly.
 
 ## Built-in Strategy Implementations (planning module)
 
 ### Triggers
 
 **`EveryStepTrigger`** (id=`"every-step"`, default)
-Always returns `Proceed` after any step completion. Maximum responsiveness,
-every step outcome is evaluated for potential plan revision.
+Always returns `Proceed` after any step completion. Maximum responsiveness.
 
 **`OnFailureTrigger`** (id=`"on-failure"`)
-Returns `Proceed` only when the latest outcome is non-success
-(`Declined`/`Failed`/`Expired`). Returns `Skip` on success. More conservative —
-only replans when something went wrong.
+Returns `Proceed` only when `latestStatus` is a non-success terminal state
+(`FAULTED`, `REJECTED`, `OBSOLETE`, `CANCELLED`). Returns `Skip` on
+`COMPLETED`. More conservative — only replans when something went wrong.
 
 ### Revision strategies
 
@@ -213,149 +265,136 @@ Produce the remaining steps as a JSON 'steps' array."
 ```
 
 Response parsing reuses the same JSON structure as `LlmDecompositionStrategy`
-(steps array with id, description, capabilityName, dependsOn). Creates
-`GoalStep` instances from parsed response.
+(steps array with id, description, capabilityName, dependsOn). Maps to
+`PlanStepDescriptor` instances.
 
 Injected dependencies:
 - `Instance<ChatModelProvider>` — transparent no-op when absent
 - Returns `Uni.createFrom().failure()` when no ChatModelProvider available
 
-## Shared Infrastructure
+## Compound Replacement — Apply Phase
 
-### PlanMaterializer (planning module)
+The apply phase is adaptation-specific infrastructure, not shared with initial
+decomposition. Initial decomposition builds a compound from scratch via
+`registerDefinition()`. Adaptation replaces a live compound.
 
-Extracted from `DefaultGoalDecomposer.decomposeGoal()` lines 193–225. Shared
-utility for both initial decomposition and adaptation.
-
-```java
-@ApplicationScoped
-public class PlanMaterializer {
-
-    @Inject PlanItemStore planItemStore;
-
-    public void materialise(
-        UUID caseId, String tenancyId, String goalName,
-        PlanItemDefinition.Compound compound,
-        List<GoalStep> steps,
-        CasePlanModel casePlanModel) { ... }
-
-    public List<String> obsoletePending(
-        UUID caseId, String tenancyId, String compoundId,
-        CasePlanModel casePlanModel) { ... }
-}
-```
-
-**`materialise()`:** Creates `PlanItemDefinition.Primitive` per step, registers
-them as children of the compound via `casePlanModel.addChild()`, saves
-PlanItems via `planItemStore.save()`. Uses the compound's existing registration
-— does NOT re-register the compound itself.
-
-**`obsoletePending()`:** Finds all PlanItems under the compound that are
-PENDING or AVAILABLE (not COMPLETED, RUNNING, or terminal). Marks them OBSOLETE
-via `planItemStore.updateStatus()`. Removes them from `CasePlanModel` via
-`removePlanItem()`. Returns the list of obsoleted planItemIds (for audit).
-
-**Refactoring `DefaultGoalDecomposer`:** After extracting `PlanMaterializer`,
-`DefaultGoalDecomposer.decomposeGoal()` delegates to
-`planMaterializer.materialise()` for the compound creation + PlanItem save
-step. The validation, LLM call, and scope resolution logic remain in
-`GoalDecomposer`.
-
-## Orchestrator — PlanAdaptationEvaluator
-
-### SPI (common/spi/)
+### `CasePlanModel.replaceCompound()` (new method on DefaultCasePlanModel)
 
 ```java
-public interface PlanAdaptationEvaluator {
-    void evaluateAdaptation(
-        CaseInstance instance,
-        CaseDefinition definition,
-        MutableCaseContext context,
-        String completedBindingName,
-        TaskStatus completedStatus);
-}
+void replaceCompound(String compoundId,
+                     PlanItemDefinition.Compound newCompound,
+                     int newGeneration)
 ```
 
-Follows the `GoalDecomposer` pattern: SPI in common, parameters use only
-common/api types, implementation in planning. `TaskStatus` replaces
-`WorkerOutcome<?>` — both `PlanItemCompletionHandler` (success) and
-`WorkerRetryExhaustionHandler` (failure) know the terminal status. The
-evaluator reconstructs failure reason from EventLog metadata when building
-`AdaptationCause.StepFailed`.
+Atomic compound replacement:
+1. Unregisters old compound's children from `childrenIndex`, `definitions`,
+   `definitionStates`, `parentIndex`
+2. Removes old children's PlanItems from `itemsById`, `agenda`,
+   `latestByBinding`
+3. Registers new compound definition via `registerDefinition()` — populates
+   all index structures (scopedBindings, childrenIndex, definitions,
+   definitionStates, parentIndex) in one operation
+4. Stores the new `adaptationGeneration` on the compound state
 
-### Implementation — DefaultPlanAdaptationEvaluator (planning module)
+The compound definition itself is replaced — the new `Compound` record has
+updated `scopedBindings` reflecting the new plan steps. This ensures
+`PlanningStrategyLoopControl` sees the new bindings in its dispatch loop.
+
+The `CasePlanModel` is the authoritative source of truth for definition state.
+`PlanItemStore` is updated for persistence/recovery but does not drive dispatch
+or completion evaluation.
+
+### PlanItem lifecycle during replacement
+
+1. **COMPLETED PlanItems** — untouched. Their binding names stay in the new
+   compound's `scopedBindings` (the compound knows what's already done).
+2. **RUNNING PlanItems** — untouched. Their binding names are included in the
+   new compound's `scopedBindings`. When they complete, another adaptation
+   cycle fires.
+3. **PENDING PlanItems** — marked `OBSOLETE` via `PlanItemStore.updateStatus()`
+   and removed from `CasePlanModel`.
+4. **New PlanItems** — created from `RevisedPlan.steps()`, saved via
+   `PlanItemStore.save()`, added to `CasePlanModel` via the compound
+   registration.
+
+`PlanItemStore` writes happen after `CasePlanModel` mutation. On failure
+between the two, recovery reconstructs `CasePlanModel` from
+`PlanItemStore` (same as initial decomposition recovery).
+
+### Failure degradation
+
+On adaptation timeout or LLM failure:
+- **Success-triggered** (`EveryStepTrigger` on COMPLETED): existing plan
+  continues unmodified. Warning logged.
+- **Failure-triggered** (`OnFailureTrigger` on FAULTED): the faulted step
+  is already handled by the existing failure cascade
+  (`WorkerOutcomeResolvedHandler` → `OutcomePolicy`). Adaptation failure
+  does not add a second fault path — the plan continues with the faulted
+  step handled by the binding's own reroute/fault policy.
+
+## Orchestrator — DefaultPlanAdaptationEvaluator (planning module)
 
 `@ApplicationScoped`, injected dependencies:
 - `EngineStrategyResolver` — resolves trigger + revision strategies
 - `BlackboardRegistry` — access CasePlanModel
-- `PlanItemStore` — query PlanItems, update status
+- `PlanItemStore` — query PlanItems for completed step list, persist changes
 - `EventLogRepository` — query completed step outputs, write audit
-- `PlanMaterializer` — shared materialisation
-- `Instance<AgentMemoryRetriever>` — optional memory retrieval
-- `GoalAbandonmentEvaluator` — active goal filtering
+- `CaseInstanceRepository` — resolve CaseInstance from caseId
+- `CaseDefinitionRegistry` — resolve CaseDefinition from CaseMetaModel
+- `Instance<AgentMemoryRetriever>` — optional memory retrieval (planning
+  already depends on runtime via `EngineStrategyResolver` — no new
+  dependency direction)
+
+**Bounded concurrency:** `Semaphore` with configurable permits
+(`casehub.engine.adaptation.max-concurrent`, default 3). Acquired before
+CaseInstance resolution, released in a finally block. `tryAcquire` with
+timeout equal to `casehub.engine.decomposition.timeout-ms` — if the
+semaphore can't be acquired in time, adaptation is skipped with a warning.
 
 **Per-compound serialization:** `ConcurrentHashMap<String, ReentrantLock>`
-keyed by `compoundId`. Prevents concurrent adaptations when two steps in the
-same compound complete near-simultaneously. Lock is acquired before context
-building and released in a finally block.
+keyed by `caseId + ":" + compoundId`. Prevents concurrent adaptations
+within the same compound when two steps complete near-simultaneously.
 
-**In-flight step handling:** When building `AdaptationContext`, separates steps
-into completed / pending / running based on PlanItem status. RUNNING steps are
-included in context (so the LLM knows they're in progress) but never marked
-OBSOLETE. When a running step later completes, it triggers another adaptation
-cycle.
+**Lock map lifecycle:** Entries are removed when:
+- The compound reaches a terminal status (via
+  `CompoundCompletedEvent` listener)
+- The case reaches a terminal status (via `CaseStatusChangedHandler`)
+
+**Idempotency via generation counter:** Each compound tracks an
+`adaptationGeneration` (int, starts at 0, incremented on each adaptation).
+After acquiring the per-compound lock, the evaluator re-checks the
+generation against the value captured when the event was triggered. If
+changed, a concurrent adaptation already ran — skip to avoid redundant
+LLM calls and PlanItem churn.
 
 **Completed step output reconstruction:** Queries `EventLogRepository` for
-`WORKER_EXECUTION_COMPLETED` events matching the compound's binding names.
-Extracts output from EventLog payload. Same approach as
-`CbrCaseRetainObserver` for plan trace reconstruction.
+events with `eventType = WORKER_EXECUTION_COMPLETED` matching the case ID.
+Extracts output from EventLog payload. The `WORKER_EXECUTION_COMPLETED`
+event type and its payload structure are shared via `CaseHubEventType`
+(common module) — no runtime-module dependency for parsing.
 
 **Timeout:** Reuses `casehub.engine.decomposition.timeout-ms` (default 30000).
-Per-revision — one timeout doesn't block other compounds. Graceful degradation:
-on timeout or failure, existing plan continues unmodified, warning logged.
-
-**Idempotency:** The per-compound lock serializes evaluations. After acquiring
-the lock, re-checks whether the triggering step is still relevant (hasn't been
-obsoleted by a concurrent adaptation that completed just before lock
-acquisition).
-
-### Call site integration
-
-`PlanItemCompletionHandler` (planning module) — after marking PlanItem
-COMPLETED, before calling `CompoundCompletionEvaluator`:
-
-```java
-// Existing: mark PlanItem COMPLETED
-planItemStore.updateStatus(planItemId, TaskStatus.COMPLETED, tenancyId);
-
-// NEW: evaluate adaptation if step is in a decomposed compound
-if (planAdaptationEvaluator.isResolvable()) {
-    planAdaptationEvaluator.get().evaluateAdaptation(
-        caseInstance, definition, context, bindingName, outcome);
-}
-
-// Existing: evaluate compound completion
-completionEvaluator.evaluate(caseId, tenancyId, plan, changedItemId);
-```
-
-The adaptation evaluator is injected via `Instance<PlanAdaptationEvaluator>` —
-transparent no-op when the planning module is absent.
 
 ## CaseDefinition Configuration
 
-`CaseDefinition` gains:
-- `adaptationTrigger` (String, nullable) — strategy ID for `AdaptationTrigger`
-- `planRevisionStrategy` (String, nullable) — strategy ID for
-  `PlanRevisionStrategy`
+`CaseDefinition` gains `adaptationConfig` (nullable `AdaptationConfig`):
 
-Both nullable — null means adaptation is disabled.
+```java
+public record AdaptationConfig(
+    String trigger,
+    String revision
+)
+```
+
+Null means adaptation is disabled. Groups the two strategy IDs as a single
+conceptual unit, following the established pattern of `ReflectionTriggerConfig`,
+`MemoryRetrievalConfig`, `CbrConfig`.
 
 Builder:
 ```java
 CaseDefinition.builder()
     .decompositionStrategy("llm")
-    .adaptationTrigger("every-step")
-    .planRevisionStrategy("forward-replan")
+    .adaptationConfig(new AdaptationConfig("every-step", "forward-replan"))
     .build();
 ```
 
@@ -388,9 +427,9 @@ config fall back to defaults (`every-step` and `forward-replan` respectively).
 
 ### Validation
 
-- `adaptation` without `decompositionStrategy` → warning log (adaptation
-  requires initial decomposition to produce a compound to adapt)
-- Unknown preset name → build-time `IllegalArgumentException`
+- `adaptation` without `decompositionStrategy` → warning log at parse time
+  (adaptation requires initial decomposition to produce a compound to adapt)
+- Unknown preset name → `IllegalArgumentException` at build time
 - Absent `adaptation` → no adaptation (default, opt-in)
 
 ## EventLog Audit
@@ -408,6 +447,7 @@ Metadata:
 - `newStepCount` — number of new steps materialised
 - `obsoletedSteps` — list of planItemIds marked OBSOLETE
 - `materializedSteps` — list of new planItemIds created
+- `adaptationGeneration` — the generation counter after this adaptation
 - `rationale` — LLM's explanation for the revision (nullable)
 
 ## Module Placement
@@ -418,29 +458,32 @@ Metadata:
 | `PlanRevisionStrategy` | engine-api | Consumer-implementable NamedStrategy SPI |
 | `AdaptationSignal`, `AdaptationCause` | engine-api | SPI result types |
 | `AdaptationContext`, `CompletedStep` | engine-api | SPI parameter types |
+| `PlanStepDescriptor` | engine-api | SPI-level plan step representation |
 | `RevisionContext`, `RevisedPlan` | engine-api | SPI parameter/result types |
+| `AdaptationConfig` | engine-api | CaseDefinition config record |
 | `PlanAdaptationEvaluator` (SPI) | common/spi | Cross-module SPI |
 | `DefaultPlanAdaptationEvaluator` | planning | Execution infrastructure |
-| `PlanMaterializer` | planning | Shared internal utility |
 | `EveryStepTrigger` | planning | Built-in strategy |
 | `OnFailureTrigger` | planning | Built-in strategy |
 | `ForwardReplanRevision` | planning | Built-in strategy |
 | `PLAN_ADAPTED` event type | common | Event constant |
 
-**`EngineStrategyResolver` update required:** Adding `AdaptationTrigger` and
-`PlanRevisionStrategy` as new strategy SPI types requires updating
-`EngineStrategyResolver`'s constructor with per-domain `Instance<>` injection
-(per GE-20260704-d6aacc). Two new injected fields and resolution branches.
+**`EngineStrategyResolver`:** The catch-all `@Any Instance<NamedStrategy>`
+with `registerRemainingStrategies()` auto-discovers new `NamedStrategy`
+implementations. Explicit per-type `Instance<>` injections are a best
+practice for build-time pruning reliability but not functionally required.
+Add explicit injections for `AdaptationTrigger` and `PlanRevisionStrategy`
+as a best-practice addition, not a blocking prerequisite.
 
 ## Testing
 
 ### Unit tests
 
 1. **`AdaptationTriggerTest`** — tests for each trigger:
-   - `EveryStepTrigger` always returns `Proceed` with correct cause type
-   - `OnFailureTrigger` returns `Proceed` only for non-success outcomes
-   - `OnFailureTrigger` returns `Skip` for success outcomes
-   - Both produce correct `AdaptationCause` variant
+   - `EveryStepTrigger` always returns `Proceed`
+   - `OnFailureTrigger` returns `Proceed` for FAULTED, REJECTED, CANCELLED
+   - `OnFailureTrigger` returns `Skip` for COMPLETED
+   - Both handle all TaskStatus values without exceptions
 
 2. **`ForwardReplanRevisionTest`** — LLM interaction:
    - Produces RevisedPlan from structured response
@@ -448,64 +491,75 @@ Metadata:
    - Handles empty response (no steps needed)
    - No-op when ChatModelProvider absent
    - Invalid JSON → Uni failure
-   - Unknown capabilities filtered (same as LlmDecompositionStrategy)
+   - Unknown capabilities filtered
 
-3. **`PlanMaterializerTest`** — shared materialisation:
-   - `materialise()` creates PlanItemDefinitions and PlanItems correctly
-   - `obsoletePending()` marks only PENDING/AVAILABLE items OBSOLETE
-   - `obsoletePending()` leaves COMPLETED and RUNNING items untouched
-   - `obsoletePending()` removes items from CasePlanModel
+3. **`CasePlanModelReplaceCompoundTest`** — compound replacement:
+   - `replaceCompound()` unregisters old children from all index structures
+   - `replaceCompound()` registers new compound with updated scopedBindings
+   - New children visible to `PlanningStrategyLoopControl` dispatch
+   - Completed children preserved across replacement
+   - Running children preserved across replacement
+   - Generation counter incremented
+   - `CompoundCompletionEvaluator` evaluates revised children correctly
 
 4. **`DefaultPlanAdaptationEvaluatorTest`** — orchestrator logic:
    - Skips when completedBindingName is not in a decomposed compound
-   - Skips when adaptation not configured (no trigger/revision on definition)
+   - Skips when adaptation not configured (null adaptationConfig)
    - Calls trigger → Skip → no revision called
    - Calls trigger → Proceed → calls revision → applies result
-   - Obsoletes pending steps before materialising new ones
-   - Leaves RUNNING steps untouched during adaptation
+   - Compound definition replaced (not mutated) with new scopedBindings
+   - Pending PlanItems marked OBSOLETE
+   - Running PlanItems untouched
+   - Completed PlanItems untouched
    - Writes PLAN_ADAPTED EventLog with correct metadata
-   - Per-compound lock prevents concurrent adaptation
-   - Timeout → existing plan continues, warning logged
+   - Per-compound lock prevents concurrent adaptation (caseId:compoundId key)
+   - Lock key does not collide across cases with same goal name
+   - Semaphore bounds concurrent adaptations
+   - Semaphore timeout → adaptation skipped with warning
+   - Generation counter prevents redundant LLM calls
+   - Timeout → graceful degradation (existing plan continues)
    - Exception isolation → existing plan continues, warning logged
-   - Re-checks step relevance after acquiring lock (idempotency)
+   - Lock map entries cleaned up on compound/case completion
 
 5. **`CaseDefinitionYamlMapperTest`** — YAML parsing:
    - Parses explicit adaptation config (trigger + revision)
    - Parses preset shorthand (`adaptation: adaptive`)
    - Parses preset shorthand (`adaptation: conservative`)
-   - Missing adaptation → null fields
+   - Missing adaptation → null AdaptationConfig
    - Adaptation without decompositionStrategy → warning
    - Unknown preset → error
    - Partial explicit config → defaults for missing fields
 
-6. **`AdaptationContextTest`**, **`CompletedStepTest`**, **`RevisedPlanTest`**:
+6. **`AdaptationConfigTest`**, **`PlanStepDescriptorTest`**,
+   **`CompletedStepTest`**, **`RevisedPlanTest`**:
    - Record validation, null checks, immutability
 
 ### Integration test
 
 7. **`PlanAdaptationIntegrationTest`** (`@QuarkusTest`):
    - Full flow: case with goals + LLM strategy + adaptation → start → step
-     completes → adaptation fires → pending steps replaced → new steps execute
+     completes → adaptation fires → compound replaced → new steps dispatch
+     → compound completes
    - Mock `ChatModelProvider` with canned JSON (initial plan + revised plan)
    - EventLog contains both `GOAL_DECOMPOSED` and `PLAN_ADAPTED`
    - Compound completes when revised plan finishes
    - Verify OBSOLETE steps are not re-dispatched
-
-8. **`GoalDecomposerRefactoringTest`** — regression:
-   - Existing GoalDecomposer tests still pass after PlanMaterializer extraction
-   - Same PlanItems created, same EventLog entries
+   - Verify new steps visible to dispatch loop via updated scopedBindings
 
 ## Scope Boundaries
 
 **In scope:**
 - `AdaptationTrigger` + `PlanRevisionStrategy` SPIs (engine-api)
-- `PlanAdaptationEvaluator` SPI + `DefaultPlanAdaptationEvaluator` (common + planning)
-- `EveryStepTrigger`, `OnFailureTrigger` (planning)
-- `ForwardReplanRevision` (planning)
-- `PlanMaterializer` extraction from GoalDecomposer (planning)
+- `PlanStepDescriptor` (engine-api) — SPI-level plan step type
+- `AdaptationConfig` (engine-api) — config record
+- `PlanAdaptationEvaluator` SPI + `DefaultPlanAdaptationEvaluator`
+- `EveryStepTrigger`, `OnFailureTrigger`, `ForwardReplanRevision`
+- `CasePlanModel.replaceCompound()` — compound replacement
 - CaseDefinition config + YAML + presets
 - EventLog audit (`PLAN_ADAPTED`)
-- Per-compound locking
+- Bounded concurrency (semaphore + per-compound lock)
+- Generation-based idempotency
+- Lock map lifecycle cleanup
 - In-flight step handling
 
 **v1 constraints (deliberate):**
@@ -522,3 +576,24 @@ Metadata:
 - Parallel plan adaptation (non-linear compounds)
 - Adaptation cost budgeting (limit LLM calls per case)
 - Adaptation history visualization / REST endpoints
+
+## Review Findings Addressed
+
+Summary of design-review findings incorporated in this revision:
+
+| Finding | Resolution |
+|---------|-----------|
+| Compound immutability (Rob R1-01, R1-02) | `replaceCompound()` — atomic compound replacement |
+| GoalStep in engine-api (Coh R1-01, Str R1-01) | `PlanStepDescriptor` — clean api-level type |
+| Call site data availability (all dimensions) | Thin SPI: `(caseId, tenancyId, bindingName, status)` |
+| AdaptationCause in wrong place (Str R1-04) | Orchestrator constructs cause; trigger returns Proceed/Skip |
+| Config pattern (Str R1-05) | `AdaptationConfig` record follows established pattern |
+| Lock key collision (Rob R1-04) | Key = `caseId + ":" + compoundId` |
+| Thread starvation (Rob R1-05, XC R1-01) | Semaphore-bounded concurrency, synchronous execution |
+| Lock map unbounded (Str R1-06, Rob R1-08) | Lifecycle cleanup on compound/case completion |
+| Idempotency (Rob R1-06) | Generation counter per compound |
+| OnFailureTrigger terminology (Coh R1-04) | Uses actual TaskStatus enum values |
+| Shared materialisation unsound (XC R1-03) | Replaced with compound replacement; no shared PlanMaterializer |
+| AgentMemoryRetriever circularity (Coh R1-03) | Invalid — planning already depends on runtime (XC R1-06) |
+| EngineStrategyResolver (XC R1-07) | Auto-discovers; explicit injection is best-practice only |
+| Failure degradation (Rob R1-07) | Failure-triggered: existing OutcomePolicy handles faulted step |
