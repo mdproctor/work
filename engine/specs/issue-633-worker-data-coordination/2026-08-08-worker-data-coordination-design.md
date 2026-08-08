@@ -606,10 +606,11 @@ workers:
 | Type | Description |
 |------|-------------|
 | `Exchange<T>` | Immutable data envelope |
+| `ExchangeAwareFunction<T,R>` | Marker interface — `bodyInputType()`/`bodyOutputType()` |
 | `ChannelRef<T>` | Serializable channel reference |
 | `DataChannel<T>` | Minimal interface — send, receive, close |
 | `ChannelClosedException` | Runtime exception |
-| `WorkerFunction.ExchangeProcessor<T,R>` | New WorkerFunction variant |
+| `WorkerFunction.ExchangeProcessor<T,R>` | New WorkerFunction variant (implements `ExchangeAwareFunction`) |
 | `ExchangeProcessorBuilder<T>` | Builder (mirrors TypedFunctionBuilder) |
 
 `WorkerScope` gains `channel(String)`, `channel(ChannelRef)`, `createChannel(String, Class)` as default methods.
@@ -629,7 +630,7 @@ workers:
 | Type | Description |
 |------|-------------|
 | `DataChannelRegistry` | Per-case channel tracking |
-| `InMemoryDataChannel<T>` | Bounded buffer + Multi |
+| `InMemoryDataChannel<T>` | Bounded `BlockingQueue` + blocking receive |
 | `InMemoryDataChannelFactory` | `@DefaultBean`, id `"in-memory"` |
 | `DualWriteProjection` | `@DefaultBean`, id `"dual-write"` |
 | `ExchangeOnlyProjection` | id `"exchange-only"` |
@@ -661,15 +662,16 @@ Handler changes (additive — Exchange-aware branches alongside existing paths):
 ### Dependency flow
 
 ```
-casehub-worker-api          ← Exchange, DataChannel, ChannelRef, ExchangeProcessor
+casehub-worker-api          ← Exchange, DataChannel, ChannelRef, ExchangeAwareFunction, ExchangeProcessor
     ↑
 casehub-engine-api          ← ExchangeProjectionStrategy, DataChannelFactory
     ↑
 casehub-engine-common       ← DataChannelRegistry, InMemoryDataChannel, projections
-    ↑
+    ↑               ↑
+    │               └─── casehub-workers-camel  ← CamelExchangeAdapter, CamelExchangeWorkerFunction
+    │                    (depends on engine-common via workers-common, NOT engine-runtime)
+    │
 casehub-engine (runtime)    ← handler changes, WorkerRuntime overrides
-    ↑
-casehub-workers-camel       ← CamelExchangeAdapter, CamelExchangeWorkerFunction
 ```
 
-No circular dependencies. Foundation tier has zero engine knowledge.
+No circular dependencies. Foundation tier has zero engine knowledge. `workers-camel` depends on `engine-api` and `engine-common` (via `workers-common`) — it does NOT depend on `engine (runtime)`.
