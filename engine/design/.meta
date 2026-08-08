@@ -1,0 +1,10 @@
+branch: issue-633-worker-data-coordination
+state: scaffolded
+project-sha: slot-creation
+date: 2026-08-07
+issue: 633
+issue-repo: casehubio/engine
+covers: 633
+flyway-next-v: unknown
+design-repo: project
+design-section-hashes: 
