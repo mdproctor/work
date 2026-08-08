@@ -2,11 +2,13 @@
 
 ## Last Session
 
-Designed and partially implemented #803 plan adaptation. Brainstormed orthogonal AdaptationTrigger + PlanRevisionStrategy SPIs, wrote spec, ran 4-dimension design review (29 findings — critical: compound scopedBindings immutability, shared materialisation unsound). Revised spec with compound replacement, thin SPI signature, bounded concurrency. Completed implementation tasks 1-3 of 6: SPI types (engine-api), CasePlanModel.replaceCompound() (planning), built-in strategies (EveryStepTrigger, OnFailureTrigger, ForwardReplanRevision).
+Completed #803 plan adaptation — all 6 implementation tasks done. Tasks 1-3 (from prior session): SPI types in engine-api, CasePlanModel.replaceCompound() in planning, built-in strategies (EveryStepTrigger, OnFailureTrigger, ForwardReplanRevision). Tasks 4-6 (this session): DefaultPlanAdaptationEvaluator orchestrator with semaphore-bounded concurrency and per-compound locks, call site wiring in PlanItemCompletionHandler and WorkerRetryExhaustionHandler, YAML `adaptation:` block parsing with presets (adaptive/conservative/off), lock lifecycle cleanup via @ConsumeEvent on COMPOUND_COMPLETED.
+
+All tests pass: 55 planning module tests, 974 api module tests.
 
 ## Immediate Next Step
 
-Continue #803 implementation — tasks 4-6 remain: DefaultPlanAdaptationEvaluator orchestrator, call site wiring + YAML mapping, integration test + lock lifecycle cleanup. Run `/work` to resume.
+#803 implementation is complete. Run `/work next` to advance to #806 (goal revision), or `/work end` to close the branch if this was the only target.
 
 ## References
 
