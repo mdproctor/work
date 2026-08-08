@@ -17,6 +17,15 @@ Workers currently have one data coordination path: the Blackboard (CaseContext) 
 
 All three patterns operate across all tiers: Tier 1 (in-worker composition), Tier 2 (binding-driven), and Tier 3 (cross-case SubCase delegation). Workers that don't use DataExchange or DataChannel work exactly as before.
 
+### Scope reconciliation with engine#633
+
+Issue #633 references `EndpointRegistry (casehub-platform) provides physical addressing for distributed DataChannels` and brainstorming origin `casehubio/casehub-desiredstate#28`. This spec covers the core patterns (Exchange, DataChannel) with in-memory transport. Explicitly deferred:
+
+- **EndpointRegistry-backed transport** — a `DataChannelFactory` implementation that uses `EndpointRegistry` for physical addressing of distributed DataChannels. Tracked separately; the SPI (`DataChannelFactory extends NamedStrategy`) is designed to accommodate it without changes.
+- **Kafka/AMQP transport** — additional `DataChannelFactory` implementations. Same SPI extensibility.
+
+The `DataChannelFactory` SPI is the extension point for all transport backends. This spec delivers the in-memory implementation and the SPI contract; distributed transports are additive and don't require design changes to the core model.
+
 ## Design Decisions
 
 1. **Native types, not Camel.** Exchange/Channel are built native to casehub's execution model (immutable records, WorkerResult outcomes, EventLog audit, NamedStrategy transport). A Camel adapter bridges at the boundary for route-backed workers. Rationale: Camel's mutable Exchange fights platform conventions; Camel's routing engine overlaps with casehub's binding model; the gap is inter-worker coordination, not intra-worker integration.
@@ -317,7 +326,7 @@ public interface DataChannelFactory extends NamedStrategy {
 ```
 
 **InMemoryDataChannelFactory** (`engine-common`, `@DefaultBean @ApplicationScoped`, id `"in-memory"`):
-- Backed by bounded buffer with Mutiny `Multi` adapter
+- Backed by bounded `BlockingQueue` (virtual-thread-safe)
 - Configurable buffer size (default 1024) for backpressure
 - Zero external dependencies
 
@@ -647,7 +656,7 @@ Handler changes (additive — Exchange-aware branches alongside existing paths):
 - `WorkflowExecutionCompletedHandler` — apply projection strategy, store headers
 - `CaseStatusChangedHandler` — channel teardown on terminal state
 - `ScopedWorkerTerminationHandler` — compound-scoped channel teardown
-- `DefaultWorkerRuntime` — channel()/createChannel() overrides
+- `DefaultWorkerRuntime` — `execute()` gains `ExchangeAwareFunction` branch for Tier 1 Exchange execution; `channel()`/`createChannel()` overrides
 - `EngineStrategyResolver` — ExchangeProjectionStrategy + DataChannelFactory instances
 
 ### `casehubio/workers` — `workers-camel`
