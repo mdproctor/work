@@ -23,9 +23,9 @@ All three patterns operate across all tiers: Tier 1 (in-worker composition), Tie
 
 2. **Exchange is a pure data envelope.** No ID (value type), no exception state (WorkerOutcome handles this), no separate Message type (Exchange IS the message). Cleaner separation than Camel — data and outcome are distinct.
 
-3. **New WorkerFunction variant.** `ExchangeProcessor<T, R>` carries `bodyInputType`/`bodyOutputType` for ContextBridge resolution at serialization boundaries. The engine detects `instanceof ExchangeProcessor` to thread Exchange metadata across bindings.
+3. **New WorkerFunction variant.** `ExchangeProcessor<T, R>` implements `ExchangeAware<T, R>` — a marker interface with `bodyInputType()`/`bodyOutputType()` for ContextBridge resolution at serialization boundaries. The engine detects `instanceof ExchangeAware` to thread Exchange metadata across bindings. `CamelExchangeWorkerFunction` also implements `ExchangeAware`, giving a single detection point for all Exchange-aware function types.
 
-4. **Channel as `Multi<Exchange<T>>`.** Exchange is the universal atom; Channel streams them. Unified type model.
+4. **Channel as blocking `Exchange<T>`.** Exchange is the universal atom; Channel streams them via a blocking virtual-thread-safe API. No reactive framework dependency in the foundation tier.
 
 5. **Blackboard projection is a composable strategy.** Per-binding `ExchangeProjectionStrategy` (NamedStrategy) determines what reaches the Blackboard. Default `DualWrite` — backward compatible.
 
@@ -96,11 +96,31 @@ public record Exchange<T>(
 - **Properties** do NOT propagate across bindings. Scoped to Tier 1 chains (`WorkerFunctions.exchangeSequence()`). Pipeline-local state: loop counters, accumulated results, routing decisions.
 - **Body** is the payload. Any type: POJO, `Path` (file reference), `URI` (remote reference), `ChannelRef<T>` (stream reference).
 
+### Null body semantics
+
+A null body is valid. An Exchange with null body and non-empty headers serves as a signal-only envelope — the metadata IS the data. `withBody(null)` is legal; ContextBridge serialization skips body serialization when body is null; JQ expressions against `.body` yield `null`. The compact constructor does NOT reject null bodies — this is intentional, not an omission.
+
 ### What Exchange is NOT
 
 - Not an entity — no ID, no lifecycle. Pure value type. Two Exchanges with same fields are equal.
 - Not a result — no exception state. `WorkerResult<Exchange<R>>` carries outcome semantics.
 - Not a message container — no IN/OUT split. Workers receive Exchange, return `WorkerResult<Exchange<R>>`.
+
+## ExchangeAwareFunction — Engine Detection Interface
+
+**Module:** `casehub-worker-api` (foundation tier)
+**Package:** `io.casehub.worker.api`
+
+All Exchange-typed `WorkerFunction` variants implement this interface. The engine uses `instanceof ExchangeAwareFunction` to gate Exchange-aware behavior: building Exchange from input projection, serializing Exchange metadata to EventLog, threading headers across bindings, and applying projection strategy.
+
+```java
+public interface ExchangeAwareFunction<T, R> extends WorkerFunction<Exchange<T>, Exchange<R>> {
+    Class<T> bodyInputType();
+    Class<R> bodyOutputType();
+}
+```
+
+This separates the detection mechanism from any specific variant. Both `WorkerFunction.ExchangeProcessor` (core, `casehub-worker-api`) and `CamelExchangeWorkerFunction` (Camel adapter, `workers-camel`) implement `ExchangeAwareFunction`, ensuring all Exchange-typed workers get engine-level Exchange handling regardless of their dispatch mechanism.
 
 ## WorkerFunction.ExchangeProcessor
 
@@ -116,7 +136,7 @@ public interface WorkerFunction<T, R> {
         Class<T> bodyInputType,
         Class<R> bodyOutputType,
         BiFunction<Exchange<T>, WorkerScope, WorkerResult<Exchange<R>>> fn
-    ) implements WorkerFunction<Exchange<T>, Exchange<R>> {
+    ) implements ExchangeAwareFunction<T, R> {
 
         public ExchangeProcessor {
             Objects.requireNonNull(bodyInputType);
@@ -136,7 +156,7 @@ public interface WorkerFunction<T, R> {
 ### Why a new variant (not `Sync<Exchange<T>, Exchange<R>>`)
 
 - `bodyInputType()` / `bodyOutputType()` → ContextBridge resolution at EventLog serialization boundaries. Engine serializes the body via the appropriate bridge, not the whole Exchange.
-- `instanceof ExchangeProcessor` → engine branches to thread Exchange headers across binding dispatches, apply projection strategy, store Exchange metadata in EventLog.
+- `instanceof ExchangeAwareFunction` → engine branches to thread Exchange headers across binding dispatches, apply projection strategy, store Exchange metadata in EventLog. The detection uses `ExchangeAwareFunction` (not `ExchangeProcessor` directly) so that all Exchange-typed variants — including `CamelExchangeWorkerFunction` — get the same engine treatment.
 - Builder DSL distinguishes Exchange and non-Exchange paths at construction time.
 
 ### Builder DSL
@@ -173,14 +193,38 @@ Worker.builder()
 ```java
 public static <T> WorkerFunction.ExchangeProcessor<T, T> exchangeSequence(
     WorkerFunction.ExchangeProcessor<?, ?>... steps) {
+    // Construction-time validation: for i in 0..n-2, asserts
+    //   steps[i].bodyOutputType() == steps[i+1].bodyInputType()
+    // Throws IllegalArgumentException with step indices and mismatched types on failure.
+    //
+    // Runtime behavior:
     // Chains steps: output Exchange body feeds next step's input.
     // Headers accumulate (merge across steps).
-    // Properties reset per step (don't propagate).
+    // Properties accumulate (merge across steps) — pipeline-local state.
     // Short-circuits on non-Success outcome.
 }
 ```
 
+Type-safe binary composition for compile-time checking:
+
+```java
+// On ExchangeProcessor<T, R>:
+public <S> ExchangeProcessor<T, S> andThen(ExchangeProcessor<R, S> next) {
+    // Returns a composed ExchangeProcessor<T, S> that chains this → next.
+    // bodyInputType = this.bodyInputType, bodyOutputType = next.bodyOutputType.
+    // Compile-time type-safe: R must match at both sites.
+}
+```
+
+`andThen()` is preferred for pipelines where types vary between steps. `exchangeSequence()` remains for homogeneous pipelines (`ExchangeProcessor<T, T>`) and for dynamic step lists, with construction-time validation as a safety net.
+
 ## DataChannel
+
+### Distinction from CaseChannel
+
+`CaseChannel` (`io.casehub.api.model`) is a Qhorus-backed messaging reference for human–worker communication — oversight messages, governance decisions, structured messages with types, correlation IDs, deadlines, and targets. Managed by `CaseChannelProvider` SPI. These are communication channels, not data pipes.
+
+`DataChannel` (`io.casehub.worker.api`) is a typed streaming pipe for worker-to-worker data flow — continuous records with backpressure. Different concept, different package, different lifecycle. The names are intentionally distinct: `CaseChannel` (communication) vs `DataChannel` (data streaming).
 
 ### Foundation tier (`casehub-worker-api`)
 
@@ -189,13 +233,15 @@ Minimal interface — transport-agnostic:
 ```java
 public interface DataChannel<T> extends AutoCloseable {
     void send(Exchange<T> exchange);
-    Multi<Exchange<T>> receive();
+    Exchange<T> receive();
     boolean isClosed();
     @Override void close();
 }
 ```
 
-`send()` blocks under backpressure (virtual-thread-safe). `receive()` returns a Mutiny `Multi` — backpressure propagated by the reactive stream. `close()` terminates both ends: pending `send()` calls get `ChannelClosedException`, `receive()` Multi completes.
+`send()` blocks under backpressure (virtual-thread-safe). `receive()` blocks until the next Exchange is available; returns `null` when the channel is closed (virtual-thread-safe). `close()` terminates both ends: pending `send()` calls get `ChannelClosedException`, blocking `receive()` calls return `null`.
+
+No reactive framework dependency — both `send()` and `receive()` are blocking calls, natural on virtual threads. The engine's `InMemoryDataChannel` implementation uses a bounded `BlockingQueue` internally; alternative transports (Kafka, AMQP) can implement `DataChannel<T>` with their own blocking receive.
 
 ### ChannelRef — serializable channel reference
 
@@ -211,7 +257,7 @@ public record ChannelRef<T>(String name, Class<T> recordType) implements Seriali
 }
 ```
 
-Follows the `DataRef` pattern — a serializable pointer that the engine resolves to a live `DataChannel<T>` at runtime. Can be an Exchange body type: Worker A creates a channel, passes `ChannelRef` to Worker B via Exchange or Blackboard, Worker B resolves it.
+A serializable pointer that the engine resolves to a live `DataChannel<T>` at runtime. Structurally simpler than `DataRef` (no source field, no JSON serialization protocol) — it is a name + type pair, not a cross-source reference. Can be an Exchange body type: Worker A creates a channel, passes `ChannelRef` to Worker B via Exchange or Blackboard, Worker B resolves it.
 
 ### WorkerScope channel access
 
@@ -237,6 +283,31 @@ public interface WorkerScope {
 
 ### Engine tier — lifecycle and transport
 
+**ChannelDeclaration** (`engine-api`, record on `CaseDefinition`):
+
+```java
+public record ChannelDeclaration(
+    String name,
+    Class<?> recordType,
+    String transport,
+    LifecycleScope scope
+) {
+    public ChannelDeclaration {
+        Objects.requireNonNull(name);
+        Objects.requireNonNull(recordType);
+        if (name.isBlank()) throw new IllegalArgumentException("name must not be blank");
+        if (transport == null) transport = "in-memory";
+        if (scope == null) scope = LifecycleScope.CASE;
+        if (scope == LifecycleScope.BINDING) {
+            throw new IllegalArgumentException(
+                "BINDING scope is not valid for channels — channels must outlive a single binding execution. Use COMPOUND or CASE.");
+        }
+    }
+}
+```
+
+The `transport` field maps to a `DataChannelFactory` ID (e.g., `"in-memory"`, `"kafka"`). The `scope` field uses the existing `LifecycleScope` enum but rejects `BINDING` at construction time — a channel scoped to a single binding execution would be useless since it couldn't span producer and consumer bindings.
+
 **DataChannelFactory** (`engine-api`, extends `NamedStrategy`):
 
 ```java
@@ -252,13 +323,14 @@ public interface DataChannelFactory extends NamedStrategy {
 
 **DataChannelRegistry** (`engine-common`, `@ApplicationScoped`):
 - `ConcurrentHashMap<ChannelKey, DataChannel<?>>` where `ChannelKey = record(UUID caseId, String name)`
-- `getOrCreate(caseId, name, recordType, factoryId)` — idempotent creation
+- `getOrCreate(caseId, name, recordType, factoryId)` — idempotent creation. If a channel with the same `(caseId, name)` already exists, validates that the existing channel's `recordType` matches the requested type. Throws `IllegalArgumentException` on mismatch with a message identifying both types and the channel name — fails fast at resolution rather than producing a deferred `ClassCastException` at send/receive time.
+- `closeByExecution(caseId, executionId)` — teardown ad-hoc channels created during a specific worker execution
 - `closeByCase(caseId)` — bulk teardown on case terminal state
 - `closeByScope(caseId, scopeId)` — teardown on compound completion
 
 ### Channel lifecycle
 
-**Tier 1 (ad-hoc):** Worker calls `scope.createChannel("pipe", MyRecord.class)`. Registered in `DataChannelRegistry` scoped to the case. Lives until the worker function returns or the case terminates.
+**Tier 1 (ad-hoc):** Worker calls `scope.createChannel("pipe", MyRecord.class)`. Registered in `DataChannelRegistry` scoped to the case. `DefaultWorkerRuntime` tracks all channels created via `scope.createChannel()` during a worker execution. When the execution completes — regardless of outcome (success, failure, exception) — the runtime closes all ad-hoc channels created during that execution via `channelRegistry.closeByExecution(caseId, executionId)`. This prevents resource leaks from failed or retried workers. Case-terminal cleanup via `closeByCase()` remains as a backstop.
 
 **Tier 2/3 (declared):** Channel declared on `CaseDefinition`. Engine creates when the owning scope activates. Bindings declare produce/consume:
 
@@ -291,7 +363,7 @@ bindings:
     consumes: tx-stream
 ```
 
-**Scope lifecycle** reuses `LifecycleScope`:
+**Scope lifecycle** reuses `LifecycleScope` (BINDING excluded — rejected at `ChannelDeclaration` construction):
 - `CASE` (default): channel lives for case duration
 - `COMPOUND`: created when compound activates, closed when compound completes
 
@@ -312,7 +384,7 @@ var pipeline = WorkerFunctions.exchangeSequence(validate, enrich, format);
 WorkerResult<Exchange<Formatted>> result = scope.execute(pipeline, rawExchange);
 ```
 
-Properties reset between steps. Headers accumulate (merge). Short-circuit on non-Success.
+Properties accumulate (merge) across steps — pipeline-local state persists within the sequence. Headers also accumulate (merge). Short-circuit on non-Success.
 
 ### Tier 2: Binding-Driven Dispatch
 
@@ -321,7 +393,7 @@ Changes are additive — non-Exchange bindings untouched.
 ```
 CaseContext change
   → CaseContextChangedEventHandler.publishByTarget()
-      → [NEW] if worker function instanceof ExchangeProcessor:
+      → [NEW] if worker function instanceof ExchangeAwareFunction:
           1. Build Exchange from input projection (body) + accumulated headers
           2. Serialize Exchange to EventLog metadata (body via ContextBridge, headers as-is)
           3. Publish WorkerScheduleEvent with Exchange reference
@@ -332,7 +404,7 @@ CaseContext change
       → store in Quartz job data (body serialized via ContextBridge<bodyInputType>)
 
   → QuartzWorkerExecutionJob
-      → [NEW] if ExchangeProcessor: deserialize Exchange, invoke fn(exchange, scope)
+      → [NEW] if ExchangeAwareFunction: deserialize Exchange, invoke via WorkerFunctionHandler
       → [EXISTING] else: normal deserialization
 
   → WorkflowExecutionCompletedHandler
@@ -346,23 +418,22 @@ CaseContext change
 
 **Header threading across bindings:** When Binding A completes:
 - Body → optionally projected to Blackboard (per strategy)
-- Headers → stored in `CaseInstance` field `Map<String, Object> exchangeHeaders` (engine-managed, transient — not JPA-persisted in v1). Next Exchange-aware binding inherits these when building its input Exchange. Headers from successive bindings merge (last writer wins per key). Recovery after JVM restart replays from EventLog metadata (`exchangeHeaders` field).
+- Headers → merged into `CaseInstance` field `Map<String, Object> exchangeHeaders` under the same per-case `ReentrantLock` used by `ContextOutputApplier`. This ensures concurrent binding completions produce a consistent merge — header storage and context output application happen atomically per case. `exchangeHeaders` is JPA-persisted as a JSONB column on `CaseInstanceEntity` — the `pendingActionGate` transient pattern demonstrated that in-memory-only state causes stalling bugs on JVM restart. Next Exchange-aware binding inherits these when building its input Exchange. Headers from successive bindings merge (last writer wins per key).
 - Properties → discarded (Tier 1 only)
 
 **EventLog audit for Exchange-aware entries:** `exchangeHeaders`, `exchangeBodyType`, `projectionStrategy` added to EventLog metadata.
 
 ### Tier 3: SubCase Delegation
 
-`SubCaseMapping` gains an Exchange-aware variant:
+`SubCaseMapping` is unchanged — no new variant. Exchange data crosses the SubCase boundary through CaseContext, which the existing `SubCaseMapping.Expression` already operates on.
 
-```java
-public sealed interface SubCaseMapping permits Expression, Lambda, ExchangeMapping {
-    record ExchangeMapping(String bodyExpression, Set<String> headerKeys) implements SubCaseMapping {}
-}
-```
+When an Exchange-aware binding completes before a SubCase dispatch:
+1. The projection strategy writes Exchange body to CaseContext (under `DualWriteProjection` or `FullProjection`)
+2. Exchange headers are stored in `CaseInstance.exchangeHeaders` (engine-managed, JPA-persisted)
+3. `SubCaseMapping.Expression` evaluates against CaseContext — which now contains the projected body
+4. Headers that need to propagate to the child case are passed via the child's `PropagationContext`, not through SubCaseMapping
 
-- `bodyExpression` — JQ against Exchange body → child case input
-- `headerKeys` — which headers propagate to child (empty = none, null = all)
+This keeps `SubCaseMapping` Exchange-unaware. The sealed `permits Expression, Lambda` clause is unchanged.
 
 ### What stays the same
 
@@ -430,11 +501,34 @@ bindings:
       expression: "{ auditRecord: .body, source: .headers.sourceSystem }"
 ```
 
+### Projection failure semantics
+
+When `ExchangeProjectionStrategy.project()` throws:
+
+1. **Exchange threading proceeds** — headers are still merged into `CaseInstance.exchangeHeaders`. The Exchange is the primary data path; projection is secondary.
+2. **Blackboard is NOT modified** — projection runs against a defensive copy of the context. Only on success are the changes applied. A thrown exception leaves the Blackboard in its pre-projection state.
+3. **Binding is still marked complete** — the worker succeeded. Projection failure is a configuration error (bad JQ expression), not a worker error.
+4. **EventLog audits the failure** — `projectionFailed: true`, `projectionError: <message>` added to EventLog metadata.
+5. **CONTEXT_CHANGED is NOT published** (Blackboard unchanged) — downstream bindings don't fire from this projection. But the Exchange is threaded, so the next Exchange-aware binding still receives correct headers.
+
+This ensures that a bad JQ expression in `CustomJqProjection` cannot discard a successful worker's Exchange output or corrupt the Blackboard.
+
 ### Interaction with existing binding fields
 
 - `conflictResolverStrategy` — applies to projected body under DualWrite/Full. ExchangeOnly bypasses.
 - `producedKeys` — documents keys produced (Exchange headers for audit when ExchangeOnly).
 - `outputSchema` (capability output projection) — applied to Exchange body before projection strategy. Headers pass through.
+
+### Strategy × ConflictResolver composition
+
+| exchangeProjection | conflictResolverStrategy applies to | Headers destination | Notes |
+|---|---|---|---|
+| `dual-write` | Projected body keys | `CaseInstance.exchangeHeaders` (not CaseContext) | Default strategy; body and Exchange coexist |
+| `exchange-only` | N/A (no body projection) | `CaseInstance.exchangeHeaders` | ConflictResolver is bypassed entirely |
+| `full` | Projected body keys only | `_exchange.<binding>.headers` namespace in CaseContext | Reserved namespace never conflicts; ConflictResolver applies only to body |
+| `jq` | JQ expression result keys | `CaseInstance.exchangeHeaders` | JQ expression determines which keys are written; ConflictResolver applies to those keys |
+
+**ContextBridge usage for Exchange body serialization:** Only `serialise(T)` and `deserialise(JsonNode)` from `ContextBridge<T>` are used at Exchange body serialization boundaries (EventLog persistence, Quartz job data). `initialise(CaseContext, JsonNode)` is not invoked in this path — Exchange bodies are standalone values, not CaseContext derivatives. The engine resolves the bridge via `bodyInputType()`/`bodyOutputType()` from `ExchangeAwareFunction`, not from the binding's context bridge configuration.
 
 ## Camel Adapter
 
@@ -478,7 +572,7 @@ public record CamelExchangeWorkerFunction<T, R>(
     Class<T> bodyInputType,
     Class<R> bodyOutputType,
     String routeUri
-) implements WorkerFunction<Exchange<T>, Exchange<R>> {
+) implements ExchangeAwareFunction<T, R> {
     @Override @SuppressWarnings("unchecked")
     public Class<Exchange<T>> inputType() { return (Class) Exchange.class; }
     @Override @SuppressWarnings("unchecked")
