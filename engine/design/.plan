@@ -1,11 +1,11 @@
 # Work Plan — engine-800-subepics-bc
 
 ## Queue
-- [ ] #803 — Plan adaptation — revise active plans based on new observations ← active
-- [ ] #806 — Goal revision — modify goal parameters based on outcomes
+- [x] #803 — Plan adaptation — revise active plans based on new observations
+- [ ] #806 — Goal revision — modify goal parameters based on outcomes ← active
 - [ ] #805 — Goal formation — agents discover new goals from experience
 - [ ] #808 — Goal discovery from memory — reflection surfaces new objectives
 
 ## Session State
-Current: #803 — Plan adaptation — revise active plans based on new observations
+Current: #806 — Goal revision — modify goal parameters based on outcomes
 Started: 2026-08-07
