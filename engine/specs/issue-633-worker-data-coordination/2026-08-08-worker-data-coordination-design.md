@@ -15,7 +15,7 @@ Workers currently have one data coordination path: the Blackboard (CaseContext) 
 | 2 | DataExchange | 1 → 1 | Discrete payload handoff with metadata |
 | 3 | DataChannel | 1 → 1 | Continuous streaming pipe with backpressure |
 
-All three patterns operate across all tiers: Tier 1 (in-worker composition), Tier 2 (binding-driven), and Tier 3 (cross-case SubCase delegation). Workers that don't use DataExchange or DataChannel work exactly as before.
+DataExchange operates across all three tiers: Tier 1 (in-worker composition), Tier 2 (binding-driven), and Tier 3 (cross-case SubCase delegation). DataChannel operates at Tiers 1 and 2; cross-case channels (Tier 3) require EndpointRegistry-backed transport, deferred to the distributed channel spec. Workers that don't use DataExchange or DataChannel work exactly as before.
 
 ### Scope reconciliation with engine#633
 
@@ -222,6 +222,9 @@ public <S> ExchangeProcessor<T, S> andThen(ExchangeProcessor<R, S> next) {
     // Returns a composed ExchangeProcessor<T, S> that chains this → next.
     // bodyInputType = this.bodyInputType, bodyOutputType = next.bodyOutputType.
     // Compile-time type-safe: R must match at both sites.
+    // Headers accumulate (merge across steps) — same semantics as exchangeSequence().
+    // Properties accumulate (merge across steps) — same semantics as exchangeSequence().
+    // Short-circuits on non-Success outcome.
 }
 ```
 
@@ -440,9 +443,11 @@ When an Exchange-aware binding completes before a SubCase dispatch:
 1. The projection strategy writes Exchange body to CaseContext (under `DualWriteProjection` or `FullProjection`)
 2. Exchange headers are stored in `CaseInstance.exchangeHeaders` (engine-managed, JPA-persisted)
 3. `SubCaseMapping.Expression` evaluates against CaseContext — which now contains the projected body
-4. Headers that need to propagate to the child case are passed via the child's `PropagationContext`, not through SubCaseMapping
+4. Exchange headers propagate to the child case via `CaseInstance.exchangeHeaders` — the engine copies the parent's `exchangeHeaders` to the child's `CaseInstance` at case launch time. `PropagationContext` is NOT used for Exchange header propagation: `PropagationContext.inheritedAttributes` is `Map<String, String>` (tracing/budget context), while Exchange headers are `Map<String, Object>` — these are semantically and structurally distinct concerns
 
 This keeps `SubCaseMapping` Exchange-unaware. The sealed `permits Expression, Lambda` clause is unchanged.
+
+**Forward-only limitation (v1):** Exchange headers propagate parent → child only. When the child case completes, `SubCaseMapping.outputMapping` maps CaseContext data back to the parent, but child `exchangeHeaders` are NOT merged back to the parent. Parent bindings that depend on Exchange headers accumulated by child workers require a return-path mechanism — deferred and tracked separately.
 
 ### What stays the same
 
@@ -519,8 +524,9 @@ When `ExchangeProjectionStrategy.project()` throws:
 3. **Binding is still marked complete** — the worker succeeded. Projection failure is a configuration error (bad JQ expression), not a worker error.
 4. **EventLog audits the failure** — `projectionFailed: true`, `projectionError: <message>` added to EventLog metadata.
 5. **CONTEXT_CHANGED is NOT published** (Blackboard unchanged) — downstream bindings don't fire from this projection. But the Exchange is threaded, so the next Exchange-aware binding still receives correct headers.
+6. **PROJECTION_FAILED case event published** — a `CaseHubEventType.PROJECTION_FAILED` event is published via the event bus with metadata: binding name, strategy ID, error message. This is distinct from the EventLog audit entry (passive, per-binding) — the case-level event enables monitoring infrastructure to detect projection failures that could stall downstream processing, particularly SubCase triggers that depend on projected CaseContext data.
 
-This ensures that a bad JQ expression in `CustomJqProjection` cannot discard a successful worker's Exchange output or corrupt the Blackboard.
+This ensures that a bad JQ expression in `CustomJqProjection` cannot discard a successful worker's Exchange output or corrupt the Blackboard. The PROJECTION_FAILED event provides active visibility into configuration errors that could otherwise cause silent pipeline stalls.
 
 ### Interaction with existing binding fields
 
@@ -539,6 +545,8 @@ This ensures that a bad JQ expression in `CustomJqProjection` cannot discard a s
 
 **ContextBridge usage for Exchange body serialization:** Only `serialise(T)` and `deserialise(JsonNode)` from `ContextBridge<T>` are used at Exchange body serialization boundaries (EventLog persistence, Quartz job data). `initialise(CaseContext, JsonNode)` is not invoked in this path — Exchange bodies are standalone values, not CaseContext derivatives. The engine resolves the bridge via `bodyInputType()`/`bodyOutputType()` from `ExchangeAwareFunction`, not from the binding's context bridge configuration.
 
+**ContextBridge resolution chain for Exchange bodies:** Resolution uses the existing `BridgeResolver.resolveByType(Class<?>)` mechanism — no new registry is introduced. The resolution order: (1) CDI-injected `ContextBridge<?>` beans whose `contextType()` matches the body type; (2) `MapBridge` for `Map.class`; (3) `JacksonPojoBridge<T>` as a universal fallback for any POJO type. Any class serializable by Jackson works out of the box without a registered bridge. Custom `ContextBridge` implementations are needed only when Jackson's default serialization is insufficient (e.g., types requiring CaseContext-aware initialization, which does not apply to Exchange body serialization since `initialise()` is not called in this path).
+
 ## Camel Adapter
 
 **Module:** `casehubio/workers` → `workers-camel` (existing module, additions)
@@ -551,7 +559,9 @@ public final class CamelExchangeAdapter {
     public static void toCamel(Exchange<?> casehubExchange,
                                 org.apache.camel.Exchange camelExchange) {
         camelExchange.getIn().setBody(casehubExchange.body());
-        casehubExchange.headers().forEach(camelExchange.getIn()::setHeader);
+        casehubExchange.headers().forEach((k, v) -> {
+            if (!k.startsWith("Camel")) camelExchange.getIn().setHeader(k, v);
+        });
         casehubExchange.properties().forEach(camelExchange::setProperty);
     }
 
