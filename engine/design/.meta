@@ -1,0 +1,10 @@
+branch: issue-881-agentic-planning
+state: active
+project-sha: slot-creation
+date: 2026-08-08
+issue: 881
+issue-repo: casehubio/engine
+covers: 881,882,883,884,886
+flyway-next-v: unknown
+design-repo: project
+design-section-hashes: 
