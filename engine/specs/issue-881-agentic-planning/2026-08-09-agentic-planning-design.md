@@ -77,11 +77,10 @@ New optional module (directory: `agentic-engine/`). Follows the same pattern as
 **Compile dependencies:**
 - `casehub-blocks` (ExecutionModel, drivers, AgentRef)
 - `casehub-engine-common` (WorkerFunctionHandler SPI, WorkerExecutor)
-- `casehub-engine-api` (WorkerFunction, DecompositionStrategy)
+- `casehub-engine-api` (WorkerFunction, DecompositionStrategy, WorkerRuntime)
+- `casehub-engine` (runtime) — for `WorkerRuntimeFactory` (same pattern as
+  `PersistentWorkerFunctionHandler`)
 - `casehub-worker-api`
-
-No dependency on `casehub-engine` (runtime) — same constraint as flow/a2a/mcp
-modules.
 
 ## Phase 1: Configurable Execution Backends (#886)
 
@@ -93,26 +92,41 @@ single method: `Uni<ExecutionResult> execute(ExecutionModel<T>, T)`.
 **New factories:**
 - `ExecutionBackend.reactive()` — renamed from `orchestrated()`. In-process,
   immediate. For tests and atomic single-shot patterns. `orchestrated()` stays as
-  a deprecated alias.
-- `ExecutionBackend.engineHosted()` — wraps `ExecutionModel` in
+  a deprecated alias. Lives in blocks (no new dependency).
+- `EngineHostedBackend` — new class in `casehub-engine-agentic` implementing
+  `ExecutionBackend`. NOT a static factory on `ExecutionBackend` (that would
+  create a blocks→engine dependency). Wraps `ExecutionModel` in
   `PatternWorkerFunction`, dispatches through the engine's worker pipeline.
 
 **Auto-selection:** `AbstractPatternBuilder.execute()` currently defaults to
-`new OrchestratedDriver<>()` when no backend is set. New default: check if
-`EngineHostedBackendProvider` is discoverable via `ServiceLoader`. If present
-(engine-agentic module on classpath), use engine-hosted. If absent, fall back to
-reactive. This means:
+`new OrchestratedDriver<>()` when no backend is set. New default: query
+`ServiceLoader<ExecutionBackend>` for a non-reactive implementation. If found
+(engine-agentic module on classpath, which registers `EngineHostedBackend` via
+`META-INF/services`), use it. If absent, fall back to reactive. This means:
 - Blocks standalone (tests, no engine) → reactive automatically
 - Inside engine runtime (production) → engine-hosted automatically
 - Explicit `.backend()` call overrides either
 
+**ServiceLoader lifecycle:** The `ServiceLoader` discovery happens at
+`AbstractPatternBuilder.execute()` time, not at class-load time. In a CDI
+environment (Quarkus), the `EngineHostedBackend` can also be discovered as a
+CDI bean — `PatternWorkerFunctionProvider` injects it directly when
+constructing functions from YAML. The `ServiceLoader` path is for the
+programmatic builder API (non-CDI).
+
 Builder API:
 ```java
+// Programmatic — auto-selects engine-hosted if on classpath
 Patterns.debate()
     .debaters(a, b, c)
     .judge(j)
     .maxRounds(5)
-    .backend(ExecutionBackend.engineHosted())
+    .execute(initialContext);
+
+// Explicit — for tests or when auto-selection is wrong
+Patterns.debate()
+    .debaters(a, b, c)
+    .backend(ExecutionBackend.reactive())
     .execute(initialContext);
 ```
 
@@ -134,12 +148,18 @@ public record PatternWorkerFunction(
 
 ### PatternWorkerFunctionHandler
 
-`@ApplicationScoped`, implements `WorkerFunctionHandler`. Runs the driver on
+`@ApplicationScoped`, implements `WorkerFunctionHandler`. Injects
+`WorkerRuntimeFactory` to create a per-invocation `WorkerRuntime` — same
+pattern as `SyncAgentWorkerFunctionHandler`. Runs the driver on
 `@VirtualThreads ExecutorService` with timeout enforcement.
 
 ```java
 @ApplicationScoped
 public class PatternWorkerFunctionHandler implements WorkerFunctionHandler {
+
+    private final WorkerRuntimeFactory workerRuntimeFactory;
+
+    // constructor injection
 
     @Override
     public boolean supports(WorkerFunction<?, ?> function) {
@@ -148,36 +168,61 @@ public class PatternWorkerFunctionHandler implements WorkerFunctionHandler {
 
     @Override
     public HandlerResult execute(WorkerFunction<?, ?> function, Object inputData,
-                                  WorkerScope scope) {
+                                  WorkerContext context, int timeoutMs,
+                                  ExecutionMetadata metadata) {
         var patternFn = (PatternWorkerFunction) function;
-        var invoker = new EngineAgentInvoker<>(scope);
+        var runtime = workerRuntimeFactory.create(
+            context.caseId(), metadata.workerName(), context);
+        var invoker = new EngineAgentInvoker<>(runtime);
         var driver = new OrchestratedDriver<>(invoker);
         var result = driver.execute(patternFn.model(), inputData)
-            .await().atMost(timeout);
+            .await().atMost(Duration.ofMillis(timeoutMs));
         return toHandlerResult(result, patternFn.patternType());
     }
 }
 ```
 
+**Timeout and cancellation:** If the handler timeout fires (`atMost()`
+throws `TimeoutException`), the driver's in-flight agents may still be
+executing. The handler calls `driver.cancel()` in a `finally` block to
+mark pending nodes `Cancelled` and prevent new dispatches. In-flight
+agent workers complete independently (the engine owns their lifecycle).
+
+**Module dependency note:** `WorkerRuntimeFactory` lives in
+`casehub-engine` (runtime). This means `casehub-engine-agentic` needs
+a runtime dependency for the factory. This follows the same pattern as
+`PersistentWorkerFunctionHandler` which also lives outside runtime but
+injects runtime beans.
+
 ### EngineAgentInvoker
 
-Bridges `AgentRef` to the engine's worker dispatch via `WorkerScope`:
+Bridges `AgentRef` to the engine's worker dispatch via `WorkerRuntime`.
+The invoker receives a `WorkerRuntime` from the handler (created via
+`WorkerRuntimeFactory`) — not `WorkerScope`.
 
 | AgentRef variant | Dispatch path |
 |-----------------|---------------|
 | `ExternalAgent` | Call function directly (no engine overhead) |
-| `WorkerAgent` | `scope.execute(worker.name(), input)` |
+| `WorkerAgent` | `runtime.execute(worker.name(), input)` |
 | `ComposedAgent` | Recursive via same backend |
-| `ChannelAgent` | Cast to `WorkerRuntime` → channel post via `WorkerContext` |
-| `HumanAgent` | Cast to `WorkerRuntime` → WorkItem creation via `spawnCase` |
+| `ChannelAgent` | v1: `UnsupportedOperationException` (see v1 limitations) |
+| `HumanAgent` | v1: `UnsupportedOperationException` (see v1 limitations) |
 
 `ExternalAgent` stays direct — it's a lambda, no retry/audit needed, and it
 preserves blocks' independent testability.
 
-`ChannelAgent` and `HumanAgent` require `WorkerRuntime` (the engine-specific
-extension of `WorkerScope`). The invoker casts and fails fast with a clear
-error if the scope is not a `WorkerRuntime` — these variants are only valid
-in engine-hosted mode.
+**Per-agent retry:** When `runtime.execute()` returns a failed result, the
+engine's own retry infrastructure (`RetryPolicies`) has already retried the
+sub-agent worker. The invoker does not add a second retry layer. The failed
+result is returned to the driver, which consults `FailurePolicy` (or
+`ReplanPolicy` for HTN patterns).
+
+**v1 limitation — ChannelAgent and HumanAgent:** These require Qhorus
+channel posting and WorkItem creation respectively. `WorkerRuntime` exposes
+`execute()` and `spawnCase()` but not `openChannel()` or
+`createWorkItem()`. These variants throw `UnsupportedOperationException`
+in v1. Support requires extending `WorkerRuntime` or adding dedicated SPIs
+on the invoker — tracked as future work.
 
 ### PatternWorkerFunctionProvider
 
@@ -279,22 +324,70 @@ type per PP-20260727-5267d2). Driver enforcement in `casehub-engine-agentic`
 
 ## Phase 3: Dynamic Re-Planning on Step Failure (#882)
 
-### New failure action: REPLAN
+### Scope: HTN patterns only
 
-Added to `FailurePolicy` in blocks. When a step fails and all retries are
-exhausted, instead of FAIL/ESCALATE/RETRY_BROADER, the driver calls the
-decomposition strategy to produce a revised plan for the remaining work.
+Re-planning applies to patterns that have a decomposition step — specifically
+HTN, where `HybridDecomposition` or `LlmDecomposition` produces a `DagPlan`
+that is flattened into an ordered sequence of agents. For non-HTN patterns
+(DEBATE, VOTING, SUPERVISOR), there is no "plan" to revise — failure handling
+uses the existing `FailurePolicy` actions (FAIL, RETRY_BROADER, ESCALATE).
 
-Re-planning triggers *after* retries are exhausted. Sequence: agent fails →
-retry N times (per `ExecutionPolicy`) → all retries exhausted → consult
-`FailurePolicy` → REPLAN.
+The blocks driver is iteration-based (route → activate → dispatch → aggregate
+→ terminate). HTN's `HtnBuilder` bridges the two models: it decomposes a
+compound task into a `DagPlan`, topologically sorts it, creates candidates from
+leaf executors, and feeds them to the iteration loop with iteration count =
+agent count. Re-planning revises the `DagPlan` and re-initializes the candidate
+list and iteration count.
+
+### ReplanPolicy — new field on FailurePolicy
+
+Re-planning is NOT a new value in `RoutingFailureAction` or
+`AggregationFailureAction` — those enums govern per-iteration decisions.
+Re-planning is a plan-level recovery that sits above the iteration loop.
+
+`FailurePolicy` gains a new field:
+
+```java
+public record FailurePolicy(
+    RoutingFailureAction onRoutingFailure,
+    AggregationFailureAction onAggregationFailure,
+    AgentRetryPolicy agentRetryPolicy,
+    ReplanPolicy replanPolicy               // NEW — nullable, null = no re-planning
+) {
+    public record ReplanPolicy(
+        int maxReplans,                      // default 2
+        RoutingFailureAction fallbackAction  // when replan itself fails, default FAIL
+    ) {}
+}
+```
+
+### Retry layering (clarified)
+
+Two retry layers exist, operating at different levels:
+
+1. **Engine-level retry (per sub-agent):** When `EngineAgentInvoker` calls
+   `runtime.execute(workerName, input)`, the engine dispatches a worker.
+   If that worker fails, the engine's own `RetryPolicies` retries it
+   (configurable per worker via `ExecutionPolicy`). This is transparent
+   to the blocks driver — it sees a single `runtime.execute()` call that
+   either succeeds or fails after all engine retries are exhausted.
+
+2. **Blocks-level failure handling (per iteration):** When the driver
+   receives a failed `AgentResult`, it consults `FailurePolicy`
+   (`onRoutingFailure`, `onAggregationFailure`). For non-HTN patterns,
+   this is the terminal failure decision. For HTN patterns with
+   `replanPolicy` set, the driver additionally checks the replan path.
+
+Blocks' `AgentRetryPolicy` (backoff strategies) remains not wired in v1 —
+engine retry handles per-agent retry, blocks re-planning handles plan-level
+recovery.
 
 ### DecompositionStrategy.replan()
 
 Default method on the SPI interface — opt-in:
 
 ```java
-default Uni<DagPlan<LeafTask<T>>> replan(
+default Uni<DagPlan<TaskNode.LeafTask<T>>> replan(
         TaskNode<T> task,
         DecompositionContext<T> context,
         ReplanContext<T> replanContext) {
@@ -305,20 +398,26 @@ default Uni<DagPlan<LeafTask<T>>> replan(
 
 ### ReplanContext
 
-New record in `engine-api`:
+New record in `casehub-engine-agentic` (not engine-api — this is execution
+infrastructure, not a plan-definition type that consumers inspect):
 
 ```java
 public record ReplanContext<T>(
     List<CompletedStep<T>> completedSteps,
     FailedStep<T> failedStep,
-    DagPlan<LeafTask<T>> originalPlan,
+    DagPlan<TaskNode.LeafTask<T>> originalPlan,
     int replanCount
 ) {}
+
+public record CompletedStep<T>(String stepId, Object result, Duration elapsed) {}
+public record FailedStep<T>(String stepId, String errorMessage,
+                             Throwable cause, int retryAttempts) {}
 ```
 
-- `CompletedStep<T>` — step ID, result, elapsed time. These are inputs to the
-  replanner (it knows what succeeded) but never re-executed.
-- `FailedStep<T>` — step ID, error message, exception cause, retry attempt count.
+- `CompletedStep<T>` — inputs to the replanner (it knows what succeeded)
+  but never re-executed.
+- `FailedStep<T>` — `retryAttempts` reflects how many engine-level retries
+  were exhausted before the failure surfaced to the driver.
 
 ### Scoped re-planning
 
@@ -329,19 +428,17 @@ plan.
 
 ### Driver integration
 
-`AbstractExecutionDriver.executeIteration()` gains a new branch in the failure
-handling phase:
+Re-planning hooks into `HtnBuilder.execute()`, not
+`AbstractExecutionDriver.executeIteration()`. HTN already overrides `execute()`
+to decompose, sort, and run. The replan hook is added after the driver returns
+a failed result:
 
-1. Agent returns failure result
-2. Consult `FailurePolicy`: if action is `REPLAN`:
-   a. Build `ReplanContext` from completed results + failed step
-   b. Call `decomposition.replan(task, context, replanContext)`
-   c. If replan succeeds: replace remaining plan, reset iteration for new steps,
-      continue loop
-   d. If replan fails: fall back to `replanFallback` action (configurable,
-      default FAIL)
-3. Guard: `maxReplans` on `FailurePolicy` (default 2). Prevents infinite replan
-   loops.
+1. Driver returns `ExecutionResult.Failed`
+2. If `replanPolicy` is null or `replanCount >= maxReplans` → return failed result
+3. Build `ReplanContext` from completed agent results + failed agent
+4. Call `decomposition.replan(task, context, replanContext)`
+5. If replan succeeds: rebuild candidates from new plan, reset driver, re-execute
+6. If replan fails: apply `replanPolicy.fallbackAction()`
 
 ### LlmDecompositionStrategy.replan()
 
@@ -358,12 +455,18 @@ LLM-backed implementation:
 ### YAML configuration
 
 ```yaml
-spec:
-  failurePolicy:
-    onAgentFailure: replan
-    maxReplans: 2
-    replanFallback: escalate
+workers:
+  - name: research-agent
+    pattern:
+      type: htn
+      rootTask: comprehensive-analysis
+      replan:
+        maxReplans: 2
+        fallback: escalate
 ```
+
+Re-planning configuration lives on the `pattern:` block (not at the top-level
+`failurePolicy:`), since it only applies to patterns with decomposition.
 
 ## Phase 4: Partial Plan Execution with Checkpointing (#883)
 
@@ -380,8 +483,9 @@ Acceptable for short-lived patterns (single-shot VOTING, shallow PARALLEL).
 
 Per iteration. After each complete iteration of the driver loop, the driver
 persists its state. Within an iteration, agent dispatches go through
-`WorkerScope.execute()` (synchronous) — if the process crashes mid-iteration,
-the engine's idempotent dispatch prevents duplicate work.
+`WorkerRuntime.execute()` (synchronous, blocking on virtual thread). If the
+process crashes mid-iteration, the iteration is re-run from scratch on
+recovery (see Mid-iteration crash recovery below).
 
 #### PatternExecutionCheckpoint
 
@@ -394,15 +498,26 @@ public record PatternExecutionCheckpoint(
     int completedIterations,
     List<AgentResultRecord> results,
     Set<String> excludedAgents,
-    DagPlanSnapshot currentPlan,
-    int replanCount,
+    DagPlanSnapshot currentPlan,     // nullable — only present for HTN patterns
+    int replanCount,                 // 0 when Phase 3 not active
     Map<String, Object> driverState
 ) {}
 ```
 
 `AgentResultRecord` is the serializable projection of blocks' `AgentResult` —
-agent ID, output (as `JsonNode`), success/failure, duration. No function
-references or lambdas.
+agent ID (String), output (as `JsonNode`), success/failure, duration. No
+function references or lambdas.
+
+**Serialization constraint:** `driverState` stores activation counts and
+consecutive-idle counts keyed by **agent ID (String)**, NOT by `AgentRef`.
+`AgentRef` contains function references and lambdas (`ExternalAgent.function`,
+`ComposedAgent.model`) which are not serializable. The driver must maintain a
+mapping from `AgentRef` to stable string IDs at construction time.
+
+**Phase 3 dependency:** `replanCount` and `currentPlan` fields are populated
+only when Phase 3 (re-planning) is active. When Phase 3 is not implemented,
+`replanCount` is always 0 and `currentPlan` is null. The checkpoint record
+is forward-compatible — adding Phase 3 later does not change the schema.
 
 #### Storage: EventLog-backed
 
@@ -439,12 +554,21 @@ Worker retry after crash
       → Start from scratch (Phase 4a behavior)
 ```
 
-#### Idempotent agent dispatch
+#### Mid-iteration crash recovery
 
-On recovery, the driver skips completed iterations entirely. For the iteration
-that was in-flight during the crash, agents may have already been dispatched.
-The engine's existing idempotent dispatch (PlanItem deduplication) prevents
-double-execution.
+On recovery, the driver skips completed iterations (restored from checkpoint).
+For the iteration that was in-flight during the crash, the driver **re-runs
+it entirely**. Agents dispatched via `WorkerRuntime.execute()` in the crashed
+iteration may have already completed — `WorkerRuntime.execute()` creates a
+fresh execution each time (no deduplication key), so re-dispatched agents
+will execute again.
+
+**v1 limitation:** Agent side effects from the crashed iteration may be
+duplicated. Agent workers that perform external side effects (API calls,
+database writes) should be idempotent or should use `PlannedAction` with
+`ActionRiskClassifier` to gate consequential actions. This is consistent
+with the general engine recovery model where worker idempotency is the
+worker's responsibility.
 
 #### PERSISTENT lifecycle scope
 
@@ -533,14 +657,15 @@ logic in isolation.
 
 **In scope:**
 - `casehub-engine-agentic` module with PatternWorkerFunction, handler, invoker, provider
-- `ExecutionBackend.reactive()` rename + `engineHosted()` factory
-- Auto-selection via ServiceLoader
+- `ExecutionBackend.reactive()` rename + `EngineHostedBackend` class
+- Auto-selection via ServiceLoader (programmatic) and CDI (YAML)
 - `PlanningConstraints` on `DecompositionContext`
 - Driver-side time budget and resource limit enforcement
-- `REPLAN` failure action + `DecompositionStrategy.replan()`
-- `ReplanContext` and `LlmDecompositionStrategy.replan()`
-- `PatternExecutionCheckpoint` with EventLog storage
-- Driver checkpoint/recovery protocol
+- `ReplanPolicy` on `FailurePolicy` for HTN patterns
+- `DecompositionStrategy.replan()` default method + `ReplanContext`
+- `LlmDecompositionStrategy.replan()` implementation
+- `PatternExecutionCheckpoint` with EventLog storage (string-keyed driver state)
+- Driver checkpoint/recovery protocol with mid-iteration re-run
 - YAML `pattern:` block on worker definitions
 
 **v1 limitations (deliberate):**
@@ -550,6 +675,14 @@ logic in isolation.
   needs full event-bus integration per its own deferred-work comment)
 - Checkpointing is opt-in per pattern (`checkpointing: true`)
 - No cross-pattern coordination (each pattern is an independent worker)
+- `ChannelAgent` and `HumanAgent` throw `UnsupportedOperationException` —
+  require Qhorus/WorkItem SPIs not available on `WorkerRuntime`
+- Re-planning applies to HTN patterns only — non-HTN patterns use existing
+  `FailurePolicy` actions
+- Mid-iteration crash recovery re-runs the entire iteration — agent workers
+  should be idempotent for consequential side effects
+- Blocks' `AgentRetryPolicy` backoff strategies remain not wired — engine
+  retry handles per-agent retry at the worker execution level
 
 **Out of scope (future work):**
 - `ExecutionBackend.swf()` — compile workflow-shaped patterns to SWF definitions
@@ -557,16 +690,20 @@ logic in isolation.
 - Cost budget constraints and LLM token tracking
 - Cross-pattern coordination and multi-case orchestration
 - Pattern observability REST endpoints (extends existing PlanResource)
+- `ChannelAgent`/`HumanAgent` support via extended `WorkerRuntime` or
+  dedicated invoker SPIs
 - Wiring blocks' `FailurePolicy.AgentRetryPolicy` (backoff strategies defined
   but not connected in the driver — separate from engine-level retry)
+- Re-planning for non-HTN patterns (would require defining what "plan" means
+  for DEBATE/VOTING/SUPERVISOR iteration loops)
 
 ## Implementation Phases
 
 | Phase | Issue | Deliverables | Dependencies |
 |-------|-------|-------------|--------------|
-| 1 | #886 | `casehub-engine-agentic` module, `PatternWorkerFunction`, handler, invoker, provider, `ExecutionBackend.engineHosted()`, auto-selection, YAML | None |
+| 1 | #886 | `casehub-engine-agentic` module, `PatternWorkerFunction`, handler (with `WorkerRuntimeFactory`), invoker, provider, `EngineHostedBackend`, auto-selection, YAML | None |
 | 2 | #884 | `PlanningConstraints`, `DecompositionContext.constraints()`, LLM prompt, driver enforcement | Phase 1 |
-| 3 | #882 | `REPLAN` action, `replan()` SPI method, `ReplanContext`, `LlmDecompositionStrategy.replan()`, `maxReplans` | Phase 1 |
-| 4 | #883 | `PatternExecutionCheckpoint`, EventLog storage, checkpoint/recovery protocol, PERSISTENT scope config | Phase 1 |
+| 3 | #882 | `ReplanPolicy` on `FailurePolicy`, `replan()` SPI method, `ReplanContext`, `LlmDecompositionStrategy.replan()`, HTN replan loop in `HtnBuilder` | Phase 1 |
+| 4 | #883 | `PatternExecutionCheckpoint` (string-keyed), EventLog storage, checkpoint/recovery with mid-iteration re-run, PERSISTENT scope config | Phase 1 |
 
 Phases 2 and 3 are independent of each other. Phase 4 depends on Phase 1 only.
