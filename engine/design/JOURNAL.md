@@ -29,3 +29,28 @@ the two.
 **Phase 1 (#886) implemented:** PatternWorkerFunction, PatternWorkerFunctionHandler,
 EngineAgentInvoker, PatternWorkerFunctionProvider, EngineHostedBackend + ServiceLoader.
 21 tests (5 unit classes + 1 integration), all green.
+
+## 2026-08-10 — Phase 2: Planning under constraints (#884)
+
+**Decision:** `PlanningConstraints` is a plan-definition type in `engine-api` (per
+PP-20260727-5267d2), not execution infrastructure. Enforcement is split: decomposition
+strategies receive constraints via `DecompositionContext.constraints()` (informational —
+LLM prompt guidance); `PatternWorkerFunctionHandler` enforces constraints at runtime
+(time budget via timeout, resource limit via routing wrapper).
+
+**Enforcement approach — two levels discovered during implementation:**
+- **Time budget:** Reduces effective timeout passed to `Future.get()`. Required moving
+  driver execution to a virtual thread — `Uni.createFrom().item()` runs synchronously
+  on the subscriber thread, so `atMost()` cannot interrupt it (garden entry
+  GE-20260810-07a4ac). `CompletableFuture.supplyAsync()` also failed in Quarkus due to
+  ForkJoinPool classloader issues (GE-20260810-ee9b0c). Solution:
+  `Executors.newVirtualThreadPerTaskExecutor()` + `Future.get(timeout)`.
+- **Resource limit:** Wraps the `ExecutionModel`'s routing strategy — `Selected.agents()`
+  truncated to `resourceLimit`. Used record reconstruction to decorate the immutable
+  `ExecutionModel` (technique GE-20260810-06aee1).
+
+**Phase 2 implemented:** PlanningConstraints record, DecompositionContext.constraints()
+default method, GoalDecompositionContext constraint threading, LlmDecompositionStrategy
+prompt integration, PatternWorkerFunctionHandler enforcement, YAML parsing
+(spec.planningConstraints + pattern.constraints). 7 commits, 1378 tests green across
+api/planning/agentic-engine.
