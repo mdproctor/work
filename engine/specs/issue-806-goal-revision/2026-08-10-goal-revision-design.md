@@ -192,8 +192,11 @@ public record GoalRevisionContext(
 ```
 
 `recentOutcomeDescriptions` — human-readable summaries of recent outcomes for
-this goal's capabilities. Gives the LLM concrete outcome history to reason
-about.
+this goal's capabilities. Built by `GoalRevisionEvaluator` from
+`BehavioralSignalStore.learned()` per-qualifier entries (each qualifier is a
+goal name, each entry carries a count). The evaluator constructs descriptions
+like "Goal 'analysis': 8 successes, 2 failures (80% success rate)". Gives the
+LLM concrete outcome history to reason about.
 
 **GoalEffectivenessMetrics** — per-goal metrics:
 
