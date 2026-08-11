@@ -210,6 +210,12 @@ public class ChoreographedDriver<T> extends AbstractExecutionDriver<T> {
     }
 
     @Override
+    public Uni<Void> cancel() {
+        eventQueue.add(DriverEvent.signal("cancelled"));
+        return super.cancel();
+    }
+
+    @Override
     protected Uni<ExecutionResult> runLoop(ExecutionModel<T> model, T context) {
         return Uni.createFrom().item(() -> {
             EventSource.Cancellation subscription = null;
@@ -275,26 +281,14 @@ public interface ExecutionBackend<T> {
 
 ### 6. Cancellation Integration
 
-When `cancel()` is called on the driver:
+When `cancel()` is called on the driver (see §4 override):
 
-1. `cancelled` flag is set (existing behavior)
-2. The `eventQueue.take()` is interrupted — the blocking thread receives an `InterruptedException`
-3. The EventSource subscription is cancelled in the `finally` block
-4. If the driver is mid-iteration (waiting for an agent), the invoker's Uni await is interrupted
+1. A `"cancelled"` DriverEvent is posted to the queue — this breaks `queue.take()` without thread interruption
+2. `super.cancel()` sets the `cancelled` flag (existing behavior)
+3. The loop checks `isCancelled()` after `awaitEvents()` returns and exits cleanly
+4. The EventSource subscription is cancelled in the `finally` block
 
-For interruption of `queue.take()`, the driver's `cancel()` method should interrupt the driver thread:
-
-```java
-@Override
-public Uni<Void> cancel() {
-    cancelled = true;
-    // Interrupt the blocking queue.take() if the driver is waiting
-    eventQueue.add(DriverEvent.signal("cancelled"));
-    return Uni.createFrom().voidItem();
-}
-```
-
-Posting a cancellation event is simpler and safer than thread interruption — the loop checks `isCancelled()` after `awaitEvents()` returns and exits cleanly.
+Posting a cancellation event is simpler and safer than thread interruption. If the driver is mid-iteration (waiting for an agent via `invoker.invoke().await()`), the cancellation event sits in the queue until the iteration completes, then the `isCancelled()` check exits the loop.
 
 ### 7. Virtual Thread Execution
 
