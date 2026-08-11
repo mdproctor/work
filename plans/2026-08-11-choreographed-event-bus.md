@@ -413,7 +413,7 @@ class EventConcurrencyPolicyTest {
     }
 
     @Test
-    void thenChainsPolices() throws InterruptedException {
+    void thenChainsPolicies() throws InterruptedException {
         var queue = new LinkedBlockingQueue<DriverEvent>();
         queue.add(new DriverEvent("timer", "tick-1"));
         queue.add(new DriverEvent("channel", "msg"));
@@ -629,10 +629,11 @@ void cancelDuringEventWaitExitsCleanly() {
             FailurePolicy.defaults(),
             List.of(), "test");
 
-    // No event source that emits — driver will block on queue.take()
+    // Non-emitting EventSource — driver enters event-driven mode and blocks on queue.take()
     var driver = new ChoreographedDriver<>(
         AgentInvoker.defaultInvoker(),
-        EventConcurrencyPolicy.serialize());
+        EventConcurrencyPolicy.serialize(),
+        sink -> EventSource.Cancellation.of(() -> {}));
 
     var future = CompletableFuture.supplyAsync(() ->
         driver.execute(model, "state").await().indefinitely());
@@ -698,6 +699,131 @@ void eventSourceCancelledOnDriverCompletion() {
 
     driver.execute(model, "state").await().indefinitely();
     assertThat(sourceCancel.get()).isTrue();
+}
+
+@Test
+void eventsQueuedDuringIterationProcessedByPolicyAfterCompletion() {
+    var iterationCount = new AtomicInteger(0);
+    var agent = AgentRef.external((Object input) -> {
+        iterationCount.incrementAndGet();
+        // Slow agent — events will queue during dispatch
+        var future = new CompletableFuture<AgentResult>();
+        new Thread(() -> {
+            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+            future.complete(AgentResult.success(null, "done"));
+        }).start();
+        return future;
+    });
+    var candidate = new RoutingCandidate(agent, null);
+
+    var model = new ExecutionModel<String>(
+            new FirstMatchRouting<>(c -> true),
+            new IdentityDecomposition<>(),
+            new OnExplicitDispatch<>(),
+            new PassThrough<>(),
+            new MaxIterationsTermination<>(2),
+            () -> List.of(candidate),
+            FailurePolicy.defaults(),
+            List.of(), "test");
+
+    // coalesceBySource: multiple timer events during iteration merge into one
+    var driver = new ChoreographedDriver<>(
+        AgentInvoker.defaultInvoker(),
+        EventConcurrencyPolicy.coalesceBySource(),
+        sink -> {
+            // Emit first trigger immediately, then burst during iteration
+            sink.accept(DriverEvent.signal("start"));
+            new Thread(() -> {
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                sink.accept(new DriverEvent("timer", "tick-1"));
+                sink.accept(new DriverEvent("timer", "tick-2"));
+                sink.accept(new DriverEvent("timer", "tick-3"));
+            }).start();
+            return EventSource.Cancellation.of(() -> {});
+        });
+
+    var result = driver.execute(model, "state").await().indefinitely();
+    assertThat(result).isInstanceOf(ExecutionResult.Completed.class);
+    assertThat(iterationCount.get()).isEqualTo(2);
+}
+
+@Test
+void cancelDuringAgentDispatchExitsAfterIteration() {
+    var dispatchStarted = new AtomicBoolean(false);
+    var agent = AgentRef.external((Object input) -> {
+        dispatchStarted.set(true);
+        var future = new CompletableFuture<AgentResult>();
+        new Thread(() -> {
+            try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+            future.complete(AgentResult.success(null, "done"));
+        }).start();
+        return future;
+    });
+    var candidate = new RoutingCandidate(agent, null);
+
+    var model = new ExecutionModel<String>(
+            new FirstMatchRouting<>(c -> true),
+            new IdentityDecomposition<>(),
+            new OnExplicitDispatch<>(),
+            new PassThrough<>(),
+            new MaxIterationsTermination<>(100),
+            () -> List.of(candidate),
+            FailurePolicy.defaults(),
+            List.of(), "test");
+
+    var driver = new ChoreographedDriver<>(
+        AgentInvoker.defaultInvoker(),
+        EventConcurrencyPolicy.serialize(),
+        sink -> {
+            sink.accept(DriverEvent.signal("go"));
+            return EventSource.Cancellation.of(() -> {});
+        });
+
+    var future = CompletableFuture.supplyAsync(() ->
+        driver.execute(model, "state").await().indefinitely());
+
+    // Wait for dispatch, then cancel while agent is in-flight
+    await().atMost(Duration.ofSeconds(2)).untilTrue(dispatchStarted);
+    driver.cancel().await().indefinitely();
+
+    var result = future.join();
+    // Cancellation event queued — loop exits after current iteration completes
+    assertThat(result).isInstanceOf(ExecutionResult.Cancelled.class);
+}
+
+@Test
+void tickerDrivesPeriodicIterations() {
+    var iterationCount = new AtomicInteger(0);
+    var agent = AgentRef.external((Object input) -> {
+        iterationCount.incrementAndGet();
+        return CompletableFuture.completedFuture(AgentResult.success(null, "done"));
+    });
+    var candidate = new RoutingCandidate(agent, null);
+
+    var model = new ExecutionModel<String>(
+            new FirstMatchRouting<>(c -> true),
+            new IdentityDecomposition<>(),
+            new OnExplicitDispatch<>(),
+            new PassThrough<>(),
+            new MaxIterationsTermination<>(3),
+            () -> List.of(candidate),
+            FailurePolicy.defaults(),
+            List.of(), "test");
+
+    var executor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    try {
+        var driver = new ChoreographedDriver<>(
+            AgentInvoker.defaultInvoker(),
+            EventConcurrencyPolicy.serialize(),
+            EventSource.ticker(Duration.ofMillis(50), executor));
+
+        var result = driver.execute(model, "state").await().indefinitely();
+
+        assertThat(result).isInstanceOf(ExecutionResult.Completed.class);
+        assertThat(iterationCount.get()).isEqualTo(3);
+    } finally {
+        executor.shutdownNow();
+    }
 }
 ```
 
@@ -812,7 +938,7 @@ public class ChoreographedDriver<T> extends AbstractExecutionDriver<T> {
 - [ ] **Step 4: Run all ChoreographedDriver tests**
 
 Run: `mvn --batch-mode test -pl blocks -Dtest=ChoreographedDriverTest`
-Expected: PASS (6 tests — 1 existing + 5 new)
+Expected: PASS (9 tests — 1 existing + 8 new)
 
 - [ ] **Step 5: Run the full test suite to verify no regressions**
 
