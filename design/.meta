@@ -1,0 +1,10 @@
+branch: issue-99-execution-robustness
+state: scaffolded
+project-sha: 003ccf4a563cfb77214d70b7db1440266188dd22
+date: 2026-08-11
+issue: 99
+issue-repo: casehubio/blocks
+covers: 99,96,77
+flyway-next-v: none
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
