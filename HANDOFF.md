@@ -1,20 +1,29 @@
-# Handover — 2026-08-05
+# Handoff — casehub-blocks
 
-**Branch:** `main` (clean)
+**Branch:** main (clean)
+**Last closed:** `issue-19-choreographed-event-bus` — landed as 0aac8f33 on main
+**Issue:** casehubio/blocks#19
+**Date:** 2026-08-12
 
 ## Last Session
 
-Implemented #78, #79, #80, #81 on one branch. Three trust-lifecycle SPIs (`LifecycleAttestationObserver`, `IntakeClassifier`, `VouchService`) in new `blocks.attestation` and `blocks.trust` packages. Diversity-aware `FewShotOptimiser` via `DiversityStrategy` SPI with `OutcomeAwareDiversityStrategy` (outcome seeding + Jaccard MMR). Also fixed pre-existing test compile errors from upstream `ProgressInstance`, `AgentCandidate`, `AgentRoutingContext` record changes. Light design review (4 dimensions + cross-cutting, $2.43). Landed as f89311c on main.
+Two changes landed on main:
 
-## Immediate Next Step
+1. **Uni audit** (refactor) — removed Uni wrapping from all agentic SPIs (RoutingStrategy, ActivationRule, AggregationStrategy, TerminationCondition, DecompositionHeuristic, ExecutionDriver.cancel(), AbstractExecutionDriver.runLoop()). 82 files, -143 lines. Uni kept only at API boundaries (execute, invoke, converse) and for concurrent composition (Uni.join.all). Aligned with platform's move to virtual threads.
 
-Pick next work. See `casehubio/blocks` open issues for current backlog — #75 (DecompositionMethod name field) is XS and needs engine-api change first.
+2. **ChoreographedDriver event-bus integration** (feat) — added event-driven mode with BlockingQueue + EventSource SPI + composable EventConcurrencyPolicy. Two modes: legacy (no EventSource, continuous loop) and event-driven (dormant between iterations, woken by events). New types: DriverEvent, EventSource, EventConcurrencyPolicy. ExecutionBackend.choreographed() factories.
+
+## Key Design Decisions
+
+- Virtual threads make Uni unnecessary for synchronous SPIs — blocking is free
+- EventSource (lightweight SPI) chosen over Multi (overkill for a blocking queue consumer)
+- Serialize (actor-mailbox) as default policy, composable via .then()
+- Cancellation via queue poison pill, not thread interruption
 
 ## What's Next
 
-See `casehubio/blocks` open issues.
-
-## References
-
-- Spec: `docs/specs/issues-78-79-80-81/2026-08-05-trust-attestation-spis-and-diversity-selection-design.md`
-- Blog: published to personal-notes + casehub-notes — "The Package That Didn't Belong"
+| Item | Scale | Complexity |
+|------|-------|------------|
+| Update consumer/contributor guides (docs/guides/) with Uni removal and new types | S | Low |
+| Engine-adapter: wire EventSource to CorrelationObserver/WorkItemObserver for ChannelAgent/HumanAgent | M | Med |
+| Consumer repos: verify no direct SPI calls broken by Uni removal (all consumers use pattern builders, so likely clean) | S | Low |
