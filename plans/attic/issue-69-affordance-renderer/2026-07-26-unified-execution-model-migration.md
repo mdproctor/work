@@ -1077,11 +1077,11 @@ Refs casehubio/blocks#60
 
 **Interfaces:**
 - Consumes: `DecompositionStrategy<T>` (engine-api, promoted in Phase 5), agent I/O declarations (capability schemas)
-- Produces: `GoalOrientedDecomposition` — backward-chaining from goal state, building a plan from agent capabilities' declared inputs/outputs
+- Produces: `CapabilityDependencyDecomposition` — backward-chaining from goal state, building a plan from agent capabilities' declared inputs/outputs
 
 **Depends on:** agent capabilities declaring I/O schemas. If schema declarations don't exist yet, this task creates the minimal SPI needed (`AgentCapabilitySchema` or similar) and implements GOAP against it.
 
-**Design note (from spec Q2):** "Goal" collides with existing `Goal`/`GoalKind`/`GoalBasedCompletion` in engine. Name this `GoalOrientedDecomposition` (not `GoalPlanner` or `GoalDecomposition`).
+**Design note (from spec Q2):** "Goal" collides with existing `Goal`/`GoalKind`/`GoalBasedCompletion` in engine. Name this `CapabilityDependencyDecomposition` (not `GoalPlanner` or `GoalDecomposition`).
 
 - [ ] **Step 1: Write test — GOAP decomposes a goal into a plan using agent capabilities**
 
