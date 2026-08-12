@@ -1,0 +1,10 @@
+branch: issue-97-supervisor-channel-obs
+state: scaffolded
+project-sha: 0aac8f3332f6d4100fcaad17bbc7a5605a39b6e5
+date: 2026-08-12
+issue: 97
+issue-repo: casehubio/blocks
+covers: 97
+flyway-next-v: none
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
