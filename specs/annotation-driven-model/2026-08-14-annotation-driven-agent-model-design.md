@@ -358,8 +358,9 @@ Annotation-defined cases cover the 80% of `CaseDefinition` fields that most case
 ```java
 @Retention(RUNTIME)
 @Target(METHOD)
+@Repeatable(Customizers.class)
 public @interface Customize {
-    Class<?> value() default Void.class;  // target type: CaseDefinition.Builder, ExecutionModel, Binding.Builder
+    String value() default "";  // for Binding.Builder: the @Bind method name to target
 }
 ```
 
@@ -380,15 +381,21 @@ public interface GovernedReviewCase {
                .cognitiveDemand("analyse", new CognitiveDemand(5, Set.of("legal-analysis")))
                .channel("findings", Finding.class);
     }
+
+    @Customize("onReceived")
+    static void customizeReceivedBinding(Binding.Builder builder) {
+        builder.outcomePolicy(new OutcomePolicy(...))
+               .executionMode(ExecutionMode.DURABLE);
+    }
 }
 ```
 
 **Semantics:**
-- The `@Customize` method must be `static` and accept exactly one parameter — the builder type determines what is customized
-- `CaseDefinition.Builder` — customizes the generated case definition (access to all ~40 fields)
-- `Binding.Builder` — customizes a specific binding (for `conflictResolverStrategy`, `producedKeys`, etc. beyond what `@Bind` attributes cover)
+- The `@Customize` method must be `static` and accept exactly one parameter — the parameter type determines what is customized
+- `CaseDefinition.Builder` — customizes the generated case definition (access to all ~40 fields). `value()` is ignored.
+- `Binding.Builder` — customizes a specific binding. `value()` is **required** and must name the `@Bind`-annotated method whose binding is being customized. The build extension emits a compile error if `value()` is empty or names a method without `@Bind`.
 - The build extension calls the customizer after processing all annotations, so annotation-set values are already on the builder
-- Multiple `@Customize` methods are allowed (one per target type)
+- Multiple `@Customize` methods are allowed — `@Repeatable` supports customizing multiple bindings or combining case + binding customizers
 
 This eliminates the "abandon annotations entirely" cliff: annotation-defined cases get the full builder API for the long tail of configuration fields, without losing the annotation model's readability for the common fields.
 
@@ -878,7 +885,7 @@ public interface ComplianceReview {
 }
 ```
 
-This is ~25 lines for a governed multi-agent debate with oversight, trust routing, attestation, and convergence detection. The builder equivalent is 60+ lines.
+This is ~25 lines for a governed multi-agent debate with oversight, trust routing, attestation, failure policy, and judge-driven convergence. The `@Judge` parameter creates `JudgeConvergence` termination automatically — no explicit `@Convergence` needed. The builder equivalent is 60+ lines.
 
 **`AgentRef` parameter wiring:** The build extension resolves `@Debater`/`@Judge`-annotated `AgentRef` parameters into agent instances at build time. For each annotated parameter, the extension generates an `AgentRef.WorkerAgent` wrapping an LC4j-generated AI service configured with the annotation's `systemPrompt` and the interface's `@ChatModelSupplier`. The `role` attribute maps to the agent's identity within the debate pattern. CDI injection provides the resolved `AgentRef` instances at runtime. `AgentRef` is a sealed interface (`io.casehub.blocks.agentic.AgentRef`) with 5 variants: `WorkerAgent`, `ChannelAgent`, `HumanAgent`, `ExternalAgent`, `ComposedAgent`.
 
