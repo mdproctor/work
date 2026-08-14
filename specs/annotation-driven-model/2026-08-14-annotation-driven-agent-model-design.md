@@ -1109,7 +1109,8 @@ Changes to contribute upstream that benefit both CaseHub and the broader ecosyst
 2. **Bridge** — CaseHub's build extension recognises BOTH the CaseHub annotation and the LC4j annotation for one release cycle. CaseHub-specific attributes that LC4j does not adopt (e.g., `@Convergence` if LC4j ships a simpler convergence model) become composable annotations that work alongside the LC4j annotation:
    ```java
    // Before: CaseHub-only
-   @io.casehub.blocks.agentic.DebateAgent(convergence = @Convergence(...))
+   @io.casehub.blocks.agentic.DebateAgent(maxRounds = 5)
+   @io.casehub.blocks.conversation.Convergence(strategy = ConvergenceStrategy.STRUCTURAL, threshold = 0.85)
 
    // After: LC4j base + CaseHub extension
    @dev.langchain4j.agentic.DebateAgent(maxRounds = 5)
@@ -1489,10 +1490,10 @@ The annotation model handles the 80% case — declaring agents, wiring orchestra
 
 The three-programming-models invariant ("every `@Annotation` has a builder equivalent") must be enforced by tests, not trust. Following the precedent set by work module's `builderHasSetterForEveryField` tests:
 
-- **Orchestration parity:** For each `@*Agent` annotation in blocks, assert that `Patterns.*()` has a corresponding builder method. E.g., `@DebateAgent` → `Patterns.debate()` exists, returns a builder with setters matching the annotation's attributes (`maxRounds`, `convergence`).
+- **Orchestration parity:** For each `@*Agent` annotation in blocks, assert that `Patterns.*()` has a corresponding builder method. E.g., `@DebateAgent` → `Patterns.debate()` exists, returns a builder with setters matching the annotation's attributes (`maxRounds`, `aggregation`). `@Convergence` is a standalone annotation — its parity test asserts that `DebateBuilder.convergence(TerminationCondition)` exists.
 - **Case definition parity:** For each `@Case` attribute (namespace, name, version, planning), assert that `CaseDefinition.builder()` has a matching setter.
 - **Worker parity:** For each `@Worker` attribute (capability, cost, value, timeoutMs, maxRetries), assert that `Worker.builder()` has a matching setter or builder method.
-- **Governance parity:** For each governance annotation (`@OversightGate`, `@TrustRouted`, `@CbrRouted`), assert that the builder API has equivalent wiring (e.g., `ExecutionModel.Builder.oversightClassifier()` for `@OversightGate`).
+- **Governance parity:** For each governance annotation (`@OversightGate`, `@TrustRouted`, `@CbrRouted`), assert that the builder API has equivalent wiring (e.g., `AbstractPatternBuilder.route()` accepts a routing strategy that can incorporate oversight classification).
 - **Eidos parity:** For each `@Identity`/`@Disposition` attribute, assert that `AgentDescriptor.builder()`/`AgentDisposition.builder()` has a matching setter.
 
 These tests run as part of the build and fail if either side adds a field without updating the other. The test implementation uses reflection to enumerate annotation attributes and introspects the corresponding builder class for matching setters.
