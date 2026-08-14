@@ -352,6 +352,8 @@ var definition = CaseDefinition.builder()
 
 ### `@Customize` — escape hatch for advanced configuration
 
+**Module:** `casehub-engine-api` (the annotation is a generic marker — engine-api owns it because the primary targets are engine types: `CaseDefinition.Builder`, `Binding.Builder`. The blocks build extension also scans for it when the parameter type is `ExecutionModel.Builder<T>`, following the same cross-module scanning pattern as eidos and work annotations.)
+
 Annotation-defined cases cover the 80% of `CaseDefinition` fields that most cases need. For advanced fields (authorization, routing strategies, cognitive demands, channels, etc.), a `@Customize` method receives the generated builder before the bean is registered:
 
 #### `@Customize`
@@ -983,7 +985,7 @@ The LC4j `@SupervisorAgent` defines the orchestration pattern. CaseHub's `@Overs
 | **Return type** | Orchestration method has a non-`void`, non-`String` return type | The return type (e.g., `ReviewResult review(...)` → `T = ReviewResult`) |
 | **String return** | Return type is `String` | `String` — valid for text-in/text-out patterns |
 | **Void return** | Return type is `void` | `Void` — side-effect-only orchestrations (rare but valid) |
-| **Explicit override** | `@Customize(ExecutionModel.class)` method present | Customiser receives `ExecutionModel.Builder<T>` with inferred `T`, can narrow or reconfigure |
+| **Explicit override** | `@Customize` method accepting `ExecutionModel.Builder<T>` | Customiser receives the builder with inferred `T`, can narrow or reconfigure |
 
 The return type rule covers the vast majority of cases — the orchestration method's return type IS the pipeline's output type, which is exactly what `T` parameterizes. This matches the fluent builder pattern where `T` is specified at the entry point: `Patterns.<ReviewResult>debate()...`.
 
