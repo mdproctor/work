@@ -44,8 +44,19 @@ public class ChannelObserver<S> implements MessageObserver, EventSource {
 
     @Override
     public void onMessage(MessageReceivedEvent event) {
-        var messageView = toMessageView(event);
-        state.updateAndGet(s -> projection.apply(s, messageView));
+        try {
+            var messageView = toMessageView(event);
+            state.updateAndGet(s -> projection.apply(s, messageView));
+        } catch (Exception e) {
+            LOG.log(System.Logger.Level.WARNING,
+                "ChannelObserver: projection failed for channel "
+                + event.channelId() + ": " + e.getMessage());
+            var s = sink;
+            if (s != null) {
+                s.accept(DriverEvent.signal("projection-error:" + event.channelId()));
+            }
+            return;
+        }
         var s = sink;
         if (s != null) {
             s.accept(DriverEvent.signal("channel:" + event.channelId()));
@@ -66,6 +77,10 @@ public class ChannelObserver<S> implements MessageObserver, EventSource {
 
     @Override
     public Cancellation subscribe(Consumer<DriverEvent> sink) {
+        if (this.sink != null) {
+            throw new IllegalStateException(
+                "ChannelObserver already has an active subscriber");
+        }
         this.sink = sink;
         return Cancellation.of(() -> this.sink = null);
     }
@@ -74,6 +89,10 @@ public class ChannelObserver<S> implements MessageObserver, EventSource {
 
     public S currentState() {
         return state.get();
+    }
+
+    public void reset() {
+        state.set(projection.identity());
     }
 
     // --- Termination convenience ---
@@ -240,11 +259,12 @@ This is acceptable for all existing projections — `ConversationProjection` and
 |-------|-------------|
 | Construction | Observer created with projection and channel names. State = `projection.identity()`. Sink = null. |
 | CDI discovery | Qhorus `MessageObserverDispatcher` discovers the observer bean. No messages yet. |
-| `subscribe()` | Called by ChoreographedDriver at `execute()`. Stores the DriverEvent sink. |
-| Execution | Messages arrive on qhorus dispatch thread → `onMessage()` folds and signals driver → driver wakes and evaluates termination with current projected state. |
+| `reset()` | Consumer calls before each execution to clear accumulated state from prior runs. Resets to `projection.identity()`. |
+| `subscribe()` | Called by ChoreographedDriver at `execute()`. Stores the DriverEvent sink. Throws `IllegalStateException` if a subscriber is already active. |
+| Execution | Messages arrive on qhorus dispatch thread → `onMessage()` folds and signals driver → driver wakes and evaluates termination with current projected state. Projection exceptions are caught, logged, and signaled as `projection-error` DriverEvents. |
 | `Cancellation.cancel()` | Called by ChoreographedDriver in `finally` block. Clears the sink. Observer continues receiving messages (CDI lifecycle) but stops signaling the driver. |
 
-The observer's CDI lifecycle is independent of the driver's execution lifecycle. The observer bean lives as long as the CDI container. The EventSource subscription (sink) lives only during driver execution.
+The observer's CDI lifecycle is independent of the driver's execution lifecycle. The observer bean lives as long as the CDI container. The EventSource subscription (sink) lives only during driver execution. Consumers must call `reset()` before re-executing with the same observer to avoid stale state from prior runs.
 
 ### 7. Thread Model
 
@@ -267,9 +287,15 @@ public interface TerminationCondition<T> {
 
     default TerminationCondition<T> or(TerminationCondition<T> other) {
         return ctx -> {
-            var decision = this.evaluate(ctx);
-            return decision instanceof TerminationDecision.Continue
-                ? other.evaluate(ctx) : decision;
+            var first = this.evaluate(ctx);
+            if (first instanceof TerminationDecision.Continue) {
+                return other.evaluate(ctx);
+            }
+            var second = other.evaluate(ctx);
+            if (second instanceof TerminationDecision.Continue) {
+                return first;
+            }
+            return higherPriority(first, second);
         };
     }
 
@@ -279,13 +305,27 @@ public interface TerminationCondition<T> {
             if (first instanceof TerminationDecision.Continue) return first;
             var second = other.evaluate(ctx);
             if (second instanceof TerminationDecision.Continue) return second;
-            return first;
+            return higherPriority(first, second);
+        };
+    }
+
+    private static TerminationDecision higherPriority(
+            TerminationDecision a, TerminationDecision b) {
+        return priority(a) >= priority(b) ? a : b;
+    }
+
+    private static int priority(TerminationDecision d) {
+        return switch (d) {
+            case TerminationDecision.Escalate e -> 3;
+            case TerminationDecision.Failed f -> 2;
+            case TerminationDecision.Complete c -> 1;
+            case TerminationDecision.Continue ignored -> 0;
         };
     }
 }
 ```
 
-Semantics: `or()` = first non-Continue wins (either condition can terminate). `and()` = both must return non-Continue (both conditions must agree to terminate).
+Semantics: `or()` = either condition can terminate (first non-Continue wins; if both fire, highest priority wins). `and()` = both must agree to terminate (both non-Continue required; highest priority wins). Priority hierarchy: Escalate > Failed > Complete > Continue. Escalate and Failed always surface — they are never swallowed by a lower-priority Complete.
 
 This also replaces `CompositeTermination` in the conversation.orchestration package (which is hardcoded to `ConversationState`). Existing uses of CompositeTermination become `.or()` chains.
 
@@ -311,7 +351,7 @@ This also replaces `CompositeTermination` in the conversation.orchestration pack
 | `CompositeTermination` | `TerminationCondition.or()` chains |
 
 **Unchanged:**
-- TerminationCondition, TerminationContext, TerminationDecision
+- TerminationContext, TerminationDecision
 - AggregationStrategy, AggregationContext, AggregationResult
 - AbstractExecutionDriver, OrchestratedDriver, ChoreographedDriver
 - ExecutionModel, ExecutionBackend
@@ -334,9 +374,21 @@ This also replaces `CompositeTermination` in the conversation.orchestration pack
 
 **ChannelObserver — EventSource contract:**
 - `subscribe()` stores sink, returns Cancellation
+- `subscribe()` with existing subscriber: throws IllegalStateException
+- `subscribe()` after cancel + re-subscribe: succeeds (sink was cleared)
 - `onMessage()` with active sink: posts DriverEvent after projection update
 - `onMessage()` without sink (before subscribe or after cancel): folds message, no DriverEvent
 - `Cancellation.cancel()`: clears sink, subsequent onMessage() folds without signaling
+
+**ChannelObserver — reset:**
+- `reset()` returns state to `projection.identity()`
+- `reset()` after messages: clears accumulated state
+- `reset()` is safe to call while no subscriber is active
+
+**ChannelObserver — projection error handling:**
+- Projection exception: state unchanged, error logged, projection-error DriverEvent posted
+- Projection exception without sink: state unchanged, error logged, no DriverEvent
+- Subsequent valid messages fold normally after a projection error
 
 **ChannelObserver — event delivery ordering:**
 - Projection state updated BEFORE DriverEvent posted (AtomicReference.updateAndGet completes before sink.accept)
@@ -357,6 +409,12 @@ This also replaces `CompositeTermination` in the conversation.orchestration pack
 - Events from any channel post DriverEvents
 - Empty builder throws IllegalStateException
 - Duplicate channel names deduplicated
+
+**TerminationCondition combinators:**
+- `or()`: Continue + Continue = Continue; Complete + Continue = Complete; Continue + Complete = Complete
+- `or()` priority: Complete + Escalate = Escalate; Failed + Complete = Failed
+- `and()`: Continue + Complete = Continue; Complete + Continue = Continue; Complete + Complete = Complete
+- `and()` priority: Complete + Escalate = Escalate; Complete + Failed = Failed
 
 **Integration with ChoreographedDriver:**
 - Observer as EventSource: driver blocks on queue, wakes on channel message
