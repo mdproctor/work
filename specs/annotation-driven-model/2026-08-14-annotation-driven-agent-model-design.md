@@ -852,11 +852,12 @@ Selects the routing strategy for dynamically discovered agents. Composes with `@
 ```java
 public interface ComplianceReview {
 
-    @DebateAgent(maxRounds = 5,
-                 convergence = @Convergence(threshold = 0.85))
+    @DebateAgent(maxRounds = 5)
     @OversightGate(ComplianceRiskClassifier.class)
     @TrustRouted(minimumScore = 0.8)
     @Attestation(observer = ComplianceObserver.class)
+    @OnFailure(backoffStrategy = BackoffStrategy.EXPONENTIAL_WITH_JITTER,
+               onRetryExhausted = AgentFailureAction.SKIP)
     String review(
         @Debater(role = "critic",
                  systemPrompt = "Challenge every compliance claim...")
