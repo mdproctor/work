@@ -164,6 +164,35 @@ Declares a method as a worker implementation for one or more named capabilities.
 
 `timeoutMs` and `maxRetries` map to `ExecutionPolicy` fields. The build extension generates the equivalent `ExecutionPolicy` and `RetryPolicy`. For advanced retry configuration (backoff, delays), use the builder API.
 
+#### `@Worker` → `Worker` type mapping
+
+The `@Worker` annotation method becomes a `Worker` instance via the engine build extension. The mapping is:
+
+| Annotation concept | Builder/type equivalent | How |
+|---|---|---|
+| Method name | `Worker.name` | Derived from method name (camelCase) |
+| `capability`/`capabilities` | `Worker.capabilityNames` | Direct mapping |
+| Method return type | `Worker.outputType` | `Class<?>` from method's return type via Jandex |
+| Method parameter types | `Worker.inputSchema` | Generated JSON Schema from parameter types + `@V` names |
+| `@V`-annotated parameters | `WorkerFunction` input keys | Each `@V("name")` parameter becomes a named input field in the worker's input map |
+| `cost`, `value` | `Worker.cost`, `Worker.value` | Direct mapping — feed into `GoapPlanner` and `HeuristicDecomposition` |
+| `timeoutMs`, `maxRetries` | `ExecutionPolicy` | Build extension generates `ExecutionPolicy` record |
+| `@SystemMessage` + `@UserMessage` | AI service delegation | Build extension composes with LC4j — generates `WorkerFunction` that delegates to the LC4j AI service bean |
+
+**Input resolution:** When the engine invokes a `@Worker` method, the CDI proxy unpacks the case context into the method's `@V`-annotated parameters by name. Non-`@V` typed parameters (e.g., `AnalysisResult analysis` without `@V`) are resolved from the case context by type — this is the same mechanism used for GOAP dependency inference. The `WorkerFunction.apply(input, scope)` adapter receives `input` as a `Map<String, Object>` built from the case context keys matching the method's parameter names and types.
+
+**Scope access:** The builder API's `WorkerFunction.apply(input, scope)` provides execution scope (case ID, context, metadata). Annotation-defined workers access scope via CDI injection of `WorkerExecutionScope` — a request-scoped bean provided by the engine. This is not a capability gap — it's a different access pattern:
+
+```java
+@Worker(capability = "analyse")
+AnalysisResult analyse(@V("document") String document) {
+    // scope available via CDI injection if needed
+}
+
+@Inject
+WorkerExecutionScope scope;  // request-scoped, available during worker execution
+```
+
 #### `@Capability`
 ```java
 @Retention(RUNTIME)
@@ -390,13 +419,23 @@ default WorkerResult orchestrate(WorkerInput input) {
 
 ---
 
-## Layer 2: CaseHub Blocks Annotations (governance + deliberation)
+## Layer 2: CaseHub Domain Annotations
+
+This layer spans multiple modules, following Design Principle 2 — each annotation lives in the module that owns its concept. The blocks build extension in `casehub-blocks-engine-adapter` composes across all modules at build time, but annotations themselves live in their home module's api package.
+
+| Sub-domain | Module | Annotations |
+|---|---|---|
+| Orchestration patterns | `casehub-blocks` (api) | `@DebateAgent`, `@VotingAgent`, `@HtnAgent`, `@Convergence`, role annotations, `@OversightGate`, `@TrustRouted`, `@CbrRouted`, `@Attestation`, `@OnFailure`, `@Decompose` |
+| Agent identity | `casehub-eidos-api` | `@Identity`, `@Disposition`, `@AgentGoals`, `@AgentConstraints`, `@Discoverable` |
+| Human-in-the-loop | `casehub-work-api` | `@HumanApproval`, `@RequiresQuorum`, `@Escalate` |
+
+### Orchestration annotations (blocks patterns)
 
 **Module:** `casehub-blocks` (api package)
 **Processor:** New Quarkus build extension in `casehub-blocks-engine-adapter`
 **Produces:** `ExecutionModel`, `PatternBuilder` results, interceptor wiring (same types as `Patterns.*()`)
 
-### New orchestration annotations (CaseHub-specific patterns)
+#### CaseHub-specific orchestration patterns
 
 #### `@DebateAgent`
 ```java
@@ -771,6 +810,9 @@ Overrides the default decomposition strategy for any orchestration annotation.
 
 ### Dynamic composition annotations
 
+**Module:** `casehub-eidos-api` (`@Discoverable` — eidos owns agent discovery as an extension of agent identity)
+**Module:** `casehub-blocks` (api) (`@DiscoverFrom`, `@Route` — blocks owns orchestration composition)
+
 #### `@Discoverable`
 ```java
 @Retention(RUNTIME)
@@ -924,6 +966,35 @@ The LC4j `@SupervisorAgent` defines the orchestration pattern. CaseHub's `@Overs
 
 **Module ownership vs processing:** Annotations live in their owning module's API (Design Principle 2). The blocks build extension in `casehub-blocks-engine-adapter` processes annotations from multiple modules because it handles cross-cutting composition. This follows the same pattern as LC4j's Quarkus extension: annotations in `langchain4j-agentic`, processing in `quarkus-langchain4j`.
 
+### `ExecutionModel<T>` type parameter inference
+
+`ExecutionModel<T>` is parameterized — all five SPIs share the type parameter `T` (the context type threading through the execution pipeline). Annotations cannot express generic type parameters directly. The build extension infers `T` using these rules:
+
+| Rule | Condition | `T` resolves to |
+|---|---|---|
+| **Return type** | Orchestration method has a non-`void`, non-`String` return type | The return type (e.g., `ReviewResult review(...)` → `T = ReviewResult`) |
+| **String return** | Return type is `String` | `String` — valid for text-in/text-out patterns |
+| **Void return** | Return type is `void` | `Void` — side-effect-only orchestrations (rare but valid) |
+| **Explicit override** | `@Customize(ExecutionModel.class)` method present | Customiser receives `ExecutionModel.Builder<T>` with inferred `T`, can narrow or reconfigure |
+
+The return type rule covers the vast majority of cases — the orchestration method's return type IS the pipeline's output type, which is exactly what `T` parameterizes. This matches the fluent builder pattern where `T` is specified at the entry point: `Patterns.<ReviewResult>debate()...`.
+
+For cases where `T` must differ from the return type (e.g., internal pipeline context differs from the external return type), `@Customize` provides the escape hatch — same principle as `@Customize` for `CaseDefinition.Builder`.
+
+### Fallback composition architecture (without upstream hooks)
+
+The Upstream Candidates table lists build extension hooks as HIGH priority. If LC4j does not accept the extension hooks PR, CaseHub's build extension uses Quarkus's existing `BeanDiscoveryFinishedBuildItem` to observe LC4j's generated beans without modifying them:
+
+**Phase 1 — Bean observation:** The blocks build extension runs AFTER the LC4j extension (Quarkus build step ordering via `@Consume(BeanDiscoveryFinishedBuildItem.class)`). It reads the generated bean metadata from Quarkus's `BeanInfo` registry — class names, qualifiers, and injection points are stable Quarkus API, not LC4j internals.
+
+**Phase 2 — Interceptor wrapping:** Governance annotations (`@OversightGate`, `@TrustRouted`) generate CDI interceptor bindings that wrap the LC4j-generated bean. Interceptors compose via standard CDI — no LC4j-specific hooks needed. The interceptor observes the bean's method invocation and applies the governance logic around it.
+
+**Phase 3 — Bean replacement (if needed):** For orchestration annotations that need to REPLACE LC4j's generated logic (e.g., `@DiscoverFrom` overriding static `subAgents`), the blocks extension uses Quarkus's `BeanDefiningAnnotationBuildItem` + `AdditionalBeanBuildItem` to register an alternative bean with higher CDI priority (`@Alternative @Priority`).
+
+**Stability guarantee:** This architecture depends on Quarkus CDI build API (`BeanInfo`, `BeanDiscoveryFinishedBuildItem`, `AdditionalBeanBuildItem`), NOT on LC4j internals. Quarkus's build API is versioned and stable. LC4j extension updates that change generated bean names or types do not break CaseHub's interceptor wiring — only the bean's CDI qualifiers matter, and those are derived from the user's source annotations which CaseHub controls.
+
+**Residual risk:** If LC4j's extension changes how it maps annotations to CDI qualifiers (e.g., changing the qualifier annotation class), CaseHub's interceptor binding could break. This is a manageable risk — the blocks build extension's integration tests (§Testing Strategy) validate three-extension composition, catching such breakage at build time. The upstream hooks PR eliminates this risk entirely if accepted.
+
 ### Build-time validation examples
 
 | Check | Error message |
@@ -1001,6 +1072,22 @@ Changes to contribute upstream that benefit both CaseHub and the broader ecosyst
 - LC4j PRs for upstream candidates
 - Migration of CaseHub `@DebateAgent`/`@VotingAgent` to LC4j annotations if accepted
 - Documentation and tutorials
+
+**Upstream migration path:** When LC4j accepts an upstream candidate (e.g., `@DebateAgent`), the migration follows three stages:
+
+1. **Deprecate** — CaseHub's `io.casehub.blocks.agentic.DebateAgent` is marked `@Deprecated` with a `forRemoval = true` and `since` pointing to the LC4j version that includes the upstream equivalent. The build extension emits a compile-time warning for all usages.
+
+2. **Bridge** — CaseHub's build extension recognises BOTH the CaseHub annotation and the LC4j annotation for one release cycle. CaseHub-specific attributes that LC4j does not adopt (e.g., `@Convergence` if LC4j ships a simpler convergence model) become composable annotations that work alongside the LC4j annotation:
+   ```java
+   // Before: CaseHub-only
+   @io.casehub.blocks.agentic.DebateAgent(convergence = @Convergence(...))
+
+   // After: LC4j base + CaseHub extension
+   @dev.langchain4j.agentic.DebateAgent(maxRounds = 5)
+   @Convergence(strategy = ConvergenceStrategy.STRUCTURAL, threshold = 0.85)
+   ```
+
+3. **Remove** — CaseHub's `@DebateAgent` is deleted. Only the LC4j annotation + CaseHub's composable extensions remain. The blocks build extension processes the LC4j annotation via the composition architecture (upstream hooks or fallback, per §Fallback composition architecture).
 
 ---
 
@@ -1160,14 +1247,14 @@ public interface LegalAnalyst {
 ```java
 public interface OpenSupervisor {
 
-    @SupervisorAgent(subAgents = {})  // empty — discovered at runtime
+    @RegistryAgent(name = "open-supervisor")
     @DiscoverFrom(AgentRegistry.class)
     @Route(strategy = LlmSelectedRouting.class)
     String process(@V("request") String request);
 }
 ```
 
-`@DiscoverFrom` tells the build extension to inject registry-based agent discovery instead of static `subAgents`. The supervisor's `LlmSelectedRouting` (or GOAP, or CBR) selects from all registered agents at runtime.
+**Why `@RegistryAgent` instead of `@SupervisorAgent(subAgents = {})`:** LC4j's `@SupervisorAgent` requires non-empty `subAgents` — an empty array is semantically nonsensical for a supervisor and may fail LC4j's build-time validation. LC4j provides `@RegistryAgent` for exactly this pattern — loading agents from a registry by name. `@DiscoverFrom` extends `@RegistryAgent`'s semantics: instead of loading a single named agent, it discovers all matching agents from the eidos `AgentRegistry`. The blocks build extension generates a custom `AgentRegistry` bridge that filters by `@Discoverable` capabilities and routes via the specified `@Route` strategy.
 
 **What CaseHub adds over embabel's open mode:**
 - Trust-weighted agent selection (`@TrustRouted`)
@@ -1368,6 +1455,18 @@ The annotation model handles the 80% case — declaring agents, wiring orchestra
 - **Three-extension composition:** LC4j + engine + blocks extensions processing the same interface. Tests must validate extension ordering and non-interference — each extension processes its own annotations without corrupting the others' output.
 - **Negative compilation tests:** Invalid annotation combinations (e.g., `@Bind` referencing unknown capability, `@TrustRouted(minimumScore = 1.5)`) must produce compile-time errors. Use `@ShouldFail` test annotations or Quarkus's `@QuarkusIntegrationTest` failure mode.
 - **Cross-module annotation composition:** Eidos annotations (`@Identity`) from `casehub-eidos-api` + blocks annotations (`@OversightGate`) from `casehub-blocks` on the same interface — verify the blocks build extension correctly scans annotations from multiple source modules.
+
+### Drift-protection tests (annotation ↔ builder parity)
+
+The three-programming-models invariant ("every `@Annotation` has a builder equivalent") must be enforced by tests, not trust. Following the precedent set by work module's `builderHasSetterForEveryField` tests:
+
+- **Orchestration parity:** For each `@*Agent` annotation in blocks, assert that `Patterns.*()` has a corresponding builder method. E.g., `@DebateAgent` → `Patterns.debate()` exists, returns a builder with setters matching the annotation's attributes (`maxRounds`, `convergence`).
+- **Case definition parity:** For each `@Case` attribute (namespace, name, version, planning), assert that `CaseDefinition.builder()` has a matching setter.
+- **Worker parity:** For each `@Worker` attribute (capability, cost, value, timeoutMs, maxRetries), assert that `Worker.builder()` has a matching setter or builder method.
+- **Governance parity:** For each governance annotation (`@OversightGate`, `@TrustRouted`, `@CbrRouted`), assert that the builder API has equivalent wiring (e.g., `ExecutionModel.Builder.oversightClassifier()` for `@OversightGate`).
+- **Eidos parity:** For each `@Identity`/`@Disposition` attribute, assert that `AgentDescriptor.builder()`/`AgentDisposition.builder()` has a matching setter.
+
+These tests run as part of the build and fail if either side adds a field without updating the other. The test implementation uses reflection to enumerate annotation attributes and introspects the corresponding builder class for matching setters.
 
 ### Interop tests
 
