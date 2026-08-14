@@ -181,7 +181,7 @@ The `@Worker` annotation method becomes a `Worker` instance via the engine build
 
 **Input resolution:** When the engine invokes a `@Worker` method, the CDI proxy unpacks the case context into the method's `@V`-annotated parameters by name. Non-`@V` typed parameters (e.g., `AnalysisResult analysis` without `@V`) are resolved from the case context by type — this is the same mechanism used for GOAP dependency inference. The `WorkerFunction.apply(input, scope)` adapter receives `input` as a `Map<String, Object>` built from the case context keys matching the method's parameter names and types.
 
-**Scope access:** The builder API's `WorkerFunction.apply(input, scope)` provides execution scope (case ID, context, metadata). Annotation-defined workers access scope via CDI injection of `WorkerExecutionScope` — a request-scoped bean provided by the engine. This is not a capability gap — it's a different access pattern:
+**Scope access:** The builder API's `WorkerFunction.Sync.fn()` receives `WorkerScope` as its second parameter (case ID, task ID, accumulated state, channel access). Annotation-defined workers access the same `WorkerScope` via CDI injection — the engine provides it as a request-scoped bean during worker execution:
 
 ```java
 @Worker(capability = "analyse")
@@ -190,8 +190,10 @@ AnalysisResult analyse(@V("document") String document) {
 }
 
 @Inject
-WorkerExecutionScope scope;  // request-scoped, available during worker execution
+WorkerScope scope;  // request-scoped, available during worker execution
 ```
+
+`WorkerScope` is an existing type in `casehub-worker-api` (`io.casehub.worker.api.WorkerScope`) — it provides `caseId()`, `taskId()`, `accumulatedState()`, `execute()` for sub-worker dispatch, and `channel()` for data channel access. The engine build extension registers a request-scoped CDI producer that wraps the current execution's `WorkerScope` instance.
 
 #### `@Capability`
 ```java
@@ -216,6 +218,7 @@ Declares a capability on a case. When applied alongside `@Worker`, the capabilit
 @Target(METHOD)
 @Repeatable(Bindings.class)
 public @interface Bind {
+    String capability() default "";        // target capability name — resolves to CapabilityTarget
     String contextChange() default "";     // JQ expression on context change
     String event() default "";             // CloudEvent type name
     String cron() default "";              // cron schedule expression
@@ -229,9 +232,9 @@ public @interface Bind {
 }
 ```
 
-Binds a method to a trigger. Trigger type is determined by which attribute is set — exactly one of `contextChange`, `event`, `cron`, or `scopeActivated` must be non-default. The build extension validates mutual exclusivity at build time.
+Binds a method to a trigger, targeting a specific capability. Trigger type is determined by which attribute is set — exactly one of `contextChange`, `event`, `cron`, or `scopeActivated` must be non-default. The build extension validates mutual exclusivity at build time.
 
-`@Repeatable` allows multiple bindings on the same method for different triggers. The method's parameter type or annotation determines which capability is bound.
+`@Repeatable` allows multiple bindings on the same method for different triggers. `capability` names the target capability — the build extension resolves it to a `CapabilityTarget` wrapping the matching `@Capability` or `@Worker` declaration on the same `@Case` interface. When `capability` is omitted, the binding target must be configured via `@Customize("methodName")` with `Binding.Builder` (for sub-case or human-task targets).
 
 **Trigger mapping:** Each trigger attribute maps to an existing `Trigger` implementation:
 - `contextChange` → `ContextChangeTrigger(filter, listenLayer)` — `listenLayer` is optional, defaults to all layers
@@ -296,14 +299,14 @@ public interface DocumentReviewCase {
     RiskAssessment assessRisk(@V("analysis") AnalysisResult analysis,
                               @V("clauses") List<Clause> clauses);
 
-    @Bind(contextChange = ".status == 'received'")
+    @Bind(capability = "analyseDocument", contextChange = ".status == 'received'")
     default void onReceived(@V("document") String doc) { analyse(doc); }
 
-    @Bind(contextChange = ".analysisComplete == true")
+    @Bind(capability = "extractClauses", contextChange = ".analysisComplete == true")
     default void afterAnalysis(@V("analysis") AnalysisResult a,
                                @V("document") String doc) { extractClauses(doc); }
 
-    @Bind(contextChange = ".clausesExtracted == true",
+    @Bind(capability = "assessRisk", contextChange = ".clausesExtracted == true",
           when = ".priority == 'high'")
     default void afterClauses(@V("analysis") AnalysisResult a,
                               @V("clauses") List<Clause> c) { assessRisk(a, c); }
@@ -352,7 +355,7 @@ var definition = CaseDefinition.builder()
 
 ### `@Customize` — escape hatch for advanced configuration
 
-**Module:** `casehub-engine-api` (the annotation is a generic marker — engine-api owns it because the primary targets are engine types: `CaseDefinition.Builder`, `Binding.Builder`. The blocks build extension also scans for it when the parameter type is `ExecutionModel.Builder<T>`, following the same cross-module scanning pattern as eidos and work annotations.)
+**Module:** `casehub-engine-api` (the annotation is a generic marker — engine-api owns it because the primary targets are engine types: `CaseDefinition.Builder`, `Binding.Builder`. The blocks build extension also scans for it when the parameter type is a pattern builder (`DebateBuilder<T>`, `SupervisorBuilder<T>`, etc.), following the same cross-module scanning pattern as eidos and work annotations.)
 
 Annotation-defined cases cover the 80% of `CaseDefinition` fields that most cases need. For advanced fields (authorization, routing strategies, cognitive demands, channels, etc.), a `@Customize` method receives the generated builder before the bean is registered:
 
@@ -373,7 +376,7 @@ public interface GovernedReviewCase {
     @Worker(capability = "analyse")
     AnalysisResult analyse(@V("document") String document);
 
-    @Bind(contextChange = ".status == 'received'")
+    @Bind(capability = "analyse", contextChange = ".status == 'received'")
     default void onReceived(@V("document") String doc) { analyse(doc); }
 
     @Customize
@@ -396,6 +399,7 @@ public interface GovernedReviewCase {
 - The `@Customize` method must be `static` and accept exactly one parameter — the parameter type determines what is customized
 - `CaseDefinition.Builder` — customizes the generated case definition (access to all ~40 fields). `value()` is ignored.
 - `Binding.Builder` — customizes a specific binding. `value()` is **required** and must name the `@Bind`-annotated method whose binding is being customized. The build extension emits a compile error if `value()` is empty or names a method without `@Bind`.
+- Pattern builder (e.g., `DebateBuilder<T>`, `SupervisorBuilder<T>`, `HtnBuilder<T>`) — customizes the generated execution model. The build extension determines the expected builder type from the orchestration annotation on the interface. `value()` is **required** and must name the orchestration method being customized. Provides full access to the pattern builder's SPIs: routing, decomposition, activation, aggregation, termination, listeners, backend. There is no `ExecutionModel.Builder` — each pattern has its own concrete builder in `io.casehub.blocks.agentic.pattern`.
 - The build extension calls the customizer after processing all annotations, so annotation-set values are already on the builder
 - Multiple `@Customize` methods are allowed — `@Repeatable` supports customizing multiple bindings or combining case + binding customizers
 
@@ -454,7 +458,6 @@ public @interface DebateAgent {
     String name() default "";
     String description() default "";
     int maxRounds() default 5;
-    Convergence convergence() default @Convergence;
     Class<? extends AggregationStrategy> aggregation() default MajorityVote.class;
 }
 ```
@@ -511,22 +514,29 @@ public @interface Judge {}
 ```java
 public enum ConvergenceStrategy {
     STRUCTURAL,          // ConvergencePolicies.structural(threshold, staleRounds)
-    COMMON_GROUND_RATIO  // ConvergencePolicies.commonGroundRatio(threshold, staleRounds)
+    COMMON_GROUND_RATIO  // ConvergencePolicies.commonGroundRatio(threshold, deadlockDisputeRatio)
 }
 ```
 
 #### `@Convergence`
 ```java
 @Retention(RUNTIME)
-@Target({})  // only used inside @DebateAgent
+@Target(METHOD)  // standalone — presence on method = explicit convergence
 public @interface Convergence {
     ConvergenceStrategy strategy() default ConvergenceStrategy.STRUCTURAL;
     double threshold() default 0.85;
-    int staleRounds() default 2;
+    int staleRounds() default 2;                // STRUCTURAL only — rounds without new points before DIMINISHING_RETURNS
+    double deadlockDisputeRatio() default 0.3;  // COMMON_GROUND_RATIO only — disputed fraction triggering DEADLOCK
 }
 ```
 
-The build extension maps `ConvergenceStrategy` to the corresponding `ConvergencePolicies` factory method, passing `threshold` and `staleRounds` as parameters. Custom convergence policies (e.g., `composite()`) use the builder API — the annotation model covers the two standard strategies.
+`@Convergence` is a standalone method-level annotation. Its presence on an orchestration method means "explicit convergence was set" — its absence means "use the pattern's default termination." This maps directly to `DebateBuilder.convergenceExplicitlySet`.
+
+The build extension maps `ConvergenceStrategy` to the corresponding `ConvergencePolicies` factory method:
+- `STRUCTURAL` → `ConvergencePolicies.structural(threshold, staleRounds)` — `deadlockDisputeRatio` is ignored
+- `COMMON_GROUND_RATIO` → `ConvergencePolicies.commonGroundRatio(threshold, deadlockDisputeRatio)` — `staleRounds` is ignored
+
+The build extension validates at build time that only strategy-relevant parameters are set to non-default values. Custom convergence policies (e.g., `composite()`) use the builder API — the annotation model covers the two standard strategies.
 
 ### Agent identity annotations (eidos integration)
 
@@ -741,6 +751,8 @@ public @interface OversightGate {
 
 Wires the agent's execution through the `ChainedActionRiskClassifier` (`io.casehub.api.spi`). If the classifier returns `GateRequired`, execution pauses for human approval via `OversightGateService`.
 
+**Deployment requirement:** `OversightGateService` is an engine-api SPI with a `NoOpOversightGateService` `@DefaultBean` in `casehub-engine` that returns `GateOutcome.Autonomous()` for all requests (logging a startup warning). The `casehub-work` module provides the production implementation that creates `WorkItem`s and suspends execution. The build extension emits a **compile-time warning** (not error) when `@OversightGate` is used and no non-`@DefaultBean` `OversightGateService` implementation is detected on the classpath — this allows development without the full stack while making the governance gap visible.
+
 #### `@TrustRouted`
 ```java
 @Retention(RUNTIME)
@@ -796,6 +808,12 @@ public @interface OnFailure {
 Composable failure policy for any orchestration annotation. Maps directly to `FailurePolicy` record fields. Without `@OnFailure`, `FailurePolicy.defaults()` applies (3 retries, fixed 1s backoff, FAIL on exhaustion).
 
 **Type mapping:** `RoutingFailureAction` (`FAIL`, `RETRY_BROADER`, `ESCALATE`), `AggregationFailureAction` (`FAIL`, `ESCALATE`, `RETRY_DIFFERENT`), `BackoffStrategy` (`FIXED`, `EXPONENTIAL`, `EXPONENTIAL_WITH_JITTER`), `AgentFailureAction` (`FAIL`, `ESCALATE`, `SKIP`) — all existing enums nested in `io.casehub.blocks.agentic.FailurePolicy`.
+
+**Build extension mapping to `FailurePolicy`:** The build extension applies conditional logic when constructing `FailurePolicy` from `@OnFailure`:
+- `maxReplans == 0` → `replanPolicy = null` (no replanning — uses `FailurePolicy` 3-arg constructor)
+- `maxReplans >= 1` → `replanPolicy = new ReplanPolicy(maxReplans, replanFallback)` (uses 4-arg constructor)
+
+This is necessary because `ReplanPolicy`'s compact constructor validates `maxReplans >= 1` — the annotation's `maxReplans = 0` default means "no replanning", not "create a ReplanPolicy with 0 replans".
 
 ```java
 @DebateAgent(maxRounds = 5)
@@ -964,7 +982,7 @@ The LC4j `@SupervisorAgent` defines the orchestration pattern. CaseHub's `@Overs
 ### Blocks build extension responsibilities
 
 1. **Scan** for `@DebateAgent`, `@VotingAgent`, `@HtnAgent` at build time
-2. **Scan** for governance meta-annotations (`@OversightGate`, `@TrustRouted`, `@CbrRouted`, `@Attestation`) on any `@*Agent`-annotated method
+2. **Scan** for governance meta-annotations (`@OversightGate`, `@TrustRouted`, `@CbrRouted`, `@Attestation`) on any `@*Agent`-annotated or `@Worker`-annotated method
 3. **Scan** for eidos annotations (`@Identity`, `@Disposition`, `@AgentGoals`, `@AgentConstraints` — defined in `casehub-eidos-api`) and work annotations (`@HumanApproval`, `@RequiresQuorum`, `@Escalate` — defined in `casehub-work-api`) to generate cross-module wiring
 4. **Validate** — referenced classifier/observer/weights classes exist; trust parameters are in valid ranges
 5. **Generate** synthetic CDI beans:
@@ -985,7 +1003,7 @@ The LC4j `@SupervisorAgent` defines the orchestration pattern. CaseHub's `@Overs
 | **Return type** | Orchestration method has a non-`void`, non-`String` return type | The return type (e.g., `ReviewResult review(...)` → `T = ReviewResult`) |
 | **String return** | Return type is `String` | `String` — valid for text-in/text-out patterns |
 | **Void return** | Return type is `void` | `Void` — side-effect-only orchestrations (rare but valid) |
-| **Explicit override** | `@Customize` method accepting `ExecutionModel.Builder<T>` | Customiser receives the builder with inferred `T`, can narrow or reconfigure |
+| **Explicit override** | `@Customize` method accepting a pattern builder (e.g., `DebateBuilder<T>`) | Customiser receives the builder with inferred `T`, can narrow or reconfigure |
 
 The return type rule covers the vast majority of cases — the orchestration method's return type IS the pipeline's output type, which is exactly what `T` parameterizes. This matches the fluent builder pattern where `T` is specified at the entry point: `Patterns.<ReviewResult>debate()...`.
 
@@ -1016,8 +1034,9 @@ The Upstream Candidates table lists build extension hooks as HIGH priority. If L
 | `@OversightGate` classifier not found | `@OversightGate references ComplianceRiskClassifier which is not a CDI bean` |
 | `@TrustRouted` with invalid score | `@TrustRouted minimumScore 1.5 is outside valid range [0.0, 1.0]` |
 | `@DebateAgent` without `@Debater` params | `@DebateAgent on 'review' has no @Debater-annotated parameters` |
-| `@DebateAgent` with `@Judge` + explicit convergence | `@DebateAgent on 'review' has both @Judge parameter and explicit @Convergence — these are mutually exclusive (judge creates JudgeConvergence)` |
+| `@DebateAgent` with `@Judge` + `@Convergence` on same method | `@DebateAgent on 'review' has both @Judge parameter and @Convergence annotation — these are mutually exclusive (judge creates JudgeConvergence)` |
 | `@Convergence` threshold out of range | `@Convergence threshold 2.0 is outside valid range [0.0, 1.0]` |
+| `@Convergence` mismatched strategy params | `@Convergence on 'review' sets staleRounds=5 with COMMON_GROUND_RATIO strategy — staleRounds only applies to STRUCTURAL` |
 | `@Worker` with both capability and capabilities | `@Worker on 'analyse' sets both capability and capabilities — use one or the other` |
 | GOAP duplicate return type | `Workers 'extractTags' and 'extractErrors' both return List<String> — ambiguous GOAP effect. Add @Effect("name") to disambiguate` |
 
