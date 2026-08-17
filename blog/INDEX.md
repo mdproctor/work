@@ -24,3 +24,4 @@
 | [2026-07-01-mdp01-wiring-the-audit-spine.md](2026-07-01-mdp01-wiring-the-audit-spine.md) | 2026-07-01 | Enriched the routing data flow with task descriptions, state rendering, reason preservation, judge convergence, and accountability listeners |
 | [2026-08-06-mdp01-the-package-that-didnt-belong.md](2026-08-06-mdp01-the-package-that-didnt-belong.md) | 2026-08-06 | Package cohesion by compile-time dependency, VouchService TOCTOU trade-off, Set.of() duplicate crash |
 | [2026-08-10-mdp01-the-budget-that-wasnt-a-number.md](2026-08-10-mdp01-the-budget-that-wasnt-a-number.md) | 2026-08-10 | Layered constraint enforcement — prompt hints for LLM planners, structural pruning for static decomposition |
+| [2026-08-17-mdp01-the-callback-that-isnt-a-round.md](2026-08-17-mdp01-the-callback-that-isnt-a-round.md) | 2026-08-17 | Per-dispatch ConversationListener SPI on ConversationOrchestrator — naming, granularity, and signature decisions |
