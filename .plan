@@ -1,0 +1,15 @@
+# Work Plan — issue-125-round-listener-spi
+
+## State
+branch: issue-125-round-listener-spi
+state: scaffolded
+project-sha: fbf66799e81ce1b6e80710054cdf5bdd9cc7054b
+date: 2026-08-17
+issue-repo: casehubio/blocks
+covers: 125
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: none
+
+## Queue
+- [ ] #125 — Issue #125 ← active
