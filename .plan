@@ -13,3 +13,5 @@ flyway-next-v: none
 
 ## Queue
 - [ ] #125 — Issue #125 ← active
+  - [ ] Batch 1: ConversationListener SPI
+    - [ ] Task 1: Create interface and wire into orchestrator with tests
