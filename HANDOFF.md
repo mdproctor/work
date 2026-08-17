@@ -2,21 +2,17 @@
 
 ## Last Session
 
-Implemented #357 — two new queue endpoints for the scaffold console's Queues tab:
+Extended workspace compositor (#312) with recursive sub-frames, unified toolbar, and mode switching. 13 commits: organiser toolbar with `[⊞] [☰] [+]`, recursive sub-frame creation with full chrome (close, pin, tabs, resize), move & resize zone picker, responsive snapping, accordion ↔ free-layout mode switching with state preservation across all tabs. Then designed the unified container model — every frame is a recursive container (free/tabbed/accordion/content) with the same toolbar at every level. Spec reviewed (light, 10 findings — 3 addressed, rest deferred). Implementation plan written: 5 tasks across 3 batches.
 
-1. **Enriched `GET /queues`** — each queue entry now includes a `summary` field with the full `WorkItemSummary` (total, byStatus, byPriority, overdue, claimDeadlineBreached, oldestCreatedAt). Reuses cached `QueueMembershipService.summarize()`.
+## Immediate Next Step
 
-2. **`GET /queues/health`** — aggregates all per-queue summaries into a KPI metrics array (total, pending, active, overdue, claim SLA breaches) with status thresholds (critical/warning/neutral). Returns the `blocks-kpi-metric-row` format the console expects.
+Run `/work continue` on `issue-312-workspace-compositor`. Execute the implementation plan at `plans/2026-08-17-unified-container-toolbar.md` — Batch 1 Task 1: add `"content"` to OrganiserType and rewrite the toolbar.
 
-Design decision: nest full `WorkItemSummary` rather than flatten to explicit fields — UI already consumes this shape from `/queues/{id}/summary`, and flattening would discard data the console will need soon.
+## References
 
-Also cleaned up stale `.plan` from prior session — #333/#337/#340 were already closed and merged.
-
-## Cross-Module
-
-**Enabled** (delivered in prior sessions, downstream unblocked):
-- `engine-adapter` — SignalTarget compat fix (`31f0d564`), engine can close `issue-510-case-level-sla-timer` (engine#510)
-
-## What's Next
-
-Pick new work from the open issue backlog. No queued issues remain.
+| Artifact | Path |
+|----------|------|
+| Spec | `specs/issue-312-workspace-compositor/2026-08-17-unified-container-toolbar-design.md` |
+| Plan | `plans/2026-08-17-unified-container-toolbar.md` |
+| Decisions | `specs/issue-312-workspace-compositor/decisions.md` (D15-D18) |
+| Review | `/Users/mdproctor/reviews/casehub-pages/unified-container-toolbar-20260817-184350/` |
