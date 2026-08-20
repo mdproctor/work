@@ -5,6 +5,16 @@
 **Issue:** casehubio/blocks#19
 **Date:** 2026-08-12
 
+## Recent Cross-Repo Changes
+
+### 2026-08-20 — feat/per-event-level-resolver (from examples session)
+
+- **Branch:** `feat/per-event-level-resolver` (uncommitted to main)
+- **Commit:** 8677e2a — adds `Function<E, EventLevel>` level-resolver constructor overload to `PartitionedObservationService`. Existing single-level constructor delegates with constant function. Backward-compatible.
+- **Also fixes:** pre-existing `ChannelObserver` compile error (missing `payload` param in `MessageView` constructor)
+- **Refs:** casehubio/examples#7
+- **Status:** needs review, test suite has pre-existing compile errors in channel/negotiation tests (unrelated — `MessageReceivedEvent` constructor changed in qhorus-api)
+
 ## Last Session
 
 Two changes landed on main:
