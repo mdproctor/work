@@ -1,0 +1,25 @@
+# Work Plan — issue-129-drive-architecture
+
+## State
+branch: issue-129-drive-architecture
+state: active
+project-sha: slot-creation
+date: 2026-08-21
+issue-repo: casehubio/blocks
+covers: 129
+design-repo: project
+design-section-hashes: 
+flyway-next-v: unknown
+
+## Queue
+- [ ] casehubio/blocks#129 — Issue #129 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: Foundation types
+    - [ ] Task 2: DriveComposer
+  - [ ] Batch 2: Sources
+    - [ ] Task 3: CuriosityDrive + MemoryHygiene API
+    - [ ] Task 4: CompetenceDrive + StrategyLearning API
+    - [ ] Task 5: AffiliationDrive + UserModel API
+    - [ ] Task 6: AutonomyDrive + MentalModel API
+  - [ ] Batch 3: Orchestrator
+    - [ ] Task 7: DriveOrchestrator
