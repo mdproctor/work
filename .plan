@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-129-drive-architecture
-state: closing:review
+state: closing:promoted
 project-sha: slot-creation
 date: 2026-08-21
 issue-repo: casehubio/blocks
