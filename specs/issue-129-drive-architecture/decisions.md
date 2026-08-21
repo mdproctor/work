@@ -95,3 +95,16 @@
 **Exploration:** deep-analysis
 **Depends on:** D2 (distinct classes implement DriveSource)
 **Status:** captured
+
+## D9: API boundary for drive source data
+
+**Choice:** Public API only — drives read currentXxx() accessors. Add new public accessors to source orchestrators where needed.
+**Alternatives:**
+- Package-private access — put drives in same package. Tight coupling, no package separation.
+- Intermediate signal types — new records per data flow. Most decoupled but most new types.
+**Rationale:** Clean boundaries between drive sources and their upstream orchestrators. If MemoryHygiene doesn't expose knowledge gap data, add a public accessor rather than breaking encapsulation.
+**Trade-offs:** May require adding public methods to existing orchestrators. Acceptable — those methods are useful beyond drives.
+**Sources:** Orchestrator public APIs (currentTraits, currentMood, currentProfile, etc.)
+**Exploration:** quick
+**Depends on:** D1 (pull model), D8 (DriveSource SPI)
+**Status:** captured
