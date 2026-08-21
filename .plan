@@ -16,10 +16,10 @@ flyway-next-v: unknown
   - [x] Batch 1: Foundation
     - [x] Task 1: Foundation types
     - [x] Task 2: DriveComposer
-  - [ ] Batch 2: Sources
-    - [ ] Task 3: CuriosityDrive + MemoryHygiene API
-    - [ ] Task 4: CompetenceDrive + StrategyLearning API
-    - [ ] Task 5: AffiliationDrive + UserModel API
-    - [ ] Task 6: AutonomyDrive + MentalModel API
+  - [x] Batch 2: Sources
+    - [x] Task 3: CuriosityDrive + MemoryHygiene API
+    - [x] Task 4: CompetenceDrive + StrategyLearning API
+    - [x] Task 5: AffiliationDrive + UserModel API
+    - [x] Task 6: AutonomyDrive + MentalModel API
   - [ ] Batch 3: Orchestrator
     - [ ] Task 7: DriveOrchestrator
