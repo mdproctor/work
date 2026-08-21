@@ -21,5 +21,5 @@ flyway-next-v: unknown
     - [x] Task 4: CompetenceDrive + StrategyLearning API
     - [x] Task 5: AffiliationDrive + UserModel API
     - [x] Task 6: AutonomyDrive + MentalModel API
-  - [ ] Batch 3: Orchestrator
-    - [ ] Task 7: DriveOrchestrator
+  - [x] Batch 3: Orchestrator
+    - [x] Task 7: DriveOrchestrator
