@@ -18,12 +18,18 @@ The immediate high-value work is extending YAML to cover all expressible pattern
 
 ## Type Generation & Drift Prevention
 
-Two generation pipelines, each using the right source of truth:
+**Java is canonical.** JavaParser walks the Java source AST and generates both TS types and YAML schema. This eliminates drift by construction — everything derives from one source.
 
-- **L2**: JSON Schema (CaseDefinition.yaml) → TS interfaces. Mechanical generation via json-schema-to-typescript or equivalent. CI validates generated types match schema.
-- **L3**: Java types (records, sealed interfaces) → .d.ts via reflection/annotation processing. TS compiler catches drift at compile time.
+JavaParser gives richer type information than JSON Schema can express:
+- Sealed interfaces → TS discriminated unions with exhaustiveness
+- Generics (`DecompositionStrategy<T>`) → TS generic types
+- Builder method signatures → TS builder methods with full type info
+- `@FunctionalInterface` → precise TS function types
+- Javadoc → TSDoc and JSON Schema descriptions
 
-Drift validators run in CI: regenerate types, fail if diff is non-empty.
+**Current state:** Schema came first historically (jsonschema2pojo generates Java POJOs from CaseDefinition.yaml). The proposal reverses the flow — Java types become the source, JSON Schema becomes a generated artifact. The hand-written 1882-line CaseDefinitionYamlMapper and the two-CaseDefinition-class problem collapse over time.
+
+**Drift prevention:** CI regenerates schema and TS types from Java source. Diff against committed artifacts. Non-empty diff = build failure. No manual sync needed.
 
 ## Cross-Foundation Principle
 
@@ -137,13 +143,68 @@ These patterns are inherently procedural, stateful, or require custom logic that
 
 2. **GraphQL audit** — Assess current GraphQL schema coverage. Identify gaps for L1 (type-safe TS client).
 
-3. **JSON Schema → TS generator** — Evaluate json-schema-to-typescript and alternatives for mechanical type generation from CaseDefinition.yaml.
+3. **JavaParser-based generator** — Build or configure a JavaParser tool that walks Java source and emits both TS types/builders and JSON Schema. Retire the jsonschema2pojo flow. Evaluate victools/jsonschema-generator for the Java→schema direction.
 
 4. **Pages DSL as template** — Use pages-ui/src/dsl/builders.ts as the reference implementation for the TS CDK builder pattern. Design the engine CDK builder API following the same conventions.
 
 5. **TSJ evaluation** — Track TSJ maturity. Placeholder for L3, same as desiredstate #108. Evaluate when TSJ reaches sufficient maturity for the constrained DSL use case.
 
 6. **Pattern mapping document** — Maintain the mapping table above as a living reference. Update as YAML expressiveness expands and patterns evolve.
+
+## Platform-Wide YAML Coverage Audit
+
+Cross-repo audit of Java annotation/DSL/builder patterns vs YAML equivalents.
+
+### Strong parity (already dual YAML + Java)
+
+Engine core loop: `@Case` → YAML root, `@Worker` → `workers:`, `@Capability` → `capabilities:`, `@Bind` → `bindings:`, `@Goal` → `goals:`, `@Milestone` → `milestones:`, `@Completion` → `completion:`, `@SystemPrompt` → `agent.systemPrompt`.
+
+Work: `@HumanApproval` → `humanTask:` in bindings.
+
+Pages: Component tree definitions → TS DSL builders.
+
+### Gaps — high value for YAML expansion
+
+| Priority | Repo | Gap | YAML feasibility |
+|----------|------|-----|-----------------|
+| **P0** | eidos | `@Identity`, `@Disposition`, `@AgentGoals`, `@AgentConstraints` — entirely annotation-only | Purely declarative (slot, personality traits, goals, constraints). Maps naturally to YAML. **Biggest single gap.** |
+| **P1** | engine | `@Cost`, `@Effect`, `@SoftDependency` — no YAML fields | Straightforward: add `cost:`, `effect:`, `softDependency:` to worker/capability schema |
+| **P1** | engine | `@Customize` — no YAML equivalent | Named customizer IDs as a YAML list |
+| **P1** | work | `@Escalate`, `@SkillMatch` — no YAML fields | Declarative config, natural fit for `humanTask:` schema extension |
+| **P2** | blocks | All agentic orchestration patterns — code-only | Covered by pattern mapping table above |
+| **P2** | desiredstate | Entirely annotation-only | Tracked via #108 |
+
+### ~15 Java-only fields in engine (no YAML equivalent)
+
+These exist in `io.casehub.api.model.CaseDefinition` but not in the YAML schema: `goapActions`, `planningConstraints`, `monitoringConfig`, `portfolioConfig`, `defaultWorkerBridge`, `workerServiceAccountIds`, `defaultQuorum`, `reflectionTrigger`, `adaptationConfig`, and others. Adding these to the schema is the YAML expansion work list.
+
+### Inherently code-only (no YAML path makes sense)
+
+- Ledger interception: `@Attested`, `@Audited`, `@ProvenanceCapture` — AOP interceptors wrapping method calls
+- Platform CDI qualifiers: `@CloudEventType`, `@McpDomain`, `@Inference` — injection points
+- Ledger parameter bindings: `@SubjectId`, `@ActorId`, `@TenancyId` — runtime parameter extraction
+- Worker lambdas: `Worker.builder().function(this::method)` — arbitrary code (YAML covers HTTP via `do:` and LLM via `agent:`)
+
+### Current Schema Generation Flow
+
+```
+CaseDefinition.yaml (JSON Schema) ← CURRENT source of truth
+    │
+    ├──▶ jsonschema2pojo (CasehubCodegen) → io.casehub.model.* (~40 generated POJOs)
+    │
+    └──▶ CaseDefinitionYamlMapper (hand-written, 1882 lines)
+            YAML → generated POJO → io.casehub.api.model.CaseDefinition (hand-written, 1019 lines)
+```
+
+**Proposed flow (Java-canonical):**
+
+```
+Java source (io.casehub.api.model.*) ← NEW source of truth
+    │
+    ├──▶ JavaParser → TS types + builder APIs (@casehub/engine-sdk)
+    ├──▶ JavaParser → JSON Schema (CaseDefinition.yaml, now generated)
+    └──▶ Jackson direct deserialization (replaces 1882-line mapper over time)
+```
 
 ## Decisions
 
@@ -154,7 +215,7 @@ Seven decisions captured in `specs/main/decisions.md`:
 | D1 | Three-Level TS Strategy | L1 (GraphQL, native), L2 (CDK→YAML), L3 (TSJ+YAML, placeholder) |
 | D2 | YAML-first expressiveness | Push YAML as far as possible before relying on TSJ |
 | D3 | Full type safety | No `any`, no escape hatches, no exceptions |
-| D4 | Dual type generation | JSON Schema→TS for L2, Java→.d.ts for L3 |
+| D4 | Java-canonical type generation | JavaParser generates TS types, builders, and JSON Schema from Java source |
 | D5 | Cross-foundation principle | Every YAML surface gets a TS builder |
 | D6 | Extend CaseDefinition schema | Agentic patterns in existing spec section |
 | D7 | Three audiences | YAML (ops), Java DSL (Java devs), TS DSL (TS devs) — same runtime |
@@ -165,4 +226,7 @@ Seven decisions captured in `specs/main/decisions.md`:
 - Pages DSL: pages-ui/src/dsl/builders.ts — proven dual YAML/TS pattern
 - CaseDefinition.yaml: engine/schema/src/main/resources/schema/CaseDefinition.yaml — existing JSON Schema (1345 lines)
 - tsj: https://github.com/vgargatgit/tsj — TS→JVM compiler (early stage)
-- engine YAML examples: engine/schema/src/main/resources/examples/ — document-processing.yaml, agent-worker-example.yaml
+- engine YAML examples: engine/schema/src/main/resources/examples/
+- CasehubCodegen: engine/schema — jsonschema2pojo custom entry point (current flow)
+- CaseDefinitionYamlMapper: engine/api — hand-written mapper (1882 lines, drift risk)
+- victools/jsonschema-generator — candidate for Java→schema generation

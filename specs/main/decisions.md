@@ -58,22 +58,31 @@
 **Exploration:** quick
 **Status:** captured
 
-## D4: Dual type generation — schema for Level 2, Java for Level 3
+## D4: Java-canonical type generation via JavaParser
 
-**Choice:** Two generation pipelines, each using the right source of truth for its level
+**Choice:** Java source is the single source of truth. JavaParser walks the AST and generates both TS types and YAML schema.
 
-- **Level 2**: JSON Schema (CaseDefinition.yaml) → TS interfaces via json-schema-to-typescript or equivalent. CI validates generated types match schema.
-- **Level 3**: Java types (records, sealed interfaces) → .d.ts via reflection/annotation processing. TS compiler catches drift at compile time.
+JavaParser extracts richer type information than JSON Schema can express:
+- Sealed interfaces → TS discriminated unions with exhaustiveness
+- Generics (`DecompositionStrategy<T>`) → TS generic types
+- Builder method signatures → TS builder methods with full parameter/return types
+- `@FunctionalInterface` → precise TS function types
+- Javadoc → TSDoc
+- Sealed hierarchies → TS `never` exhaustiveness
+
+Generation outputs:
+- **TS types + builder APIs** for both L2 (YAML-surface subset) and L3 (full Java interop)
+- **JSON Schema** generated from Java types (replaces hand-maintained CaseDefinition.yaml as the derivative artifact, not the source)
 
 **Alternatives:**
-- JSON Schema only — doesn't cover Java types needed for TSJ interop
-- Java reflection only — over-engineers Level 2 which only needs the YAML schema surface
+- JSON Schema → TS for L2, Java → .d.ts for L3 (original D4 — two generators, two sources of truth)
+- JSON Schema only — loses generics, sealed interfaces, builder methods
 
-**Rationale:** Level 2 targets YAML — the JSON Schema IS the contract. Level 3 targets JVM objects — the Java types ARE the contract. Each generator validates against its own source of truth.
+**Rationale:** A single Java → everything generator eliminates drift by construction. JSON Schema becomes a generated artifact validated by CI, not a hand-maintained source. The YAML schema retains its documentation richness via Javadoc → description mapping. TS types gain fidelity that JSON Schema cannot express.
 
-**Trade-offs:** Two generators to maintain. Must ensure generated types are compatible (Level 2 YAML types are a subset of Level 3 Java types).
+**Trade-offs:** Requires building or configuring a JavaParser-based generator. The current schema's rich validation constraints (regex patterns, min/max, oneOf) need Java-side annotation equivalents (e.g., Jakarta Validation annotations). The existing jsonschema2pojo flow would be retired.
 
-**Sources:** CaseDefinition.yaml JSON Schema, Pages DSL precedent
+**Sources:** JavaParser, victools/jsonschema-generator, current CaseDefinition.yaml analysis
 
 **Exploration:** quick
 **Status:** captured
