@@ -55,3 +55,44 @@
 
 **Exploration:** quick
 **Status:** captured
+
+## D4: Dual type generation — schema for Level 2, Java for Level 3
+
+**Choice:** Two generation pipelines, each using the right source of truth for its level
+
+- **Level 2**: JSON Schema (CaseDefinition.yaml) → TS interfaces via json-schema-to-typescript or equivalent. CI validates generated types match schema.
+- **Level 3**: Java types (records, sealed interfaces) → .d.ts via reflection/annotation processing. TS compiler catches drift at compile time.
+
+**Alternatives:**
+- JSON Schema only — doesn't cover Java types needed for TSJ interop
+- Java reflection only — over-engineers Level 2 which only needs the YAML schema surface
+
+**Rationale:** Level 2 targets YAML — the JSON Schema IS the contract. Level 3 targets JVM objects — the Java types ARE the contract. Each generator validates against its own source of truth.
+
+**Trade-offs:** Two generators to maintain. Must ensure generated types are compatible (Level 2 YAML types are a subset of Level 3 Java types).
+
+**Sources:** CaseDefinition.yaml JSON Schema, Pages DSL precedent
+
+**Exploration:** quick
+**Status:** captured
+
+## D5: Cross-foundation principle — every YAML surface gets a TS builder
+
+**Choice:** The dual YAML/TS strategy applies to every YAML DSL in the CaseHub foundations, not just blocks/engine
+
+Scope: engine (case definitions), pages (component trees, already done), desiredstate (graph declarations), flow (workflows), work (templates), and any future YAML-configured module.
+
+Shared infrastructure: one JSON Schema → TS generator tool, one CI validation pipeline, common npm publishing. Each module designs its own builder API following the Pages DSL pattern.
+
+**Alternatives:**
+- Blocks/engine only — misses the platform-wide TS story
+- Selective (only modules with external users) — creates inconsistency in the developer experience
+
+**Rationale:** The Pages DSL already proves the pattern works. The generator tool is mechanical. The marginal cost of adding a new module is low once the infrastructure exists. A consistent cross-foundation TS story is stronger than piecemeal support.
+
+**Trade-offs:** Broader scope means more coordination across repos. Each module team needs to maintain their builder API design. But the shared generator handles the mechanical parts.
+
+**Sources:** Pages DSL (proven), user insight ("every place there is YAML in the foundations")
+
+**Exploration:** quick
+**Status:** captured
