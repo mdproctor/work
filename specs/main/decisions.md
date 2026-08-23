@@ -4,9 +4,9 @@
 
 **Choice:** Three progressive levels of TypeScript support for CaseHub, reducing the barrier to entry for TS developers
 
-**Important framing:** This is NOT "first-class TS" in the Node.js-native sense. CaseHub runs on JVM. TS is an authoring surface — familiar syntax, type safety, and tooling that lower the onboarding barrier. Only Level 1 (GraphQL client) runs natively on Node.js. Level 2 is development-time TS producing YAML. Level 3 is TS syntax compiled to JVM bytecode (like Kotlin on JVM — TS syntax, not TS ecosystem).
+**Important framing:** Two distinct TS stories: *consuming* CaseHub is genuinely native TS (GraphQL overlays, full npm ecosystem, Node.js runtime). *Authoring* CaseHub (defining cases, workers, patterns) uses TS syntax and type safety as a barrier reduction — familiar tooling, but runtime is JVM.
 
-- **Level 1 — GraphQL Client**: Type-safe TS bindings for CaseHub's GraphQL API. npm package, Node.js runtime. The only level that gives genuine Node.js ecosystem access. Table stakes for TS relevance.
+- **Level 1 — GraphQL Client**: Native TS integration for consuming CaseHub. Type-safe GraphQL overlays, npm package, full Node.js ecosystem. A TS developer's Next.js/React/Express app talks to CaseHub with full type safety. This is genuinely first-class TS.
 - **Level 2 — TS CDK → YAML**: Development-time builder functions (Pages DSL pattern) that produce validated CaseHub YAML. Types generated from CaseDefinition.yaml JSON Schema. Runs on Node.js at build time, produces YAML that JVM executes. Full type safety, autocomplete, refactoring.
 - **Level 3 — Dual TSJ + YAML**: TSJ (TS→JVM bytecode) for direct Java object construction AND continued YAML expressiveness expansion. TS syntax, JVM runtime — no npm ecosystem access in workers. TS type definitions (.d.ts) generated from Java types. The relative weight of TSJ vs YAML evolves based on TSJ maturity and YAML coverage.
 
