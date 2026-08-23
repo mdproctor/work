@@ -2,20 +2,22 @@
 
 ## D1: Three-Level TS Strategy
 
-**Choice:** Three progressive levels of TypeScript support for CaseHub
+**Choice:** Three progressive levels of TypeScript support for CaseHub, reducing the barrier to entry for TS developers
 
-- **Level 1 — GraphQL Client**: Type-safe TS bindings for CaseHub's GraphQL API. npm package, Node.js runtime. Table stakes for TS relevance.
-- **Level 2 — TS CDK → YAML**: TS builder functions (Pages DSL pattern) that produce validated CaseHub YAML. Types generated from CaseDefinition.yaml JSON Schema. Full type safety, autocomplete, refactoring. Compilation target is the existing YAML document format.
-- **Level 3 — Dual TSJ + YAML**: TSJ (TS→JVM bytecode) for direct Java object construction AND continued YAML expressiveness expansion. Both paths produce the same runtime objects. TS type definitions (.d.ts) generated from Java types. The relative weight of TSJ vs YAML evolves based on TSJ maturity and YAML coverage.
+**Important framing:** This is NOT "first-class TS" in the Node.js-native sense. CaseHub runs on JVM. TS is an authoring surface — familiar syntax, type safety, and tooling that lower the onboarding barrier. Only Level 1 (GraphQL client) runs natively on Node.js. Level 2 is development-time TS producing YAML. Level 3 is TS syntax compiled to JVM bytecode (like Kotlin on JVM — TS syntax, not TS ecosystem).
+
+- **Level 1 — GraphQL Client**: Type-safe TS bindings for CaseHub's GraphQL API. npm package, Node.js runtime. The only level that gives genuine Node.js ecosystem access. Table stakes for TS relevance.
+- **Level 2 — TS CDK → YAML**: Development-time builder functions (Pages DSL pattern) that produce validated CaseHub YAML. Types generated from CaseDefinition.yaml JSON Schema. Runs on Node.js at build time, produces YAML that JVM executes. Full type safety, autocomplete, refactoring.
+- **Level 3 — Dual TSJ + YAML**: TSJ (TS→JVM bytecode) for direct Java object construction AND continued YAML expressiveness expansion. TS syntax, JVM runtime — no npm ecosystem access in workers. TS type definitions (.d.ts) generated from Java types. The relative weight of TSJ vs YAML evolves based on TSJ maturity and YAML coverage.
 
 **Alternatives:**
-- Node.js-only (no JVM) — limits TS developers to what YAML/HTTP can express; blocks-level patterns inaccessible
+- Node.js-native workers (TS code runs on Node.js, communicates with JVM via gRPC) — true TS ecosystem access but adds distributed system complexity, latency, and a separate runtime to operate
 - TSJ-only (no YAML expansion) — all-in on a pre-alpha dependency; no fallback
 - Full port to TS — prohibitive cost, maintaining two implementations
 
-**Rationale:** Each level delivers standalone value. Level 1 is immediate. Level 2 leverages the existing YAML schema with the Pages DSL precedent. Level 3 provides the escape hatch for patterns that can't be declaratively expressed. YAML expansion as a parallel track reduces TSJ dependency.
+**Rationale:** Each level delivers standalone value. Level 1 is immediate. Level 2 leverages the existing YAML schema with the Pages DSL precedent. Level 3 provides the escape hatch for patterns that can't be declaratively expressed. YAML expansion as a parallel track reduces TSJ dependency. The goal is "you don't need to learn Java to build on CaseHub" — not "CaseHub is a TS platform."
 
-**Trade-offs:** Level 3 depends on TSJ maturity (32 commits, no license, 1 contributor). The YAML expansion path is the safety net — if TSJ stalls, the declarative surface grows to compensate.
+**Trade-offs:** Level 3 depends on TSJ maturity (32 commits, no license, 1 contributor). The YAML expansion path is the safety net — if TSJ stalls, the declarative surface grows to compensate. TS developers do NOT get Node.js ecosystem access for workers/agents (no npm packages, no Node.js APIs in business logic).
 
 **Sources:** casehubio/casehub-desiredstate#108, Pages DSL (pages-ui/src/dsl/builders.ts), CaseDefinition.yaml JSON Schema (engine/schema)
 
