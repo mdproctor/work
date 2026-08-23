@@ -18,7 +18,19 @@ The immediate high-value work is extending YAML to cover all expressible pattern
 
 ## Type Generation & Drift Prevention
 
-**Java is canonical.** JavaParser walks the Java source AST and generates both TS types and YAML schema. This eliminates drift by construction — everything derives from one source.
+**The Java model types are canonical.** The records, sealed interfaces, and builders (e.g., `CaseDefinition`, `ExecutionModel`, `AgentRef`) are the single source of truth. Both YAML and Java DSL/annotations are authoring surfaces that produce instances of these same model types. TS becomes a third authoring surface.
+
+```
+Java model types (records, sealed interfaces, builders) ← THE SOURCE
+
+    ↑ authored via YAML          ↑ authored via Java DSL        ↑ authored via TS CDK
+    CaseDefinitionYamlMapper     @Case, @Worker, Patterns.*     builder functions → YAML
+```
+
+**Generation flows FROM the model types** via JavaParser:
+- Java model → JSON Schema (what YAML must accept)
+- Java model → TS types + builder APIs (what TS CDK uses)
+- Java DSL/annotations already use these types directly (no generation needed)
 
 JavaParser gives richer type information than JSON Schema can express:
 - Sealed interfaces → TS discriminated unions with exhaustiveness
@@ -27,9 +39,9 @@ JavaParser gives richer type information than JSON Schema can express:
 - `@FunctionalInterface` → precise TS function types
 - Javadoc → TSDoc and JSON Schema descriptions
 
-**Current state:** Schema came first historically (jsonschema2pojo generates Java POJOs from CaseDefinition.yaml). The proposal reverses the flow — Java types become the source, JSON Schema becomes a generated artifact. The hand-written 1882-line CaseDefinitionYamlMapper and the two-CaseDefinition-class problem collapse over time.
+**Current state:** Schema came first historically (jsonschema2pojo generates Java POJOs from CaseDefinition.yaml). The proposal reverses the flow — model types become the source, JSON Schema becomes a generated artifact. The hand-written 1882-line CaseDefinitionYamlMapper and the two-CaseDefinition-class problem (generated POJOs vs hand-written API model) collapse over time.
 
-**Drift prevention:** CI regenerates schema and TS types from Java source. Diff against committed artifacts. Non-empty diff = build failure. No manual sync needed.
+**Drift prevention:** CI regenerates schema and TS types from Java model source. Diff against committed artifacts. Non-empty diff = build failure. No manual sync needed.
 
 ## Cross-Foundation Principle
 
@@ -196,15 +208,18 @@ CaseDefinition.yaml (JSON Schema) ← CURRENT source of truth
             YAML → generated POJO → io.casehub.api.model.CaseDefinition (hand-written, 1019 lines)
 ```
 
-**Proposed flow (Java-canonical):**
+**Proposed flow (model-canonical):**
 
 ```
-Java source (io.casehub.api.model.*) ← NEW source of truth
+Java model types (io.casehub.api.model.*) ← SOURCE OF TRUTH
     │
-    ├──▶ JavaParser → TS types + builder APIs (@casehub/engine-sdk)
     ├──▶ JavaParser → JSON Schema (CaseDefinition.yaml, now generated)
+    ├──▶ JavaParser → TS types + builder APIs (@casehub/engine-sdk)
+    ├──  Java DSL + annotations → already use these types directly
     └──▶ Jackson direct deserialization (replaces 1882-line mapper over time)
 ```
+
+Three authoring surfaces (YAML, Java DSL, TS CDK), one model, zero drift.
 
 ## Decisions
 
