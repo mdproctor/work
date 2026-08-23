@@ -74,15 +74,30 @@ Generation outputs:
 - **TS types + builder APIs** for both L2 (YAML-surface subset) and L3 (full Java interop)
 - **JSON Schema** generated from Java types (replaces hand-maintained CaseDefinition.yaml as the derivative artifact, not the source)
 
+The architecture is a single AST walker with pluggable writers — the visitor pattern. One walk of the Java model types dispatches to multiple writers at each node:
+
+```
+Java AST ──walker──┬──▶ SchemaWriter → JSON Schema
+                   ├──▶ TypeScriptWriter → TS interfaces + discriminated unions + builders
+                   └──▶ (future writers)
+```
+
+**Why JavaParser over existing tools (victools + json-schema-to-typescript):**
+- Existing tools chain: Java → JSON Schema → TS interfaces. Two tools, lossy intermediate format. JSON Schema cannot express generics, sealed exhaustiveness, or builder method chains.
+- Existing tools generate TS interfaces only — not the TS builder functions (Pages DSL pattern) that are the whole point of the CDK.
+- JavaParser visitor generates both schema AND TS builders in one walk. Builder generation is the unique value — without it, every TS builder is hand-written and drifts.
+- Scales across all modules (cross-foundation D5): engine, eidos, blocks, work, desiredstate. Hand-writing builders for all of those is unsustainable.
+
 **Alternatives:**
-- JSON Schema → TS for L2, Java → .d.ts for L3 (original D4 — two generators, two sources of truth)
-- JSON Schema only — loses generics, sealed interfaces, builder methods
+- Chained existing tools (victools → JSON Schema → json-schema-to-typescript) — simpler but can't generate TS builders, loses type fidelity
+- Hybrid (victools for schema, JavaParser for TS only) — two tools to maintain, divergence risk between them
+- JSON Schema → TS only — loses generics, sealed interfaces, builder methods
 
-**Rationale:** A single Java → everything generator eliminates drift by construction. JSON Schema becomes a generated artifact validated by CI, not a hand-maintained source. The YAML schema retains its documentation richness via Javadoc → description mapping. TS types gain fidelity that JSON Schema cannot express.
+**Rationale:** A single Java → everything generator eliminates drift by construction. JSON Schema becomes a generated artifact validated by CI, not a hand-maintained source. The YAML schema retains its documentation richness via Javadoc → description mapping. TS types gain fidelity that JSON Schema cannot express. TS builders are generated, not hand-written.
 
-**Trade-offs:** Requires building or configuring a JavaParser-based generator. The current schema's rich validation constraints (regex patterns, min/max, oneOf) need Java-side annotation equivalents (e.g., Jakarta Validation annotations). The existing jsonschema2pojo flow would be retired.
+**Trade-offs:** More upfront investment than plugging in existing tools. The current schema's rich validation constraints (regex patterns, min/max, oneOf) need Java-side annotation equivalents (e.g., Jakarta Validation annotations). The existing jsonschema2pojo flow would be retired.
 
-**Sources:** JavaParser, victools/jsonschema-generator, current CaseDefinition.yaml analysis
+**Sources:** JavaParser, current CaseDefinition.yaml analysis, Pages DSL builder pattern
 
 **Exploration:** quick
 **Status:** captured
