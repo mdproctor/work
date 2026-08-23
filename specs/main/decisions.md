@@ -96,3 +96,45 @@ Shared infrastructure: one JSON Schema → TS generator tool, one CI validation 
 
 **Exploration:** quick
 **Status:** captured
+
+## D6: Extend CaseDefinition schema for agentic patterns
+
+**Choice:** Agentic orchestration patterns become YAML-expressible by extending the existing CaseDefinition spec section (same approach as `agent:` and `do:` blocks on workers)
+
+Workers already have function-type blocks (`agent:`, `do:`, `sequence:`). The pattern is: strategy name + config parameters in YAML, strategy implementation in Java/TSJ. The TS CDK gains agentic patterns automatically when the schema expands.
+
+**Alternatives:**
+- Separate AgenticPattern.yaml schema — more modular but adds a new document type
+- Named registry only (string IDs) — least YAML expansion, most reliance on code
+
+**Rationale:** Keeping everything in one CaseDefinition document is simpler for authoring, validation, and deployment. The existing schema is already extensible (`unevaluatedProperties: true` on CaseDefinitionSpec). New blocks go into the spec section alongside capabilities, bindings, and workers.
+
+**Trade-offs:** The CaseDefinition schema grows larger. Complex orchestration topologies may strain YAML readability. But the TS CDK (Level 2) compensates — type-checked builders are more ergonomic than raw YAML for complex configs.
+
+**Sources:** CaseDefinition.yaml schema (spec.unevaluatedProperties: true), existing worker function patterns
+
+**Exploration:** quick
+**Status:** captured
+
+## D7: Three audiences, three representations — YAML / Java / TS
+
+**Choice:** YAML, Java DSL, and TS DSL serve different audiences, not the same audience with options
+
+- **YAML** → ops teams, deployment tooling, GitOps pipelines, CI/CD
+- **Java DSL + annotations** → Java power developers (existing, unchanged)
+- **TS DSL** → TS developers, LLM-generated configurations
+
+All three produce the same runtime objects. The deployment blueprints work (ops/desiredstate) connects them: YAML is how you deploy and configure, Java/TS is how you develop.
+
+**Alternatives:**
+- Single canonical representation with adapters — loses audience-appropriate DX
+- Pick two of three — creates a second-class audience
+
+**Rationale:** Different audiences have different expectations and tooling. Ops people live in YAML and kubectl/ArgoCD. Java developers want IDE refactoring and compile-time checking. TS developers want npm and VS Code. Forcing any audience into another's tooling creates friction that undermines adoption.
+
+**Trade-offs:** Three representations to keep in sync. But the generation pipeline (D4) makes this mechanical, not manual. The source of truth is the Java types and JSON Schema — both DSLs are generated or validated against those.
+
+**Sources:** Pages dual YAML/TS precedent, ops/desiredstate deployment blueprints discussion
+
+**Exploration:** quick
+**Status:** captured
