@@ -1,14 +1,5 @@
 # Work Plan — issue-142-narrative-identity
 
-## Queue
-- [ ] casehubio/blocks#142 — Narrative Identity + Social Emergence — self-story and collective behavior ← active
-- [ ] casehubio/blocks#143 — NarrativeOrchestrator — first-person autobiography synthesis
-- [ ] casehubio/blocks#144 — NarrativeStore SPI — persistent self-story
-- [ ] casehubio/blocks#145 — NarrativeFeedback — narrative influences drive intensity
-- [ ] casehubio/blocks#146 — SocialNormDetector — emergent norms from multi-agent interaction
-- [ ] casehubio/blocks#147 — CollectiveGoalFormation — joint goals from individual drives
-- [ ] casehubio/blocks#148 — GroupIdentity — shared narrative across agent collectives
-
 ## State
 branch: issue-142-narrative-identity
 state: active
@@ -16,3 +7,19 @@ issue-repo: casehubio/blocks
 covers: 142
 Current: casehubio/blocks#142 — Narrative Identity + Social Emergence — self-story and collective behavior
 date: 2026-08-24
+
+## Queue
+- [ ] casehubio/blocks#142 — Narrative Identity + Social Emergence — self-story and collective behavior ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: NarrativeFragment hierarchy + NarrativeState
+    - [ ] Task 2: Config ticks SPIs NarrativeModulation
+  - [ ] Batch 2: Emergence
+    - [ ] Task 3: Norm + collective goal types
+  - [ ] Batch 3: Integration
+    - [ ] Task 4: DriveComposer + CognitiveObservationSections
+- [ ] casehubio/blocks#143 — NarrativeOrchestrator — first-person autobiography synthesis
+- [ ] casehubio/blocks#144 — NarrativeStore SPI — persistent self-story
+- [ ] casehubio/blocks#145 — NarrativeFeedback — narrative influences drive intensity
+- [ ] casehubio/blocks#146 — SocialNormDetector — emergent norms from multi-agent interaction
+- [ ] casehubio/blocks#147 — CollectiveGoalFormation — joint goals from individual drives
+- [ ] casehubio/blocks#148 — GroupIdentity — shared narrative across agent collectives
