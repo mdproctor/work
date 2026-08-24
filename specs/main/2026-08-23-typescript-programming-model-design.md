@@ -41,7 +41,9 @@ JavaParser gives richer type information than JSON Schema can express:
 
 **Current state:** Schema came first historically (jsonschema2pojo generates Java POJOs from CaseDefinition.yaml). The proposal reverses the flow — model types become the source, JSON Schema becomes a generated artifact. The hand-written 1882-line CaseDefinitionYamlMapper and the two-CaseDefinition-class problem (generated POJOs vs hand-written API model) collapse over time.
 
-**Drift prevention:** CI regenerates schema and TS types from Java model source. Diff against committed artifacts. Non-empty diff = build failure. No manual sync needed.
+**Incremental generation:** On every build that installs, the generator checks whether Java model source files have changed (whitespace-normalized content hash vs cached hash). Unchanged files skip JavaParser entirely — generated outputs are already correct in git. Only changed model files trigger regeneration. Generated outputs are deterministic and git-committed.
+
+**Drift prevention:** CI regenerates schema and TS types from Java model source. `git diff --exit-code` on generated files. Non-zero = someone changed a model type without regenerating — build fails.
 
 ## Cross-Foundation Principle
 
