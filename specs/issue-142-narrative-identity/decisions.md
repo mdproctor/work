@@ -152,3 +152,78 @@ Both are designed at the type level in this spec; orchestrator implementation is
 **Sources:** ConversationOrchestrator constructor pattern; AgentParticipant; decision review R1-08
 **Exploration:** quick (surfaced by decision review)
 **Status:** captured
+
+---
+
+# #143 NarrativeOrchestrator + NarrativeSynthesiser — Implementation Decisions
+
+## D13: Synthesis strategy — incremental merge
+
+**Choice:** Incremental merge — new episodes are added to existing fragments, existing episodes preserved. Avoids re-deriving the full narrative each synthesis cycle.
+**Alternatives:**
+- Full replacement — each synthesis produces complete NarrativeState replacing all fragments; risks losing fragments the LLM forgets, expensive per call
+**Rationale:** Reflections accumulate incrementally. Episodes represent distinct experiences and should persist once created. Full replacement forces the LLM to carry the entire narrative history every call, which is both expensive and unreliable.
+**Trade-offs:** Requires capacity management (pruning) and theme re-derivation strategy.
+**Sources:** MemoryHygieneOrchestrator pattern (incremental consolidation); D3 (split architecture)
+**Exploration:** quick
+**Status:** captured
+
+## D14: Hybrid incremental — episodes additive, themes re-derived
+
+**Choice:** Episodes are incremental (new ones added from new reflections). Themes are fully re-derived each synthesis — the LLM sees all existing episode summaries plus new reflections and produces the complete theme set.
+**Alternatives:**
+- Pure incremental (both episodes and themes additive) — LLM produces theme deltas; risks drift since salience can't be holistically recalibrated
+**Rationale:** Themes are derived patterns across ALL episodes. A new crisis episode should shift the "crisis-helper" theme's salience globally. The LLM needs the full episode set to produce coherent salience scores. Cost is manageable — maxEpisodes is 50, maxThemes is 10.
+**Trade-offs:** Theme section of the prompt grows with episode count. Mitigated by maxEpisodes cap and episode summaries (descriptions only, not full reflections).
+**Depends on:** D13 (incremental merge)
+**Sources:** DerivedTheme.salience semantics (spec D5); NarrativeConfig.maxEpisodes; DriveComposer modulation algebra (spec D4)
+**Exploration:** quick
+**Status:** captured
+
+## D15: LLM response schema — flat JSON with index references
+
+**Choice:** LLM returns flat JSON with `newEpisodes` array (description, emotionalValence, thematicTags, fromReflections as indices) and `themes` array (label, salience, thematicTags, axisWeights as DriveAxis→Double map). Synthesiser handles all ID generation (UUIDs for episodes), reflection index→sourceCaseId mapping, and theme supportingFragmentIds computation via thematic tag matching.
+**Alternatives:**
+- Rich JSON with explicit fragment references — LLM manages IDs directly; error-prone, complex prompts
+**Rationale:** Keeps the LLM focused on semantic content. ID management is mechanical and better handled deterministically by the synthesiser. Simpler prompts produce more reliable outputs.
+**Trade-offs:** supportingFragmentIds for themes are computed by tag matching rather than explicit LLM assignment — may be less precise but more robust.
+**Depends on:** D14 (hybrid incremental — themes are full set, episodes are new only)
+**Sources:** InnerLifeOrchestrator JSON parsing pattern; AgentEvent text extraction (GE-20260801-0aee7e)
+**Exploration:** quick
+**Status:** captured
+
+## D16: TokenJaccardDistance made public
+
+**Choice:** Change TokenJaccardDistance from package-private to public. NarrativeSynthesiser (in social.narrative sub-package) needs it for novelty scoring in the synthesis gate.
+**Alternatives:**
+- Duplicate the utility in the narrative package — violates DRY
+- Move to a shared utility package — over-engineering for a single class
+**Rationale:** TokenJaccardDistance is a stateless utility with no encapsulation concern. Making it public is a one-word change. Java sub-packages don't inherit parent package access.
+**Trade-offs:** None — the class has no mutable state and is already used by InnerLifeOrchestrator.
+**Sources:** TokenJaccardDistance.java (social package); NarrativeSynthesisGate.noveltyThreshold (spec D6)
+**Exploration:** quick
+**Status:** captured
+
+## D17: NarrativeSynthesiser as @ApplicationScoped CDI bean
+
+**Choice:** @ApplicationScoped with @Inject constructor (AgentProvider, NarrativeStore, ReflectionQueryStore, NarrativeConfig) plus package-private test constructor accepting Clock. Follows DriveOrchestrator pattern.
+**Alternatives:**
+- Consumer-constructed (like VouchService) — no CDI; requires consumer to wire dependencies manually
+**Rationale:** All constructor parameters are CDI-resolvable. The consumer calls synthesiseIfNeeded() at the correct tick ordering point but doesn't need to construct the object. Same injection pattern as DriveOrchestrator (CDI constructor + test constructor with Clock).
+**Trade-offs:** Consumer must control tick ordering via scheduler, not via construction. This is the same responsibility as with DriveOrchestrator.
+**Sources:** DriveOrchestrator CDI constructor pattern; InnerLifeOrchestrator @ApplicationScoped; spec D3 (split architecture)
+**Exploration:** quick
+**Status:** captured
+
+## D18: Pruning and theme identity
+
+**Choice:** After merge: (a) episodes exceeding maxEpisodes pruned by oldest `from` timestamp, (b) themes exceeding maxThemes pruned by lowest salience, (c) themes below themeSalienceFloor pruned regardless of count. Theme identity matched by label (case-insensitive) — re-derived themes with matching labels replace existing ones.
+**Alternatives:**
+- Episode pruning by emotional significance (keep highest |valence|) — more interesting but loses temporal continuity
+- Theme identity by thematic tag overlap — fuzzy matching, fragile
+**Rationale:** Temporal pruning preserves the most recent narrative, which is most relevant for current behavior. Label-based theme identity is simple and deterministic — the LLM controls theme labels, making them stable across synthesis cycles.
+**Trade-offs:** Old but emotionally significant episodes may be lost. Acceptable because themes capture the enduring patterns — a pruned crisis episode still contributes through the "crisis-helper" theme it helped establish.
+**Depends on:** D13 (incremental merge), D14 (themes re-derived)
+**Sources:** NarrativeConfig (maxEpisodes, maxThemes, themeSalienceFloor); memory hygiene eviction pattern (RetentionScore)
+**Exploration:** quick
+**Status:** captured
