@@ -29,6 +29,35 @@ Mutiny Multi, casehub-platform-agent-api (AgentProvider)
 - Build: `mvn --batch-mode test`
 - Commits reference `Refs #143`
 
+## Review Addendum
+
+Plan review surfaced 7 findings. Apply these during implementation:
+
+**Task 1 addition:** Modify `NarrativeTick.Updated` — make `previous` `@Nullable`.
+First load returns `Updated(null, loaded, ...)`. Add a test for this. (R1-04)
+
+**Task 2 changes:**
+- `NarrativeOrchestrator.tick()` first-load path: return `Updated(null, loaded, ...)`
+  instead of `Updated(loaded, loaded, ...)`. (R1-04)
+- Test helper `stateWith` → `stateWith(String agentId, ...)` parameterized. (R1-07)
+
+**Task 3 changes:**
+- **Watermark fix (R1-02):** When reflections are capped by `maxReflectionsPerSynthesis`,
+  set `synthesisedAt` to the `generatedAt` of the last consumed reflection (not
+  `Instant.now(clock)`). This preserves unconsumed reflections for the next cycle.
+  When NOT capped, use `Instant.now(clock)` as before.
+- **Degenerate response guard (R1-03):** Before writing state, check:
+  (a) if `newEpisodes.isEmpty() && themes.isEmpty()` → `Skipped("empty synthesis result")`
+  (b) if `themes.isEmpty() && !allEpisodes.isEmpty()` → `Skipped("no themes produced")`
+- **buildThemes tag matching (R1-05):** Accept `List<? extends NarrativeFragment>`
+  instead of `List<IndividualEpisode>` — match tags against all fragment types
+  including GroupEpisode.
+- **Case-insensitive tags (R1-06):** Normalize thematic tags to lowercase for
+  matching: `themeTags = spec.thematicTags().stream().map(String::toLowerCase).collect(toSet())`,
+  compare with `tag.toLowerCase()`.
+- **Additional tests:** Add `synthesise_emptyResult_skipped`,
+  `synthesise_emptyThemesWithEpisodes_skipped`, `synthesise_cappedReflections_watermarkPreserved`.
+
 ---
 
 ## Batch 1: Foundation + Compositor
