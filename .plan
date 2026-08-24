@@ -11,11 +11,11 @@ date: 2026-08-24
 ## Queue
 - [x] casehubio/blocks#142 — Narrative Identity + Social Emergence — self-story and collective behavior
 - [ ] casehubio/blocks#143 — NarrativeOrchestrator — first-person autobiography synthesis ← active
-  - [ ] Batch 1: Foundation
-    - [ ] Task 1: TokenJaccardDistance + NarrativeModulation clamping
-    - [ ] Task 2: NarrativeOrchestrator compositor
-  - [ ] Batch 2: Synthesis
-    - [ ] Task 3: NarrativeSynthesiser LLM synthesis
+  - [x] Batch 1: Foundation
+    - [x] Task 1: TokenJaccardDistance + NarrativeModulation clamping
+    - [x] Task 2: NarrativeOrchestrator compositor
+  - [x] Batch 2: Synthesis
+    - [x] Task 3: NarrativeSynthesiser LLM synthesis
 - [ ] casehubio/blocks#144 — NarrativeStore SPI — persistent self-story
 - [ ] casehubio/blocks#145 — NarrativeFeedback — narrative influences drive intensity
 - [ ] casehubio/blocks#146 — SocialNormDetector — emergent norms from multi-agent interaction
