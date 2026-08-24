@@ -3,7 +3,7 @@
 **Issue:** casehubio/blocks#142
 **Date:** 2026-08-24
 **Branch:** issue-142-narrative-identity
-**Repos:** blocks (primary), engine-api (GoalPriorityEscalationPolicy), neocortex-memory-api (ReflectionQueryStore)
+**Repos:** blocks (primary), engine-api (GoalPriorityEscalationPolicy)
 
 ## Overview
 
@@ -36,24 +36,29 @@ implementation — children (#143-#148) build on these types.
   │    1. Source orchestrators (Personality, Memory, Strategy, UserModel, MentalModel, Mood)
   │    2. NarrativeSynthesiser (if composite gate triggers — D6)
   │    3. NarrativeOrchestrator (compositor — reads NarrativeStore)
-  │    4. DriveOrchestrator (reads NarrativeState for modulation — D4)
+  │    4. DriveOrchestrator (reads narrative modulation coefficients — D4)
   │    5. GoalProposalOrchestrator
   │
   │  Ordering rationale: narrative must tick before drives so DriveComposer
-  │  sees the current NarrativeState. NarrativeOrchestrator sees current
+  │  sees the current narrative modulation. NarrativeOrchestrator sees current
   │  reflections but previous-cycle drives — acceptable because narrative
   │  changes slowly (gated by composite trigger).
+  │
+  │  Note: InnerLifeOrchestrator.doTick() currently calls driveOrchestrator.tick()
+  │  inline (line 102). This is superseded by the scheduler ordering — consumers
+  │  must remove the inline drive tick from InnerLifeOrchestrator and place it
+  │  in the scheduler at step 4.
   │
   ├─── NARRATIVE IDENTITY ──────────────────────────────────────────────
   │
   │  NarrativeSynthesiser (effectful, scheduled — D3)
-  │  │  reads: ReflectionQueryStore (new SPI)
+  │  │  reads: ReflectionQueryStore (new SPI — in blocks, alongside ReflectionStore)
   │  │  calls: AgentProvider (LLM synthesis)
   │  │  writes: NarrativeStore
   │  │  trigger: composite gate (count + novelty + quiet — D6)
   │  │
   │  NarrativeStore SPI (read + write — #144)
-  │  │  CbrNarrativeStore @DefaultBean
+  │  │  NoOpNarrativeStore @DefaultBean (CbrNarrativeStore provided by #144)
   │  │  persist: NarrativeState (fragments: episodes + themes)
   │  │
   │  NarrativeOrchestrator (compositor — #143)
@@ -241,6 +246,10 @@ public record DerivedTheme(
         if (salience < 0.0 || salience > 1.0)
             throw new IllegalArgumentException("salience must be in [0, 1]");
         axisModulationWeights = Map.copyOf(axisModulationWeights);
+        for (var w : axisModulationWeights.values()) {
+            if (w < -1.0 || w > 1.0)
+                throw new IllegalArgumentException("axis modulation weight must be in [-1, 1]");
+        }
         supportingFragmentIds = List.copyOf(supportingFragmentIds);
     }
 }
@@ -252,22 +261,34 @@ Modulation semantics for `axisModulationWeights`:
 - Zero or absent = no modulation from this theme
 - Multiple themes compose additively (weighted by salience)
 
+#### NarrativeScope (enum)
+
+```java
+public enum NarrativeScope {
+    INDIVIDUAL,
+    GROUP
+}
+```
+
 #### NarrativeState (record)
 
 Composite narrative state — the cached output of NarrativeOrchestrator.tick().
+Supports both individual agents (scopeId = agentId) and groups (scopeId = groupId).
 Provides typed accessors for episodes, themes, and the dominant theme.
 
 ```java
 public record NarrativeState(
-        String agentId,
+        String scopeId,                 // agentId for INDIVIDUAL, groupId for GROUP
         String tenantId,
+        NarrativeScope scope,
         List<NarrativeFragment> fragments,
         Instant synthesisedAt,
         int reflectionCountAtSynthesis
 ) {
     public NarrativeState {
-        Objects.requireNonNull(agentId);
+        Objects.requireNonNull(scopeId);
         Objects.requireNonNull(tenantId);
+        Objects.requireNonNull(scope);
         fragments = List.copyOf(fragments);
         Objects.requireNonNull(synthesisedAt);
     }
@@ -276,6 +297,13 @@ public record NarrativeState(
         return fragments.stream()
                 .filter(IndividualEpisode.class::isInstance)
                 .map(IndividualEpisode.class::cast)
+                .toList();
+    }
+
+    public List<GroupEpisode> groupEpisodes() {
+        return fragments.stream()
+                .filter(GroupEpisode.class::isInstance)
+                .map(GroupEpisode.class::cast)
                 .toList();
     }
 
@@ -331,7 +359,7 @@ write-only). CbrNarrativeStore is the @DefaultBean.
 ```java
 public interface NarrativeStore {
     void store(NarrativeState state);
-    @Nullable NarrativeState load(String agentId, String tenantId);
+    @Nullable NarrativeState load(String scopeId, String tenantId);
 }
 ```
 
@@ -395,27 +423,56 @@ public class NarrativeOrchestrator {
 
 ### DriveComposer Extension (D4)
 
-DriveComposer.compose() gains a `@Nullable NarrativeState` parameter as the third
-modulation layer:
+DriveComposer.compose() gains a `@Nullable Map<DriveAxis, Double>` parameter —
+pre-computed narrative modulation coefficients per axis. DriveComposer does NOT
+depend on NarrativeState or any narrative types — the conversion happens in the
+caller. This preserves unidirectional dependency: narrative → drive (DerivedTheme
+uses DriveAxis), but drive never → narrative.
 
 ```java
 public DriveProfile compose(
         Map<DriveAxis, DriveIntensity> rawDrives,
         @Nullable AgentDisposition disposition,
         @Nullable MoodState mood,
-        @Nullable NarrativeState narrative,     // NEW — third modulation layer
+        @Nullable Map<DriveAxis, Double> narrativeModulation,  // NEW — pre-computed coefficients
         DriveConfig config,
         String agentId, String tenantId, Instant now) { ... }
 ```
 
-Narrative modulation algebra:
-1. For each DerivedTheme in `narrative.themes()`:
-   - For each axis in `theme.axisModulationWeights()`:
-     - `modulation += theme.salience() * theme.axisModulationWeights().get(axis)`
-2. Clamp modulated intensity to `[minIntensity, maxIntensity]`
+**Modulation conversion** (in DriveOrchestrator or a utility in the narrative package):
 
-Null narrative = no modulation. Existing callers pass null until NarrativeOrchestrator
-is wired in.
+```java
+static Map<DriveAxis, Double> computeNarrativeModulation(NarrativeState narrative) {
+    var modulation = new EnumMap<DriveAxis, Double>(DriveAxis.class);
+    for (var theme : narrative.themes()) {
+        for (var entry : theme.axisModulationWeights().entrySet()) {
+            modulation.merge(entry.getKey(),
+                    theme.salience() * entry.getValue(), Double::sum);
+        }
+    }
+    return modulation;
+}
+```
+
+**DriveComposer modulation algebra:**
+```
+modulatedIntensity += narrativeModulation.getOrDefault(axis, 0.0)
+                      × config.narrativeModulationStrength()
+```
+
+Null map = no modulation. Existing callers pass null. Future modulation sources
+(e.g., social norms influencing drives) plug in the same way — no DriveComposer
+change needed.
+
+**DriveOrchestrator integration:** DriveOrchestrator gains `Instance<NarrativeOrchestrator>`
+as a constructor dependency (using `Instance<>` for optional resolution). In tick():
+```java
+Map<DriveAxis, Double> narrativeMod = narrativeOrchestrator.stream().findFirst()
+        .flatMap(no -> no.currentNarrative(agentId, tenantId))
+        .map(NarrativeModulation::compute)
+        .orElse(null);
+composer.compose(rawDrives, disposition, mood, narrativeMod, config, agentId, tenantId, now);
+```
 
 ### CognitiveObservationSections Extension
 
@@ -446,10 +503,12 @@ public static ObservationSection narrativeSection(NarrativeState state) {
 }
 ```
 
-### Upstream Change — ReflectionQueryStore
+### ReflectionQueryStore (blocks)
 
 NarrativeSynthesiser needs to read stored reflections. ReflectionStore is write-only.
-A new SPI in neocortex-memory-api:
+A new read SPI in blocks alongside ReflectionStore and ReflectionEntry (all three
+are in blocks — placing it in neocortex-memory-api would create a circular
+dependency since ReflectionEntry is a blocks type):
 
 ```java
 public interface ReflectionQueryStore {
@@ -754,15 +813,21 @@ blocks/src/main/java/io/casehub/blocks/agentic/social/narrative/
 ├── IndividualEpisode.java          (record)
 ├── GroupEpisode.java               (record)
 ├── DerivedTheme.java               (record)
-├── NarrativeState.java             (record)
+├── NarrativeScope.java             (enum: INDIVIDUAL, GROUP)
+├── NarrativeState.java             (record — scopeId, scope, fragments)
 ├── NarrativeConfig.java            (record)
 ├── NarrativeSynthesisGate.java     (record)
 ├── NarrativeTick.java              (sealed interface)
 ├── NarrativeSynthesisTick.java     (sealed interface)
 ├── NarrativeStore.java             (SPI)
 ├── NoOpNarrativeStore.java         (@DefaultBean)
+├── NarrativeModulation.java        (utility — NarrativeState → Map<DriveAxis, Double>)
 ├── NarrativeSynthesiser.java       (effectful — LLM synthesis)
 └── NarrativeOrchestrator.java      (compositor — tick + accessor)
+
+blocks/src/main/java/io/casehub/blocks/memory/
+├── ReflectionQueryStore.java       (NEW SPI — alongside ReflectionStore)
+└── NoOpReflectionQueryStore.java   (NEW @DefaultBean)
 
 blocks/src/main/java/io/casehub/blocks/agentic/social/emergence/
 ├── SocialNorm.java                 (record)
@@ -778,10 +843,6 @@ blocks/src/main/java/io/casehub/blocks/agentic/social/emergence/
 ├── CollectiveGoalConfig.java       (record)
 └── CollectiveGoalFormation.java    (compositor)
 
-neocortex/memory-api/src/main/java/io/casehub/neocortex/memory/reflection/
-├── ReflectionQueryStore.java       (NEW SPI)
-└── NoOpReflectionQueryStore.java   (NEW @DefaultBean)
-
 engine/api/src/main/java/io/casehub/api/spi/routing/
 ├── GoalPriorityEscalationPolicy.java  (NEW SPI)
 └── GoalEscalationContext.java         (NEW record)
@@ -794,13 +855,25 @@ of the social cognition module, not separate concerns.
 
 | Repo | Change | Why |
 |------|--------|-----|
-| neocortex-memory-api | `ReflectionQueryStore` SPI + `NoOpReflectionQueryStore` @DefaultBean | NarrativeSynthesiser reads stored reflections |
 | engine-api | `GoalPriorityEscalationPolicy` SPI + `GoalEscalationContext` record | Governed priority escalation (D11) |
-| blocks | Add `@Nullable NarrativeState` parameter to `DriveComposer.compose()` | Third modulation layer (D4) |
+| blocks | `ReflectionQueryStore` SPI + `NoOpReflectionQueryStore` @DefaultBean (in memory package) | NarrativeSynthesiser reads stored reflections |
+| blocks | Add `@Nullable Map<DriveAxis, Double>` parameter to `DriveComposer.compose()` | Third modulation layer (D4) — pre-computed coefficients, no narrative type dependency |
+| blocks | Add `Instance<NarrativeOrchestrator>` to `DriveOrchestrator` constructor | Optional narrative modulation source |
 | blocks | Add `narrativeSection()` to `CognitiveObservationSections` | Prompt rendering for narrative identity |
 
 All changes are additive. The DriveComposer.compose() parameter addition is the
 only source-breaking change — existing callers must add `null` as the new argument.
+
+### Assumptions
+
+- **Co-location**: CollectiveGoalFormation assumes all agents whose DriveProfiles
+  are read run in the same JVM and are ticked by the same scheduler. Distributed
+  agents need a DriveStore persistence layer (noted in Layer 1 follow-ups) for
+  cross-JVM drive profile access.
+- **Norm pattern normalisation**: NormObservation.behavioralPattern values must
+  be normalised before storage — otherwise string-equality grouping in
+  SocialNormDetector fragments norms with paraphrased descriptions. The
+  normalisation strategy is designed in #146.
 
 ## Testing Strategy
 
@@ -835,11 +908,12 @@ only source-breaking change — existing callers must add `null` as the new argu
 
 ### DriveComposer modulation tests
 
-- Null narrative = no modulation (backward compatible)
-- Single theme modulates correct axes
-- Multiple themes compose additively weighted by salience
-- Negative modulation weights dampen drives
+- Null modulation map = no modulation (backward compatible)
+- Single-axis modulation amplifies correct drive
+- Multi-axis modulation applies all coefficients
+- Negative coefficients dampen drives
 - Modulated intensity clamped to [min, max]
+- NarrativeModulation utility: converts NarrativeState → Map correctly
 
 ### SocialNormDetector tests (Mockito)
 
