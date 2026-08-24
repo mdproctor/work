@@ -33,8 +33,8 @@
 - Hybrid — compositor for reflections, record() for narrative-specific events
 **Rationale:** LLM synthesis (producing episodes and themes from reflections) is non-deterministic and expensive — it cannot live in a compositor tick(). Splitting into synthesiser + compositor preserves ADR-0001's guarantees while supporting the LLM requirement. The synthesiser is called by the consumer's scheduler; the compositor reads pre-synthesised state from NarrativeStore.
 **Trade-offs:** Two components instead of one. The synthesiser needs its own scheduling and the consumer must call it before ticking the orchestrator. This is the same pattern as MemoryHygieneScheduler calling ReflectionOrchestrator before ticking MemoryHygieneOrchestrator.
-**Note:** ReflectionStore is currently write-only (`void store(ReflectionEntry)`). NarrativeSynthesiser needs to read stored reflections. This requires either: (a) a query method added to ReflectionStore, or (b) a separate ReflectionQueryStore SPI. Decision deferred to spec — depends on neocortex-memory-api design.
-**Sources:** ADR-0001-drive-compositor-pattern.md; MemoryHygieneScheduler.java; MemoryHygieneOrchestrator.java; ReflectionStore.java (write-only SPI); decision review R1-02, R1-03, R1-11
+**Note:** NarrativeSynthesiser reads stored reflections via the `ReflectionQueryStore` SPI (`findSince`, `countSince`), which exists at `io.casehub.blocks.memory.ReflectionQueryStore` with a `NoOpReflectionQueryStore` `@DefaultBean`.
+**Sources:** ADR-0001-drive-compositor-pattern.md; MemoryHygieneScheduler.java; MemoryHygieneOrchestrator.java; ReflectionQueryStore.java; decision review R1-02, R1-03, R1-07, R1-11
 **Exploration:** quick → revised after decision review
 **Status:** revised
 
@@ -59,8 +59,7 @@
 - Flat hybrid without sealed hierarchy — episodes and themes as separate types with no common interface; loses composition between individual and group scope
 **Rationale:** Episodes serve BOTH prompt rendering and drive modulation (episode emotional valence directly informs drive intensity). Themes also serve BOTH consumers (themes appear in agent prompts for self-consistent behavior, and provide structured drive modulation weights). The sealed hierarchy enables individual narrative to reference GroupEpisode instances and group identity to aggregate IndividualEpisode themes — composition across scopes.
 **Trade-offs:** More complex type system; LLM synthesis must produce structured output matching the sealed hierarchy. GroupEpisode adds membership and role fields that IndividualEpisode doesn't need.
-**Depends on:** D9 (group identity shares type system)
-**Sources:** CognitiveObservationSections.java; DriveComposer (spec #129); blog 2026-08-21-mdp04; decision review R1-05, R1-09
+**Sources:** CognitiveObservationSections.java; DriveComposer (spec #129); blog 2026-08-21-mdp04; decision review R1-03, R1-05, R1-09
 **Exploration:** quick → revised after decision review
 **Status:** revised
 
@@ -91,15 +90,18 @@
 
 ## D8: Collective goal formation via drive profile aggregation
 
-**Choice:** CollectiveGoalFormation reads multiple agents' DriveProfiles (via DriveOrchestrator.currentDrives()) and detects alignment. Proposes JointIntention when alignment exceeds threshold.
+**Choice:** CollectiveGoalFormation reads DriveProfiles via a consumer-provided profile resolver (`Function<String, Optional<DriveProfile>>`), not from DriveOrchestrator directly. Alignment is computed as cosine similarity of normalised drive intensity vectors — proportional similarity regardless of magnitude. JointIntention is proposed when alignment exceeds a configurable threshold.
 **Alternatives:**
 - Goal overlap detection — scan individual currentProposals() for similar names; depends on name heuristics
 - Explicit negotiation — full NegotiationProjection cycle; heavyweight but robust
-**Rationale:** Drive alignment is more fundamental than goal naming similarity — two agents may express the same drive through differently-named goals. JointIntention already handles the commitment lifecycle (form/activate/reconsider/drop/fulfill). CollectiveGoalFormation bridges DriveProfiles to JointIntention proposals.
-**Trade-offs:** Requires access to multiple agents' DriveOrchestrator instances (cross-agent read). Alignment detection heuristic may over-trigger for agents with naturally similar profiles (e.g., same personality archetype).
-**Sources:** JointIntention.java; CoalitionProposal.java; DriveProfile (spec #129)
-**Exploration:** quick
-**Status:** captured
+- Dominant-axis match for alignment metric — finds agents with same primary drive; misses proportional alignment across all axes
+- Per-axis absolute difference for alignment metric — finds agents with similar raw intensities; biased toward low-drive agents being always "aligned"
+- Direct DriveOrchestrator injection — reads from in-memory ConcurrentHashMap; single-process only, fails silently in multi-process deployments
+**Rationale:** Drive alignment is more fundamental than goal naming similarity — two agents may express the same drive through differently-named goals. JointIntention already handles the commitment lifecycle (form/activate/reconsider/drop/fulfill). CollectiveGoalFormation bridges DriveProfiles to JointIntention proposals. Consumer-provided profile resolver decouples from the deployment model — single-process consumers wire it to DriveOrchestrator.currentDrives(); multi-process consumers wire it to a shared store. Cosine similarity is the right default because drive alignment is about proportional emphasis, not absolute magnitude — two agents both emphasising AFFILIATION > CURIOSITY > COMPETENCE > AUTONOMY are aligned even if their absolute intensities differ.
+**Trade-offs:** Consumer must wire the profile resolver. Cosine similarity may over-trigger for agents with naturally similar profiles (e.g., same personality archetype); the configurable threshold mitigates this.
+**Sources:** JointIntention.java; CoalitionProposal.java; DriveProfile (spec #129); decision review R1-04, R1-05
+**Exploration:** quick → revised after decision review
+**Status:** revised
 
 ## D9: Group identity shares narrative type system via sealed hierarchy
 
@@ -136,22 +138,24 @@ Both are designed at the type level in this spec; orchestrator implementation is
 - Re-defer entirely — push to a hypothetical Layer 4; leaves Layer 2's design debts unresolved
 **Rationale:** These were explicit design debts assigned to Layer 3 by the Layer 2 spec (D4 and D6 in #136 decisions). The type system being designed in #142 can accommodate both without additional architectural complexity — DerivedTheme's per-axis weights naturally support cross-axis detection, and NarrativeState provides the provenance for priority escalation.
 **Trade-offs:** GoalPriorityEscalationPolicy adds a new SPI to engine-api. Implementation requires engine changes (GoalFormationService checks the policy).
-**Sources:** Layer 2 spec D4 (cross-axis composition deferred), Layer 2 spec D6 (priority escalation deferred); decision review R1-12
-**Exploration:** quick (surfaced by decision review)
-**Status:** captured
+**Governance contract:** GoalPriorityEscalationPolicy implementations must enforce: (1) sustained alignment — escalation requires theme-drive alignment to persist across multiple synthesis cycles, not trigger on a single high-salience snapshot; (2) revocability — if NarrativeState changes and alignment drops, the escalation must be reversible (goal demoted back to SECONDARY); (3) configurable threshold source — per-deployment or per-agent threshold configuration. These are SPI contract requirements addressing Layer 2 D6's concern about ungoverned escalation pathways.
+**Sources:** Layer 2 spec D4 (cross-axis composition deferred), Layer 2 spec D6 (priority escalation deferred); decision review R1-10, R1-12
+**Exploration:** quick (surfaced by decision review) → revised after decision review
+**Status:** revised
 
 ## D12: Agent discovery for collective goal formation
 
-**Choice:** CollectiveGoalFormation receives the agent set as a constructor parameter — List<String> agentIds scoped to a single tenant. The consumer (quarkmind scheduler, claudony) provides the set from its own agent registry. CollectiveGoalFormation does not discover agents itself.
+**Choice:** CollectiveGoalFormation receives the agent set as a `Supplier<List<String>>` constructor parameter scoped to a single tenant. The supplier is called on each tick(), providing the current agent population. The consumer (quarkmind scheduler, claudony) provides the supplier from its own agent registry. CollectiveGoalFormation does not discover agents itself.
 **Alternatives:**
+- Static `List<String>` — simple but stale immediately in dynamic populations (quarkmind agent creation/destruction, casehub-life onboarding); reconstructing CollectiveGoalFormation on every change destroys accumulated alignment analysis state
 - DriveOrchestrator enumeration — add a method to list known agents from its internal ConcurrentHashMap; leaks internal state
 - AgentRegistry injection — inject eidos AgentRegistry directly; couples blocks to eidos runtime
-**Rationale:** The consumer already knows which agents are active in its tenant context. Passing the set explicitly avoids blocks needing agent discovery infrastructure. Same pattern as ConversationOrchestrator receiving participant lists at construction time.
-**Trade-offs:** The consumer must keep the agent list current. Stale agent lists produce stale alignment analysis.
+**Rationale:** The consumer already knows which agents are active in its tenant context. A supplier (rather than a static list) accommodates dynamic agent populations without reconstructing the component. Calling on each tick() ensures alignment analysis always sees the current agent set.
+**Trade-offs:** The supplier is called on every tick; consumers should ensure it's cheap (return cached list, update on agent events).
 **Depends on:** D8 (drive profile aggregation)
-**Sources:** ConversationOrchestrator constructor pattern; AgentParticipant; decision review R1-08
-**Exploration:** quick (surfaced by decision review)
-**Status:** captured
+**Sources:** ConversationOrchestrator constructor pattern; AgentParticipant; decision review R1-04, R1-08, R1-12
+**Exploration:** quick (surfaced by decision review) → revised after decision review
+**Status:** revised
 
 ---
 
@@ -182,15 +186,16 @@ Both are designed at the type level in this spec; orchestrator implementation is
 
 ## D15: LLM response schema — flat JSON with index references
 
-**Choice:** LLM returns flat JSON with `newEpisodes` array (description, emotionalValence, thematicTags, fromReflections as indices) and `themes` array (label, salience, thematicTags, axisWeights as DriveAxis→Double map). Synthesiser handles all ID generation (UUIDs for episodes), reflection index→sourceCaseId mapping, and theme supportingFragmentIds computation via thematic tag matching.
+**Choice:** LLM returns flat JSON with `newEpisodes` array (description, emotionalValence, thematicTags, fromReflections as indices) and `themes` array (label, salience, thematicTags, axisWeights as DriveAxis→Double map). The synthesis prompt includes existing theme labels as anchoring context, enabling the LLM to reuse stable labels for continuing themes rather than producing semantically equivalent but lexically different labels. Synthesiser handles all ID generation (UUIDs for episodes), reflection index→sourceCaseId mapping, and theme supportingFragmentIds computation via thematic tag matching.
 **Alternatives:**
 - Rich JSON with explicit fragment references — LLM manages IDs directly; error-prone, complex prompts
-**Rationale:** Keeps the LLM focused on semantic content. ID management is mechanical and better handled deterministically by the synthesiser. Simpler prompts produce more reliable outputs.
-**Trade-offs:** supportingFragmentIds for themes are computed by tag matching rather than explicit LLM assignment — may be less precise but more robust.
+- Semantic similarity matching for theme identity — use TokenJaccardDistance between new and existing labels; adds fuzzy matching complexity, threshold tuning, and still doesn't guarantee correct identity
+**Rationale:** Keeps the LLM focused on semantic content. ID management is mechanical and better handled deterministically by the synthesiser. Simpler prompts produce more reliable outputs. Including existing theme labels in the prompt grounds the LLM's output, making label stability an emergent property of prompt design rather than a post-hoc matching problem.
+**Trade-offs:** supportingFragmentIds for themes are computed by tag matching rather than explicit LLM assignment — may be less precise but more robust. Theme label stability depends on prompt quality — if the LLM ignores existing labels, theme continuity breaks. Mitigated by D14's full re-derivation: even if a label changes, the new theme captures the same pattern from the full episode set.
 **Depends on:** D14 (hybrid incremental — themes are full set, episodes are new only)
-**Sources:** InnerLifeOrchestrator JSON parsing pattern; AgentEvent text extraction (GE-20260801-0aee7e)
-**Exploration:** quick
-**Status:** captured
+**Sources:** InnerLifeOrchestrator JSON parsing pattern; AgentEvent text extraction (GE-20260801-0aee7e); decision review R1-11
+**Exploration:** quick → revised after decision review
+**Status:** revised
 
 ## D16: TokenJaccardDistance made public
 
@@ -226,4 +231,46 @@ Both are designed at the type level in this spec; orchestrator implementation is
 **Depends on:** D13 (incremental merge), D14 (themes re-derived)
 **Sources:** NarrativeConfig (maxEpisodes, maxThemes, themeSalienceFloor); memory hygiene eviction pattern (RetentionScore)
 **Exploration:** quick
+**Status:** captured
+
+## D19: NarrativeModulation per-axis clamping
+
+**Choice:** NarrativeModulation.compute() clamps the computed modulation per axis to [-1, 1] after summing across all themes. The additive composition is preserved (multiple themes reinforcing the same axis accumulate), but the result is bounded.
+**Alternatives:**
+- Normalise by theme count — penalises agents with more themes; weakens well-supported modulation
+- Normalise by total salience — similar penalty, non-intuitive behaviour when saliences are low
+- Use max rather than sum — loses multi-theme composition; a single theme dominates regardless of supporting evidence from other themes
+- No clamping (current code) — unbounded sum grows linearly with theme count; with maxThemes=10, modulation can reach 10× the single-theme maximum, overwhelming DriveComposer despite narrativeModulationStrength scaling
+**Rationale:** The additive sum correctly models reinforcement — multiple themes pointing in the same direction should produce stronger modulation than one. But the raw sum must be bounded to prevent theme count from dominating the modulation algebra. Clamping at [-1, 1] mirrors the per-theme weight bounds (DerivedTheme.axisModulationWeights enforces [-1, 1] per weight) and preserves the semantics: modulation for each axis ranges from "fully dampen" (-1) to "fully amplify" (+1), regardless of how many themes contribute.
+**Trade-offs:** With clamping, adding a 6th theme with the same axis weight may not increase modulation if the sum is already at the bound. This is correct — beyond a certain point, additional thematic reinforcement doesn't produce a qualitatively different behavioral effect.
+**Surfaced by:** R1-02 (reviewer)
+**Depends on:** D4, D5
+**Sources:** NarrativeModulation.java; DerivedTheme.axisModulationWeights validation; DriveComposer.compose() narrativeModulation application
+**Exploration:** surfaced-by-review
+**Status:** captured
+
+## D20: DerivedTheme carries typed DriveAxis modulation weights
+
+**Choice:** DerivedTheme.axisModulationWeights is `Map<DriveAxis, Double>`, not `Map<String, Double>`. The narrative type system is intentionally coupled to the drive axis enum.
+**Alternatives:**
+- Generic `Map<String, Double>` — decouples narrative from drives at the cost of type safety; string keys enable misconfiguration ("AFILIATION" typo compiles but has no effect), and the DriveAxis mapping still happens somewhere (deferred to NarrativeModulation boundary)
+- Modulation target interface — DerivedTheme carries weights for arbitrary modulation targets; over-engineered for the current four-axis model with no concrete second consumer
+**Rationale:** Narrative identity exists TO modulate the drive system. This is not incidental coupling — it's the core purpose of DerivedTheme. DriveAxis is a sealed enum representing fundamental psychological drives; adding a fifth axis IS a major architectural change that should cascade through the entire drive algebra (new DriveSource, new modulation semantics, new goal mappers). Type safety catches misconfiguration at compile time. If group narratives modulate different systems in the future, GroupDerivedTheme can carry different weight maps without affecting the individual DerivedTheme.
+**Trade-offs:** Adding a new DriveAxis requires re-synthesising themes. Acceptable — a new axis changes the entire drive algebra and themes need new weights for it regardless of how the weights are stored.
+**Surfaced by:** R1-14 (reviewer)
+**Sources:** DerivedTheme.java; NarrativeModulation.java; DriveComposer.compose()
+**Exploration:** surfaced-by-review
+**Status:** captured
+
+## D21: Compositor gracefully degrades on synthesis failure
+
+**Choice:** NarrativeOrchestrator reads from NarrativeStore without detecting synthesis failure. If the synthesiser fails (LLM timeout, parse error, store write failure), the compositor sees stale state and produces output from the most recent successful synthesis. No error signal propagates to the compositor.
+**Alternatives:**
+- Error signal propagation — NarrativeStore tracks synthesis attempts alongside state; compositor detects "attempted but failed" vs "not needed". Adds complexity to the store SPI for marginal benefit.
+- NarrativeSynthesisTick forwarding — pass synthesis outcome to the compositor. Couples the compositor to the synthesiser lifecycle, violating the compositor pattern's decoupling.
+**Rationale:** Consistent with the compositor pattern (ADR-0001). DriveOrchestrator also operates on stale source state without error detection — if MoodOrchestrator hasn't ticked, drives still compute from the most recent mood. Synthesis failures are transient — the next synthesis cycle (gated by D6) will attempt again. The composite gate's quiet period bypass (D6) ensures synthesis is retried after inactivity. Stale narrative state is semantically valid — it represents the agent's most recently established self-narrative, which remains relevant even if a newer synthesis failed.
+**Trade-offs:** Persistent synthesis failure (e.g., ongoing LLM outage) produces indefinitely stale narrative state. Acceptable — the agent operates with a frozen self-narrative rather than failing entirely. Consumer logging of NarrativeSynthesisTick.Skipped(reason) provides operational visibility without coupling to the compositor.
+**Surfaced by:** R1-15 (reviewer)
+**Sources:** ADR-0001 (compositor pattern guarantees); NarrativeSynthesisTick sealed interface; NarrativeStore SPI
+**Exploration:** surfaced-by-review
 **Status:** captured
