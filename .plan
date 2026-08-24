@@ -1,25 +1,18 @@
-# Work Plan — issue-129-drive-architecture
-
-## State
-branch: issue-129-drive-architecture
-state: closing:promoted
-project-sha: slot-creation
-date: 2026-08-21
-issue-repo: casehubio/blocks
-covers: 129
-design-repo: project
-design-section-hashes: 
-flyway-next-v: unknown
+# Work Plan — issue-142-narrative-identity
 
 ## Queue
-- [ ] casehubio/blocks#129 — Issue #129 ← active
-  - [x] Batch 1: Foundation
-    - [x] Task 1: Foundation types
-    - [x] Task 2: DriveComposer
-  - [x] Batch 2: Sources
-    - [x] Task 3: CuriosityDrive + MemoryHygiene API
-    - [x] Task 4: CompetenceDrive + StrategyLearning API
-    - [x] Task 5: AffiliationDrive + UserModel API
-    - [x] Task 6: AutonomyDrive + MentalModel API
-  - [x] Batch 3: Orchestrator
-    - [x] Task 7: DriveOrchestrator
+- [ ] casehubio/blocks#142 — Narrative Identity + Social Emergence — self-story and collective behavior ← active
+- [ ] casehubio/blocks#143 — NarrativeOrchestrator — first-person autobiography synthesis
+- [ ] casehubio/blocks#144 — NarrativeStore SPI — persistent self-story
+- [ ] casehubio/blocks#145 — NarrativeFeedback — narrative influences drive intensity
+- [ ] casehubio/blocks#146 — SocialNormDetector — emergent norms from multi-agent interaction
+- [ ] casehubio/blocks#147 — CollectiveGoalFormation — joint goals from individual drives
+- [ ] casehubio/blocks#148 — GroupIdentity — shared narrative across agent collectives
+
+## State
+branch: issue-142-narrative-identity
+state: active
+issue-repo: casehubio/blocks
+covers: 142
+Current: casehubio/blocks#142 — Narrative Identity + Social Emergence — self-story and collective behavior
+date: 2026-08-24
