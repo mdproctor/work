@@ -19,14 +19,17 @@ Implements the two-component split architecture (D3) for narrative identity:
    `currentNarrative()` accessor. No LLM, no side effects. Gracefully degrades
    on synthesis failure — stale state is valid (D21).
 
-Both follow the DriveOrchestrator pattern: `ConcurrentHashMap` cache,
-per-agent `ReentrantLock`, CDI constructor + test constructor with `Clock`.
+NarrativeSynthesiser follows the DriveOrchestrator pattern: `ConcurrentHashMap`
+cache, per-agent `ReentrantLock`, CDI constructor + test constructor with
+`Clock`. NarrativeOrchestrator is a simpler compositor: `ConcurrentHashMap`
+cache, per-agent `ReentrantLock`, single CDI constructor (no Clock needed —
+reads timestamps from persisted state).
 
 ### Upstream change
 
-`TokenJaccardDistance` in `io.casehub.blocks.agentic.social` changed from
-package-private to `public` (D16) — NarrativeSynthesiser needs it for
-novelty scoring.
+`TokenJaccardDistance` in `io.casehub.blocks.agentic.social` — both the
+class AND the `distance()` method changed from package-private to `public`
+(D16). NarrativeSynthesiser needs it for novelty scoring.
 
 ## NarrativeOrchestrator
 
@@ -118,7 +121,7 @@ public class NarrativeSynthesiser {
     private final NarrativeConfig config;
     private final Clock clock;
 
-    private final ConcurrentHashMap<String, Instant> lastSynthesisAttempts =
+    private final ConcurrentHashMap<String, ReentrantLock> synthesisLocks =
             new ConcurrentHashMap<>();
 
     @Inject
@@ -151,11 +154,17 @@ public class NarrativeSynthesiser {
 
 `synthesiseIfNeeded(agentId, tenantId)`:
 
+Per-agent locking wraps the entire flow — `synthesisLocks.computeIfAbsent(key, k -> new ReentrantLock())`.
+This prevents concurrent synthesis for the same agent (duplicate episodes,
+wasted LLM calls, store write races).
+
 1. **Load current state** — `narrativeStore.load(agentId, tenantId)`.
    Null = first synthesis (empty narrative).
 
 2. **Determine since timestamp** — if current state exists, use
-   `state.synthesisedAt()`. Otherwise `Instant.EPOCH`.
+   `state.synthesisedAt()`. Otherwise `Instant.EPOCH`. (Using last
+   *successful* synthesis, not last attempt — failed attempts don't
+   reset the quiet period timer, ensuring retry after failures.)
 
 3. **Count gate** — `reflectionQueryStore.countSince(agentId, tenantId, since)`.
    If count < `config.synthesisGate().minNewReflections()` AND quiet period
@@ -174,6 +183,12 @@ public class NarrativeSynthesiser {
    If distance < `config.synthesisGate().noveltyThreshold()` →
    `Skipped("low novelty")`.
 
+   **Text assembly:** `reflectionText` = all fetched reflection insights
+   joined with newlines. `currentNarrativeText` = concatenation of all
+   existing episode descriptions joined with newlines. If current state is
+   null (first synthesis), `currentNarrativeText` is empty string —
+   distance returns 1.0, always passing the novelty gate.
+
 7. **Assemble prompt** — build system prompt + user prompt with:
    - Existing episode summaries (description + emotional valence)
    - Existing theme labels (for label stability per D15)
@@ -185,14 +200,26 @@ public class NarrativeSynthesiser {
    On failure → log warning, return `Skipped("llm failure")`.
 
 9. **Parse response** — extract JSON from response text (strip markdown
-   fences if present). Parse into `SynthesisResult` record (newEpisodes,
-   themes). On parse failure → log warning, return `Skipped("parse failure")`.
+   fences if present). Parse using `jakarta.json` (JSON-P) for consistency
+   with InnerLifeOrchestrator — manual field extraction from `JsonObject`
+   with per-field error handling. Parse into `SynthesisResult` record
+   (newEpisodes, themes). On parse failure → log warning, return
+   `Skipped("parse failure")`.
 
-10. **Build fragments** — for each new episode: generate UUID, map
-    `fromReflections` indices to `ReflectionEntry.sourceCaseIds`, create
-    `IndividualEpisode` with `from = Instant.now(clock)`. For themes:
-    create `DerivedTheme` with label, salience, axisWeights, compute
-    `supportingFragmentIds` via thematic tag matching against all episodes.
+10. **Build fragments** — for each new episode: generate UUID for `id`,
+    map `fromReflections` indices to the matched `ReflectionEntry` instances
+    and flatten their `sourceCaseIds` into the episode's `sourceReflectionIds`
+    field (transitive CBR case provenance — `ReflectionEntry` has no identity
+    field, so the episode tracks which CBR cases contributed via the
+    reflection path). Create `IndividualEpisode` with
+    `from = Instant.now(clock)`.
+
+    For themes: create `DerivedTheme` with label, salience, axisWeights.
+    Compute `supportingFragmentIds` via thematic tag matching against all
+    episodes (existing + newly created): an episode is a supporting fragment
+    if it shares **at least one thematic tag** with the theme. Episodes or
+    themes with empty `thematicTags` produce no matches. Fragment IDs are
+    the episode `id()` values.
 
 11. **Merge** — combine existing episodes (from current state) with new
     episodes. Themes are fully replaced by the LLM's output (D14).
@@ -201,15 +228,15 @@ public class NarrativeSynthesiser {
     If themes > maxThemes, drop lowest salience. Drop any theme below
     `themeSalienceFloor`.
 
-13. **Clamp narrative modulation** (D19) — not done here (NarrativeModulation
-    handles clamping at computation time), but the pruning ensures reasonable
-    theme counts.
-
-14. **Write** — `narrativeStore.store(new NarrativeState(agentId, tenantId,
+13. **Write** — `narrativeStore.store(new NarrativeState(agentId, tenantId,
     NarrativeScope.INDIVIDUAL, allFragments, Instant.now(clock),
-    reflectionCount))`.
+    newReflections.size()))`.
 
-15. **Return** — `Synthesised(state, reflections.size())`.
+    `reflectionCountAtSynthesis` = count of new reflections consumed in
+    this synthesis batch (not cumulative). Matches the value returned in
+    `NarrativeSynthesisTick.Synthesised.newReflectionsConsumed()`.
+
+14. **Return** — `Synthesised(state, newReflections.size())`.
 
 ### LLM prompt design
 
@@ -389,6 +416,7 @@ blocks/src/main/java/io/casehub/blocks/agentic/social/narrative/
 | `synthesise_themeLabelsIncludedInPrompt` | Existing theme labels appear in user prompt |
 | `synthesise_maxReflectionsCapped` | More reflections than maxReflectionsPerSynthesis → capped |
 | `synthesise_writesCorrectNarrativeState` | Written state has correct scopeId, tenantId, scope, synthesisedAt |
+| `synthesise_perAgentLocking` | Concurrent calls for same agent serialise — no duplicate episodes |
 
 ### NarrativeModulation clamping tests
 
