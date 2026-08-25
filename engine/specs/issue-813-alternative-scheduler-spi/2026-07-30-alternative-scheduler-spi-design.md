@@ -342,7 +342,7 @@ public void submit(Long eventLogId, CaseInstance instance, Worker worker,
 }
 ```
 
-Idempotency: the compound key includes `caseId`, `workerName`, `capabilityName`, and a hash of the input data — preventing cross-case/cross-worker collisions. db-scheduler uses the instance ID as a unique key per task name. Scheduling with a duplicate instance ID is a no-op — same guarantee as Quartz's `JobKey`.
+Idempotency: the compound key includes `caseId`, `workerName`, `capability`, and a hash of the input data — preventing cross-case/cross-worker collisions. db-scheduler uses the instance ID as a unique key per task name. Scheduling with a duplicate instance ID is a no-op — same guarantee as Quartz's `JobKey`.
 
 ### Lifecycle Wiring
 

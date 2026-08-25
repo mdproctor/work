@@ -1,0 +1,4 @@
+{"type": "deferred", "summary": "@JsonPropertyDescription migration \u2014 ~170 annotations"}
+{"type": "deferred", "summary": "YAML expansion (engine#976) \u2014 Batch 3 not started"}
+{"type": "deferred", "summary": "Worker-api cross-repo renames \u2014 file as worker-api issues"}
+{"type": "deferred", "summary": "Equivalence gap \u2014 217 diffs, ~7 more custom modules needed"}

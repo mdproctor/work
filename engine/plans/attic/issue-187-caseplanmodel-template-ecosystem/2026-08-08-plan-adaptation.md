@@ -117,9 +117,9 @@ Expected: compilation failures (types don't exist yet)
 
 Create all records and interfaces listed in Files. Key implementation details:
 
-`PlanStepDescriptor`: record with null-check compact constructor, `Objects.requireNonNull` on `id`, `description`, `capabilityName`.
+`PlanStepDescriptor`: record with null-check compact constructor, `Objects.requireNonNull` on `id`, `description`, `capability`.
 
-`CompletedStep`: record with null-checks on `stepId`, `capabilityName`, `description`, `completedAt`. `output` defaults to `Map.of()` if null, wrapped in `Map.copyOf()`.
+`CompletedStep`: record with null-checks on `stepId`, `capability`, `description`, `completedAt`. `output` defaults to `Map.of()` if null, wrapped in `Map.copyOf()`.
 
 `AdaptationSignal`: sealed interface with two enum-like constants `PROCEED` and `SKIP` (records implementing the interface).
 

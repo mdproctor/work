@@ -21,7 +21,7 @@ all invisible until someone tried to wire it into a real case definition.
 
 ## Three bugs, one root cause
 
-A `GoalStep` carries a `capabilityName` — say, `"data-gathering"`. The binding
+A `GoalStep` carries a `capability` — say, `"data-gathering"`. The binding
 that targets this capability has its own name — say, `"gather"`. These are
 different strings referencing the same thing at different abstraction levels.
 

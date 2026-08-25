@@ -1,0 +1,20 @@
+# Work Plan — issue-422-ts-programming-model
+
+## State
+branch: issue-422-ts-programming-model
+state: active
+project-sha: slot-creation
+date: 2026-08-24
+issue-repo: casehubio/parent
+covers: 422
+design-repo: project
+design-section-hashes: 
+flyway-next-v: unknown
+
+## Queue
+- [ ] casehubio/parent#422 — Issue #422 ← active
+  - [ ] Batch 1: Batch 3
+    - [ ] Task 1: Task 5 done
+
+## Deferred
+- [ ] npm package setup — @casehub/engine-sdk (S / Low) []
