@@ -2,3 +2,7 @@
 {"type": "deferred", "summary": "YAML expansion (engine#976) \u2014 Batch 3 not started"}
 {"type": "deferred", "summary": "Worker-api cross-repo renames \u2014 file as worker-api issues"}
 {"type": "deferred", "summary": "Equivalence gap \u2014 217 diffs, ~7 more custom modules needed"}
+{"category": "loose-end", "check": "deferred-plan-item", "location": "plan:deferred-item", "detail": "npm package setup \u2014 @casehub/engine-sdk (S / Low) []", "severity": "warning", "source": "loose-ends-sweep", "branch": "issue-422-ts-programming-model", "status": "open", "timestamp": "2026-08-25T01:54:09.107021+00:00"}
+{"text": "CaseDefinition has 32 orphaned spec-level field declarations (dead code after delegation). Remove in Phase 2.", "category": "cleanup", "branch": "issue-422-ts-programming-model", "ts": 1787622868.569438}
+{"text": "IntelliJ MCP times out with 11-repo workspace. Next session use engine+worker only.", "category": "tooling", "branch": "issue-422-ts-programming-model", "ts": 1787622868.569438}
+{"text": "AgentConverter still depends on io.casehub.model.* generated POJOs \u2014 refactor before codegen module deletion.", "category": "refactor", "branch": "issue-422-ts-programming-model", "ts": 1787622868.569438}
