@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-210-lipsync-tuning
-state: active
+state: closing:stamped
 project-sha: 956472384370373dce37d35f5a65564a14a19e10
 date: 2026-08-27
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [x] casehubio/blocks#210 — Issue #210
 - [x] casehubio/blocks#195 — Lit_avatar_component
