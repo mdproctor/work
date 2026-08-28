@@ -1,1 +1,1 @@
-# Design Journal — issue-142-narrative-identity
+# Design Journal — issue-210-lipsync-tuning
