@@ -87,8 +87,8 @@ FFM bindings for whisper.cpp C API. Fourth binding following the established pat
 ```java
 public final class WhisperSpeechToText implements StreamingSpeechToTextService, AutoCloseable {
     private final WhisperLibrary lib;
-    private final MemorySegment ctx;      // whisper_context*
-    private final String modelSize;
+    private final MemorySegment ctx;      // whisper_context* — SHARED across streams
+    private final ReentrantLock inferenceLock = new ReentrantLock();
 
     // Factory
     public static WhisperSpeechToText withDefaults() { ... }
@@ -96,11 +96,13 @@ public final class WhisperSpeechToText implements StreamingSpeechToTextService, 
 }
 ```
 
+**Shared context, serialized inference:** A single `whisper_context` is created at construction (loading the model once, ~142MB for base.en) and shared across all `RecognitionStream` instances. `whisper_full()` is not thread-safe for the same context, so inference calls are serialized via `ReentrantLock`. For the single-user avatar use case, this is not a bottleneck — only one stream is active at a time.
+
 **WhisperRecognitionStream** (inner class implementing `RecognitionStream`):
-- `acceptSamples()` — appends to a growing `float[]` buffer
-- `partialResult()` — runs Whisper on the current buffer, diffs against previous result
-- `finalResult()` — runs Whisper on the complete buffer with `initial_prompt` set from conversation context
-- Partial inference throttled to every 500ms (avoid re-running on every audio chunk)
+- `acceptSamples()` — appends to a bounded `float[]` buffer (max 30 seconds / 480K samples at 16kHz). If the buffer exceeds the cap, older samples are discarded (windowed approach to avoid O(n²) re-inference on unbounded buffers).
+- `partialResult()` — acquires the inference lock, runs Whisper on the current buffer, diffs against previous result. Throttled to every 500ms.
+- `finalResult()` — acquires lock, runs Whisper on the complete buffer with `initial_prompt` set from conversation context.
+- Buffer is allocated at stream creation, released at close.
 
 **initial_prompt integration:**
 The `RecognitionStream` accepts a vocabulary hint via `TranscriptionOptions` (extended with a new `vocabularyHint` field). `SpeechSession` populates this from the conversation's hotword list.
@@ -127,17 +129,14 @@ public record CorrectionContext(
 ```
 
 ```java
-public final class TranscriptCorrector implements TextFilter {
+public final class TranscriptCorrector {
     private final List<CorrectionStrategy> strategies;
     private final NgramModel ngramModel;
     private final Set<String> dictionary;
     private final Set<String> conversationVocabulary;
 
-    public String apply(String text) { ... }
+    public String correct(String text) { ... }
     public void addVocabulary(String... words) { ... }
-
-    public String name() { return "transcript-correction"; }
-    public int destructiveness() { return 2; }
 }
 ```
 
@@ -181,7 +180,7 @@ Maps dictionary words to phonetic codes for sound-alike matching.
 Bigram/trigram frequency model for contextual candidate ranking.
 
 - **Source:** Pre-built English bigram frequencies (~50MB compressed). Standard sources: Google Ngrams subset, or COCA corpus bigrams.
-- **Storage:** `Map<Long, float>` using hashed bigram keys for memory efficiency
+- **Storage:** `LongFloatHashMap` (Eclipse Collections) or equivalent primitive map — avoids boxing overhead. Keyed by hashed bigram pairs.
 - **API:** `float score(String prev, String candidate, String next)` — returns log-probability of the candidate in context
 - **Fallback:** unigram frequency when bigram not found (smoothed with add-k)
 
@@ -230,43 +229,65 @@ public final class ConversationVocabulary {
 
 ### 7. TranscriptionOptions Extension
 
-Add `vocabularyHint` field to support conversation context in the STT SPI:
+Add `vocabularyHint` field to support conversation context in the STT SPI. The existing 3-arg constructor is preserved via a canonical-to-compact bridge — all existing callers continue to compile unchanged.
 
 ```java
 public record TranscriptionOptions(
     String audioFormat,
     String languageHint,
     String modelSize,
-    @Nullable String vocabularyHint  // new — space-separated vocabulary for decoder biasing
+    @Nullable String vocabularyHint
 ) {
+    public TranscriptionOptions(String audioFormat, String languageHint, String modelSize) {
+        this(audioFormat, languageHint, modelSize, null);
+    }
+
     public static TranscriptionOptions defaults() {
         return new TranscriptionOptions("wav", null, "base.en", null);
+    }
+
+    public TranscriptionOptions withVocabularyHint(String hint) {
+        return new TranscriptionOptions(audioFormat, languageHint, modelSize, hint);
     }
 }
 ```
 
-Backward compatible — existing callers use defaults (null hint).
+The `defaults()` factory now returns `"base.en"` as modelSize (previously `"tiny"`) — Whisper base is the new default. The `withVocabularyHint()` builder enables fluent construction without breaking existing code.
 
 ### 8. Pipeline Integration in SpeechSession
 
+`TranscriptCorrector` is session-scoped — created in `SpeechSession`'s constructor alongside the existing `CleanupConfig`. The two-stage pipeline runs correction first, then cleanup.
+
 ```java
-// In handleStop() / handleText():
+// SpeechSession constructor:
+this.transcriptCorrector = new TranscriptCorrector(
+    List.of(new SymSpellStrategy(symSpellIndex), new PhoneticStrategy(phoneticIndex)),
+    ngramModel);
+
+// In handleStop():
 TranscriptionOptions opts = TranscriptionOptions.defaults()
     .withVocabularyHint(conversationVocabulary.asPromptHint());
 stream = sttService.startStream(opts);
+// ... accept audio, poll partials ...
 
-// After STT:
+// After STT finalResult:
 String raw = stream.finalResult().text();
 
-// Correction pipeline (TranscriptCorrector is a TextFilter):
-String corrected = transcriptCorrector.apply(raw);
+// Stage 1 — correction (stateful, session-scoped):
+String corrected = transcriptCorrector.correct(raw);
 
-// Cleanup pipeline (existing CleanupConfig):
+// Stage 2 — cleanup (stateless TextFilter chain):
 String clean = cleanupConfig.apply(corrected);
 
-// After LLM response:
+send(new AvatarMessage.Transcript(clean));
+
+// After LLM response — feedback loop:
 conversationVocabulary.addFromText(responseText);
+transcriptCorrector.addVocabulary(
+    conversationVocabulary.terms().toArray(String[]::new));
 ```
+
+**Graceful degradation:** If any pipeline component fails (SymSpell dictionary missing, n-gram model not loaded, Whisper model unavailable), the pipeline degrades by skipping that component — never blocks the transcript. `TranscriptCorrector.correct()` catches strategy exceptions individually and returns uncorrected text for failed words. `CleanupConfig` already skips filters that exceed `maxDestructiveness`.
 
 ## Data Files
 
@@ -280,17 +301,25 @@ All auto-provisioned via `Provisioner` with SHA-256 verification, same as existi
 
 ## Pipeline Ordering
 
-Filters run in destructiveness order (enforced by `CleanupConfig`):
+Two stages — correction (stateful, session-scoped) then cleanup (stateless `TextFilter` chain via `CleanupConfig`).
 
-| Order | Filter | Destructiveness | Why this order |
-|-------|--------|-----------------|----------------|
-| 1 | TranscriptCorrector | 2 | Spelling must be fixed before grammar correction (GECToR expects correctly spelled input) |
-| 2 | FillerRemovalFilter | 2 | Remove fillers after spelling correction (so "am" → "um" correction happens first) |
-| 3 | GectorFilter | 3 | Grammar correction on clean, correctly-spelled text |
-| 4 | PunctuationFilter | 2 | Add punctuation after grammar is fixed |
-| 5 | CasingFilter | 0 | Capitalisation last (depends on punctuation for sentence boundaries) |
+**Stage 1 — TranscriptCorrector** (runs BEFORE CleanupConfig, not inside it):
+- Stateful: holds `conversationVocabulary`, `SymSpellIndex`, `PhoneticIndex`
+- Session-scoped: created per `SpeechSession`, not a CDI singleton
+- `correct(String text) → String`
 
-Note: destructiveness values determine which filters run at a given threshold (`CleanupConfig.upTo()`). The ordering within the same destructiveness level is by registration order.
+**Stage 2 — CleanupConfig** (stateless TextFilter chain, sorted by destructiveness):
+
+| Filter | Destructiveness | What it does |
+|--------|-----------------|--------------|
+| CasingFilter | 0 | Fix ALL-CAPS STT output |
+| FillerRemovalFilter | 1 | Remove um/uh/er + extended discourse markers |
+| PunctuationFilter | 2 | Restore punctuation (ONNX model) |
+| GectorFilter | 3 | Grammar correction (ONNX model) |
+
+`CleanupConfig` sorts by destructiveness ascending — CasingFilter runs first (least destructive), GECToR last (most destructive). Consumers can cap with `CleanupConfig.upTo(maxDestructiveness)`.
+
+**Why TranscriptCorrector is separate:** It's stateful (conversation vocabulary grows per session) and context-aware (n-gram ranking uses surrounding words). The `TextFilter` SPI is `String apply(String)` — stateless, no context parameter. Forcing TranscriptCorrector into TextFilter would violate the SPI contract.
 
 ## Testing
 
@@ -310,11 +339,12 @@ Note: destructiveness values determine which filters run at a given threshold (`
 
 ### Whisper Pseudo-Streaming Latency
 
-Whisper processes complete audio segments, not streaming frames. Pseudo-streaming re-runs inference on the growing buffer every ~500ms. For a 5-second utterance:
-- 10 inference runs (every 500ms)
-- Each run processes the full buffer (growing from 500ms to 5s)
-- Total compute: ~15 seconds of audio processed (sum of buffer sizes)
-- With base.en model on Apple Silicon: ~0.5-1.0s per 5s of audio → acceptable
+Whisper processes complete audio segments, not streaming frames. Pseudo-streaming re-runs inference on the buffered audio every ~500ms. Buffer is capped at 30 seconds (480K samples at 16kHz) to bound compute cost:
+- For a 5-second utterance: ~10 inference runs, total ~15s of audio processed
+- For a 30-second utterance (cap): ~60 runs, total ~465s of audio processed — still under 10s wall-clock on Apple Silicon with base.en
+- Utterances exceeding 30s: oldest samples discarded, transcript covers the most recent 30s window
+
+With base.en model on Apple Silicon: Whisper processes ~5s of audio in ~0.3s. Per-partial overhead is acceptable.
 
 ### N-gram Model Memory
 
@@ -326,7 +356,7 @@ Delete dictionary for 80K words at max_edit_distance=2: ~20MB. Loaded once, augm
 
 ### whisper.cpp Thread Safety
 
-`whisper_full()` is NOT thread-safe for the same context. Each `RecognitionStream` gets its own `whisper_context` (allocated at stream creation, freed at close). The `WhisperLibrary` singleton and model loading ARE thread-safe.
+`whisper_full()` is NOT thread-safe for the same context. A single `whisper_context` is shared across all streams (loading the ~142MB model once), with inference serialized via `ReentrantLock`. For the single-user avatar, this is not a bottleneck — only one stream is active at a time. Multi-user deployment would need a context pool (out of scope for this issue).
 
 ## References
 
