@@ -1,0 +1,13 @@
+# Work Plan — Work Plan
+
+## State
+branch: main
+state: active
+date: 2026-08-29
+issue-repo: casehubio/blocks
+covers: 217,214
+active_issue: 217
+
+## Queue
+- [ ] casehubio/blocks#217 — CosyVoice2 TTS — high-quality ONNX synthesis with streaming
+- [ ] casehubio/blocks#214 — Dia TTS — dialogue-native synthesis with emotions
