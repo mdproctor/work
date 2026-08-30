@@ -147,14 +147,17 @@ sealed interface VoiceData permits CodecVoiceData, EmbeddingVoiceData {
     record EmbeddingVoiceData(
         float[] speakerEmbedding,
         int[] speechTokens,
-        float[] promptMel          // 24kHz mel for flow conditioning
+        float[] promptMel,         // 24kHz mel for flow conditioning
+        String promptText          // transcript of reference audio for text embedding
     ) implements VoiceData {}
 }
 ```
 
 Audio8's `VoiceEncoder` produces `CodecVoiceData`; CosyVoice3's produces `EmbeddingVoiceData`. Generator stages use exhaustive `switch` to consume model-specific data.
 
-`EmbeddingVoiceData` includes the prompt mel spectrogram because the flow decoder needs it for conditioning — the mel must be precomputed during voice registration, not re-extracted during every synthesis call.
+`EmbeddingVoiceData` includes:
+- **promptMel**: precomputed mel spectrogram for flow decoder conditioning — avoids re-extraction per synthesis call
+- **promptText**: the transcript of the reference audio, needed by the generator for input sequence construction (`text_emb(prompt_text + tts_text)`). Stored as raw text rather than pre-tokenized tokens so voice data is tokenizer-version-independent.
 
 ### VoiceRegistry generalisation
 
@@ -175,6 +178,14 @@ public final class VoiceRegistry implements AutoCloseable {
 ```
 
 The `register(Path, String)` overload supports CosyVoice3's requirement for a prompt transcript. Audio8 callers use the single-arg overload (transcript ignored by codec encoder).
+
+**Audio8 caller migration (part of this deliverable):** The VoiceRegistry API change from `int[] getVoiceCodes(String)` to `VoiceData get(String)` requires a mechanical update to `Audio8TextToSpeech.synthesise()`:
+```java
+// Before: int[] voiceCodes = voiceRegistry.getVoiceCodes(options.voice());
+// After:  CodecVoiceData vd = (CodecVoiceData) voiceRegistry.get(options.voice());
+//         int[] voiceCodes = vd.codecTokens();
+```
+This is NOT the full Audio8 pipeline retrofit (D3) — it's a one-line API migration scoped to `Audio8TextToSpeech` and its tests. The Audio8 VoiceEncoder lambda in `fromModelDir()` wraps its `int[]` result in `CodecVoiceData`. Existing Audio8 tests are updated to use the new API — the behavioral assertions remain identical.
 
 ### TtsPipeline
 
@@ -259,7 +270,7 @@ Implements `TtsGenerator`. Manages the full LLM pipeline: text embedding → ini
 [SOS_emb, text_emb(prompt_text + tts_text), TASK_ID_emb, prompt_speech_emb]
 ```
 - SOS (6561) and TASK_ID (6563) embedded via `llm_speech_embedding`
-- `text_embedding` processes concatenated prompt text + TTS text tokens
+- `text_embedding` processes concatenated `EmbeddingVoiceData.promptText()` + TTS text, tokenized together via `CosyVoice3Tokenizer`
 - Prompt speech tokens (from `EmbeddingVoiceData.speechTokens()`) embedded via `llm_speech_embedding`
 
 **KV-cache management:**
@@ -299,7 +310,11 @@ Implements `TtsDecoder`. Runs the flow decoder (10-step Euler ODE) followed by H
 3. `flow_pre_lookahead` → `h` with repeat_interleave ×2 (token_mel_ratio), shape `[1, total_tokens*2, dim]`
 4. Transpose to `mu = [1, dim, mel_len]`
 5. L2-normalize speaker embedding → `flow_speaker_projection` → `spks`
-6. Build conditioning tensor `conds [1, 80, mel_len]`: prompt mel (from `EmbeddingVoiceData.promptMel()`) resized to `prompt_tokens * 2` frames, zero-padded
+6. Build conditioning tensor `conds [1, 80, mel_len]`: initialise as zeros `[1, 80, mel_len]` where `mel_len = total_tokens * token_mel_ratio`. Copy prompt mel (from `EmbeddingVoiceData.promptMel()`) into the first `prompt_tokens * 2` frames using truncation or zero-padding to align:
+      - If stored mel has **more** frames than `prompt_tokens * 2` → truncate to `prompt_tokens * 2`
+      - If stored mel has **fewer** frames → copy all available, remaining frames stay zero
+      - The generated portion (after prompt) remains zero in `conds` — the flow decoder fills it via the diffusion process
+      - This alignment is necessary because the speech tokenizer (16kHz, model-determined token count) and mel extraction (24kHz, hop=256) produce counts from different sample rates and parameters
 7. **10-step Euler ODE:** initialise `x` from Gaussian noise `[1, 80, mel_len]` using `ThreadLocalRandom` (thread-safe for concurrent synthesis). For deterministic testing, `CosyVoice3Decoder` accepts an optional `Random` seed via constructor — seeded RNG produces reproducible output for unit tests. Batch to size 2, iterate:
    - `t = [i/10, i/10]`
    - `velocity = flow_estimator(x, mask, mu, t, spks, cond)`
@@ -339,7 +354,7 @@ Implements `TtsVoiceEncoder`. Extracts speaker embedding and speech tokens from 
 2. **Campplus:** compute 80-band mel (n_fft=400, hop=160, fmin=20, fmax=7600, at 16kHz) → log → mean-normalise → `campplus` model → speaker embedding `[1, 192]`
 3. **Speech tokenizer:** compute 128-band mel Whisper-style (n_fft=400, hop=160, fmin=0, fmax=8000, at 16kHz) → log10 → clamp → normalise → `speech_tokenizer_v3` model → speech tokens `[1, N]`
 4. **Prompt mel:** compute 80-band mel (n_fft=1024, hop=256, fmin=0, fmax=12000, at 24kHz) → log → store for flow conditioning
-5. Return `EmbeddingVoiceData(speakerEmbedding, speechTokens, promptMel)`
+5. Return `EmbeddingVoiceData(speakerEmbedding, speechTokens, promptMel, transcriptText)`
 
 ```java
 final class CosyVoice3VoiceEncoder implements TtsVoiceEncoder {
@@ -349,6 +364,8 @@ final class CosyVoice3VoiceEncoder implements TtsVoiceEncoder {
     VoiceData encode(byte[] audioData, String transcriptText);
 }
 ```
+
+**Null transcript handling:** `CosyVoice3VoiceEncoder.encode()` throws `IllegalArgumentException` if `transcriptText` is null or blank. CosyVoice3 requires a prompt transcript for the text embedding in the generator — registration without a transcript produces voice data that would silently generate garbage audio. Fail-fast at registration time, not at synthesis time. Callers using `VoiceRegistry.register(Path)` (no transcript) on a CosyVoice3 pipeline hit this validation immediately. Audio8's codec encoder ignores the transcript parameter, so the single-arg overload works correctly for Audio8.
 
 The campplus and speech tokenizer sessions are held persistently (unlike Audio8's transient codec encoder). CosyVoice3's models are smaller (~1 GB combined) and voice cloning requires both models for every registration — transient loading would be wasteful.
 
@@ -485,7 +502,7 @@ This is a blocking verification — must confirm before full integration.
 | `AudioResampler` | Unit | 48→16kHz and 48→24kHz against scipy.signal.resample_poly reference |
 | `CosyVoice3 end-to-end` | Integration | Full synthesis with real models (guarded by `-Dspeech.integration=true`) |
 | `Provisioner` | Integration | Model download, checksum verification, idempotent re-provisioning |
-| Audio8 existing tests | Regression | All existing Audio8 tests pass unchanged (VoiceRegistry generalisation must not break existing callers) |
+| Audio8 existing tests | Regression | All existing Audio8 tests pass after mechanical VoiceRegistry API migration (`getVoiceCodes()` → `get()` + `CodecVoiceData` cast). Behavioral assertions unchanged. |
 
 ## Future: Audio8 Retrofit
 
