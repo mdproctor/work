@@ -8,7 +8,7 @@
 - Wait for complete CosyVoice2 export — blocks the issue indefinitely
 - Skip to Dia (#214) — viable but CosyVoice3's 4-stage architecture is a stronger genericisation test
 **Rationale:** CosyVoice3 has a complete 14-file ONNX pipeline (campplus, speech tokenizer, LLM backbone, flow decoder, HiFT vocoder). 3.8GB total. Apache 2.0. Includes reference Python inference (`onnx_inference_pure.py`) for porting. The 4-stage pipeline is architecturally different from Audio8's DualAR — proving the pipeline framework works for both validates the abstraction. CosyVoice2's ONNX export is missing the LLM backbone; the Lourdle repo only exported flow+hift.
-**Trade-offs:** CosyVoice3 is 3.8GB (vs Audio8's 1GB). CPU performance is 73-226s per utterance (addressed by D4). onnxruntime 1.18.0 constraint documented for Python bindings — C API via FFM may not hit same issue (risk to verify). Community ONNX export requires validation: run reference Python inference, compare output against Java port at each pipeline stage, verify numerical equivalence within tolerance before committing to this model.
+**Trade-offs:** CosyVoice3 is 3.8GB (vs Audio8's 1GB). CPU performance is 73-226s per utterance (addressed by D4). onnxruntime 1.18.0 constraint documented for Python bindings — C API via FFM may not hit same issue (blocking verification: must confirm ORT C API compatibility before committing to integration, as version incompatibilities can silently produce incorrect inference or crash with opaque FFM errors). Community ONNX export requires validation: run reference Python inference, compare output against Java port at each pipeline stage, verify numerical equivalence within tolerance before committing to this model.
 **Sources:** [HuggingFace Lourdle/CosyVoice2-0.5B_ONNX](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX), [HuggingFace ayousanz/cosy-voice3-onnx](https://huggingface.co/ayousanz/cosy-voice3-onnx), GitHub issue #217
 **Exploration:** deep-analysis
 **Status:** captured
@@ -107,7 +107,6 @@ Audio8's VoiceEncoder produces `CodecVoiceData`; CosyVoice3's produces `Embeddin
 - Raw Object with casts — minimal framework code but no type safety at registry boundary
 **Rationale:** On Java 21, a sealed hierarchy is strictly superior to Map<String, byte[]>. Two model families means two records — trivial code, maximum type safety. Compile-time exhaustiveness (`switch (voiceData)`) forces handling every variant. No serialization ceremony — VoiceRegistry currently stores `int[]` directly, and CodecVoiceData preserves that native type. No silent null on typos — `voiceData instanceof EmbeddingVoiceData e` is compile-checked. Adding a new model family adds a `permits` clause and a new record — the compiler then flags every unhandled case.
 **Trade-offs:** Adding a new model requires extending the sealed hierarchy. Minimal cost for maximum type safety.
-**Depends on:** D5 (unified VoiceRegistry)
 **Sources:** VoiceRegistry.java (Map<String, int[]> cache, VoiceEncoder returning int[]), CosyVoice3 campplus (float[] embedding) + speech_tokenizer (int[] speech tokens)
 **Exploration:** quick
 **Status:** revised (R1-01: changed from Map<String, byte[]> to sealed hierarchy — eliminates stringly-typed keys, serialization ceremony, and silent null on typos)
