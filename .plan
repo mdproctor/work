@@ -14,9 +14,9 @@ active_issue: 217
     - [x] Task 1: Foundation types — VoiceData GeneratorOutput SPIs
     - [x] Task 2: VoiceRegistry generalisation + Audio8 migration
     - [x] Task 3: TtsPipelineManifest + TtsPipeline + INT32
-  - [ ] Batch 2: DSP
-    - [ ] Task 4: FFT + MelSpectrogram
-    - [ ] Task 5: STFT/ISTFT + AudioResampler
+  - [x] Batch 2: DSP
+    - [x] Task 4: FFT + MelSpectrogram
+    - [x] Task 5: STFT/ISTFT + AudioResampler
   - [ ] Batch 3: CosyVoice3-stages
     - [ ] Task 6: CosyVoice3Tokenizer — Qwen2 BPE
     - [ ] Task 7: CosyVoice3VoiceEncoder
