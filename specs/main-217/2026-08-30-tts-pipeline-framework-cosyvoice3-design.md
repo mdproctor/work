@@ -8,10 +8,13 @@
 
 Build a manifest-driven TTS pipeline framework in `speech-sherpa` that manages ONNX session lifecycle, model provisioning, voice cloning, and execution provider configuration. Implement CosyVoice3 as the first pipeline configuration — a 14-model, 4-stage synthesis engine (LLM + flow diffusion + HiFT vocoder) with zero-shot voice cloning. Audio8 retrofit is a follow-up that validates the abstraction generalises.
 
-Three deliverables:
+Note: Issue #217 title ("CosyVoice2 TTS integration") should be updated to "CosyVoice3 TTS pipeline framework" — see D1 for the CosyVoice2→CosyVoice3 pivot.
+
+Four deliverables:
 1. **Pipeline framework** — `TtsPipeline`, `TtsPipelineManifest` (sealed hierarchy), stage SPIs (`TtsTokenizer`, `TtsGenerator`, `TtsDecoder`, `TtsVoiceEncoder`), `VoiceData` sealed hierarchy, generalised `VoiceRegistry`
-2. **CosyVoice3 implementation** — 4 stage implementations covering 14 ONNX models: prompt processing (campplus + speech tokenizer), LLM autoregressive generation (KV-cache transformer), flow decoder (10-step Euler ODE), HiFT vocoder (f0 + source + STFT/ISTFT)
-3. **Provisioner extensions** — HuggingFace download for CosyVoice3 (~3.8 GB), Qwen2 tokenizer bundling
+2. **DSP primitives** — FFT, `MelSpectrogram` (three configurations), STFT/ISTFT (for HiFT), audio resampling (sinc interpolation for 48→16kHz and 48→24kHz). These are new implementations — no FFT or signal processing primitives exist in speech-sherpa today. Each requires verification against a reference implementation (librosa/scipy).
+3. **CosyVoice3 implementation** — 4 stage implementations covering 14 ONNX models: prompt processing (campplus + speech tokenizer), LLM autoregressive generation (KV-cache transformer), flow decoder (10-step Euler ODE), HiFT vocoder (f0 + source + STFT/ISTFT). Includes Qwen2 BPE tokenizer (new implementation — structurally different from the existing `SentencePieceTokenizer`).
+4. **Provisioner extensions** — HuggingFace download for CosyVoice3 (~3.8 GB), following the existing `provisionFromHuggingFace()` pattern used by Audio8
 
 ## Background
 
@@ -29,7 +32,7 @@ CosyVoice3 (ayousanz/cosy-voice3-onnx) has a complete 14-file pipeline with a re
 
 ### Pipeline scope
 
-The framework targets direct-ORT multi-stage models only. SherpaLibrary-based models (Kokoro, SherpaOnnx) and hybrid models (Vits with espeak) continue using their existing integration paths — they delegate session management to sherpa-onnx's C API internally.
+The framework targets direct-ORT multi-stage models only. SherpaLibrary-based models (Kokoro, SherpaOnnx) continue using their existing integration paths — they delegate session management to sherpa-onnx's C API internally. VitsTextToSpeech is excluded because it's a hybrid model: espeak phonemization (non-ONNX) + single ORT session. It's multi-stage in the sense of phonemization → inference → timing extraction, but the phonemization stage uses a native library (EspeakLibrary), not an ONNX model. The pipeline framework manages ORT session lifecycle — stages with non-ORT dependencies are outside its scope.
 
 ## Architecture
 
@@ -216,11 +219,26 @@ The `fromModelDir` factory reads the manifest, detects the model type from the s
 
 Sessions are created once and held until `close()`. Mutable inference state (KV caches, diffusion intermediaries) is allocated per-synthesis-call using confined arenas.
 
+**Voice resolution:** `resolveVoice(options)` uses `SynthesisOptions.voice()` as the VoiceRegistry ID (the UUID returned by `registerVoice()`). When `voice` is null or empty, the pipeline uses the default voice loaded from the bundled reference prompts (`prompts/en_female_nova_greeting.wav`). CosyVoice3 always requires voice conditioning — the default voice is pre-registered during pipeline construction. This matches Audio8's existing pattern where `defaultVoiceCodes` are loaded from `reference_codes.npy` if available.
+
+**Per-call memory profile (CosyVoice3):**
+- KV-cache: `[48, 1, 2, seq_len, 64]` growing per decode step. At max length (1000 steps for 50-token input): 48 × 2 × 1000 × 64 × 4 bytes ≈ 24 MB
+- Flow decoder: Gaussian noise + conditioning + velocity tensors across 10 Euler steps. For 2000 mel frames: ~5 MB transient
+- HiFT vocoder: source waveform + STFT intermediates: ~2 MB
+- Total per-call: ~30–50 MB transient (allocated in confined arena, freed on call completion)
+- Model weights (shared across calls): ~3.8 GB
+
+Concurrent synthesis is safe — each call uses its own confined arena. Memory scales linearly with concurrent call count. The framework exposes `sessionCount()` and `modelName()` for deployment-level memory awareness (D12), but does not impose concurrency limits — that's an application-layer concern.
+
 ## CosyVoice3 Implementation
 
 ### Stage 1: CosyVoice3Tokenizer
 
-Implements `TtsTokenizer`. Parses Qwen2's `vocab.json` + `merges.txt` (same BPE format as GPT-2 but different vocabulary). The existing `Audio8Tokenizer` parses `tokenizer.json` (HuggingFace fast tokenizer format) — different enough that a separate implementation is justified. No language tags — CosyVoice3 auto-detects language from text.
+Implements `TtsTokenizer`. Implements a Qwen2-compatible byte-level BPE tokenizer from `vocab.json` + `merges.txt` (same BPE algorithm as GPT-2 but different vocabulary and pre-tokenization patterns). This is a non-trivial new tokenizer implementation — structurally different from the existing `SentencePieceTokenizer` (Viterbi unigram) and `Audio8Tokenizer` (HuggingFace fast tokenizer JSON format).
+
+Implementation requires: byte-level BPE with byte fallback, merge priority resolution, pre-tokenization regex (Qwen2 uses a GPT-2-style pattern), special token handling, and correct Unicode/CJK handling for CosyVoice3's 9+ language support. Must be verified against the Python `transformers` Qwen2 tokenizer on multilingual test cases.
+
+No language tags — CosyVoice3 auto-detects language from text.
 
 ```java
 final class CosyVoice3Tokenizer implements TtsTokenizer {
@@ -250,9 +268,9 @@ Implements `TtsGenerator`. Manages the full LLM pipeline: text embedding → ini
 - KV-cache allocated per-call via `Arena.ofConfined()` — safe for concurrent use
 - Attention mask grows each step: `[1, initial_len + steps_so_far]`
 
-**Token sampling:** Top-k (k=25) — compute log-softmax, take top-25, softmax, categorical sample.
+**Token sampling:** Top-k (k=25) — compute log-softmax, take top-25, softmax, categorical sample. Before sampling, check logits for NaN/Inf — fail fast with `SherpaException` rather than propagating garbage tokens through the pipeline. NaN in logits indicates a model-level failure (FP16 overflow, corrupted weights) that cannot be recovered from.
 
-**Termination:** EOS token (6562) after minimum length `max(10, text_token_count * 2)`, or maximum length `min(500, text_token_count * 20)`.
+**Termination:** EOS token (6562) after minimum length `max(10, text_token_count * 2)`, or maximum length `min(500, text_token_count * 20)`. If `maxTokens` is reached without EOS, the output is still usable — the model has generated a truncated but valid speech token sequence.
 
 **Output:** `GeneratorOutput` wrapping `int[]` of generated speech tokens.
 
@@ -282,7 +300,7 @@ Implements `TtsDecoder`. Runs the flow decoder (10-step Euler ODE) followed by H
 4. Transpose to `mu = [1, dim, mel_len]`
 5. L2-normalize speaker embedding → `flow_speaker_projection` → `spks`
 6. Build conditioning tensor `conds [1, 80, mel_len]`: prompt mel (from `EmbeddingVoiceData.promptMel()`) resized to `prompt_tokens * 2` frames, zero-padded
-7. **10-step Euler ODE:** initialise `x` from Gaussian noise `[1, 80, mel_len]`, batch to size 2, iterate:
+7. **10-step Euler ODE:** initialise `x` from Gaussian noise `[1, 80, mel_len]` using `ThreadLocalRandom` (thread-safe for concurrent synthesis). For deterministic testing, `CosyVoice3Decoder` accepts an optional `Random` seed via constructor — seeded RNG produces reproducible output for unit tests. Batch to size 2, iterate:
    - `t = [i/10, i/10]`
    - `velocity = flow_estimator(x, mask, mu, t, spks, cond)`
    - `x = x + velocity * (1/10)`
@@ -350,7 +368,11 @@ final class MelSpectrogram {
 }
 ```
 
-This avoids duplicating mel extraction logic across the voice encoder, flow decoder conditioning, and potential future models. Implemented in pure Java using the existing FFT/signal processing primitives.
+This avoids duplicating mel extraction logic across the voice encoder, flow decoder conditioning, and potential future models. Implemented in pure Java with a new FFT implementation (Cooley-Tukey radix-2 for power-of-two sizes). The FFT is the foundational primitive — mel spectrograms require STFT (windowed FFT), which in turn requires Hann window generation, zero-padding, and proper frame assembly. Mel filter banks require frequency-to-mel conversion and triangular filter construction. All DSP implementations must be verified against librosa/scipy reference outputs with tight numerical tolerance.
+
+### Audio resampling
+
+CosyVoice3's voice encoder requires 16kHz (for campplus and speech tokenizer) and 24kHz (for mel extraction) from input audio that may be 44.1kHz or 48kHz. Resampling uses windowed sinc interpolation with anti-aliasing lowpass filter. For integer-ratio cases (48→16 = ÷3, 48→24 = ÷2), polyphase decimation is efficient. For non-integer ratios (44.1→16), rational approximation with interpolation + decimation. Verified against scipy.signal.resample_poly reference.
 
 ### STFT/ISTFT for HiFT
 
@@ -364,7 +386,7 @@ final class StftUtils {
 }
 ```
 
-Small FFT (n_fft=16) so performance is not a concern.
+Note: n_fft=16 is extremely small by traditional DSP standards (typical STFT uses 512–4096). This is correct for HiFT's architecture — it uses a learned spectral transform, not traditional spectral analysis. The 16-sample FFT produces 9 frequency bins (n_fft/2 + 1 = 9), matching the decoder output shapes: `[1, 18, stft_frames]` for STFT input (18 = 2 × 9, real+imaginary) and `[1, 9, time]` for magnitude/phase outputs. Verified against the reference Python implementation's parameters. Performance is trivially fast at this size.
 
 ## Provisioner Extensions
 
@@ -424,6 +446,16 @@ TextToSpeechService withLipSync = LipSyncEnricher.wrap(tts,
 
 The `LipSyncEnricher` composable pipeline from #213 provides lip-sync enrichment (CosyVoice3 returns empty phonemes → enricher fills them via espeak-ng alignment).
 
+## OnnxRuntimeLibrary Extensions
+
+CosyVoice3 requires one new data type constant in `OnnxRuntimeLibrary`:
+
+- **INT32** (`ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32 = 6`) — for attention masks, token IDs, and sequence lengths in transformer stages. The existing `createTensor(data, dataBytes, shape, dataType, arena)` method already accepts arbitrary `int dataType`, so INT32 tensors can be created with just the constant definition. No method changes needed.
+
+Current constants: `FLOAT` (1), `INT64` (7), `BOOL` (9).
+
+**FP16 model files:** 9 of 14 CosyVoice3 ONNX files are `_fp16.onnx`. The ORT C API auto-casts FP32 inputs to FP16 when a model's input spec requires FP16 — no explicit FP16 tensor creation is needed on the Java side. Java has no native float16 type, so all tensor I/O uses FP32; the ORT runtime handles precision conversion internally. This must be verified during the blocking ORT compatibility check (see below). If auto-cast doesn't work for specific stages, those stages can use FP32-only model files (available in the CosyVoice3 repo).
+
 ## ORT Version Compatibility
 
 CosyVoice3's docs warn about onnxruntime 1.19+ FP16 issues in Python bindings. Our `OnnxRuntimeLibrary` uses the C API via FFM — a different code path. Verification plan:
@@ -443,12 +475,14 @@ This is a blocking verification — must confirm before full integration.
 | `TtsPipelineManifest` | Unit | JSON parsing, sealed hierarchy dispatch |
 | `VoiceRegistry` (generalised) | Unit | Register/release lifecycle with VoiceData sealed hierarchy |
 | `VoiceData` hierarchy | Unit | Exhaustive switch coverage, serialisation round-trip |
-| `CosyVoice3Tokenizer` | Unit | Qwen2 BPE encoding correctness against Python reference |
+| `CosyVoice3Tokenizer` | Unit | Qwen2 BPE encoding correctness against Python `transformers` reference, multilingual test cases (EN, CJK, mixed) |
 | `CosyVoice3Generator` | Unit (mocked sessions) | Input sequence construction, KV-cache protocol, EOS detection, sampling |
 | `CosyVoice3Decoder` | Unit (mocked sessions) | Flow token processing, Euler step count, HiFT pipeline wiring |
 | `CosyVoice3VoiceEncoder` | Unit (mocked sessions) | Mel extraction config, campplus input shape, speech tokenizer input shape |
-| `MelSpectrogram` | Unit | Mel band computation against librosa reference values |
-| `StftUtils` | Unit | STFT/ISTFT round-trip, known-signal verification |
+| `FFT` | Unit | Forward/inverse FFT against numpy.fft reference, power-of-two and zero-padded sizes |
+| `MelSpectrogram` | Unit | Mel band computation against librosa reference for all three configs (campplus, whisper, flow) |
+| `StftUtils` | Unit | STFT/ISTFT round-trip, known-signal verification, HiFT n_fft=16 specific |
+| `AudioResampler` | Unit | 48→16kHz and 48→24kHz against scipy.signal.resample_poly reference |
 | `CosyVoice3 end-to-end` | Integration | Full synthesis with real models (guarded by `-Dspeech.integration=true`) |
 | `Provisioner` | Integration | Model download, checksum verification, idempotent re-provisioning |
 | Audio8 existing tests | Regression | All existing Audio8 tests pass unchanged (VoiceRegistry generalisation must not break existing callers) |
@@ -473,12 +507,13 @@ Streaming remains on concrete implementations until a common pattern emerges. Co
 - [HuggingFace ayousanz/cosy-voice3-onnx](https://huggingface.co/ayousanz/cosy-voice3-onnx) — CosyVoice3 ONNX models + reference inference
 - [HuggingFace Lourdle/CosyVoice2-0.5B_ONNX](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX) — CosyVoice2 ONNX (incomplete)
 - [FunAudioLLM/CosyVoice](https://github.com/FunAudioLLM/CosyVoice) — official CosyVoice repository
-- `Audio8TextToSpeech.java` — existing monolithic TTS with DualAR pipeline
-- `DualARLoop.java` — autoregressive inference with KV-cache + Mamba state
-- `VoiceRegistry.java` — existing voice cloning lifecycle (to be generalised)
-- `OnnxRuntimeLibrary.java` — FFM C API bindings for onnxruntime
-- `Provisioner.java` — model download with SHA-256 verification
-- `LipSyncEnricher.java` — composable lip-sync decorator (#213)
-- `EspeakPhonemeAligner.java` — espeak-ng phoneme alignment (#213)
+- `Audio8TextToSpeech.java` (`speech-sherpa`) — existing DualAR TTS with factory method, synthesis, streaming, voice registration (#213)
+- `DualARLoop.java` (`speech-sherpa`) — autoregressive inference with KV-cache + Mamba state (#213)
+- `VoiceRegistry.java` (`speech-sherpa`) — existing voice cloning lifecycle: `Map<String, int[]>` with `VoiceEncoder` → to be generalised to `VoiceData`
+- `CodecDecoder.java` (`speech-sherpa`) — ONNX codec decoder for Audio8 (#213)
+- `OnnxRuntimeLibrary.java` (`speech-sherpa`) — FFM C API bindings for onnxruntime (FLOAT, INT64, BOOL constants)
+- `Provisioner.java` (`speech-sherpa`) — model download with SHA-256 verification, includes `provisionFromHuggingFace()` for Audio8
+- `LipSyncEnricher.java` (`speech-api`) — composable lip-sync decorator wrapping any `TextToSpeechService` (#213)
+- `EspeakPhonemeAligner.java` (`speech-sherpa`) — espeak-ng phoneme alignment implementing `PhonemeAligner` SPI (#213)
 - GitHub issue #217 — CosyVoice2 TTS integration
 - arXiv 2407.05407 — CosyVoice paper
