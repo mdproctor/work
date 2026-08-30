@@ -76,3 +76,55 @@
 **Sources:** Audio8TextToSpeech.synthesiseStreaming(), DualARLoop.iterateFrames(), CosyVoice3 flow.decoder.estimator architecture
 **Exploration:** quick
 **Status:** captured
+
+## D7: Multi-model stages — stage groups in manifest
+
+**Choice:** Each stage declares a list of ONNX files. The stage implementation knows how to wire them internally. Example: HiFT stage lists `[hift_f0.onnx, hift_source.onnx, hift_decoder.onnx]`.
+**Alternatives:**
+- Flat model list with stage tags — all files listed flat, grouped by tag at load time. More flexible but loses the stage grouping semantics.
+- Nested stage hierarchy — stages contain sub-stages. Maximum flexibility but over-complex manifest schema.
+**Rationale:** CosyVoice3 has 14 ONNX files across 4 stages. HiFT alone uses 3 models. The stage implementation knows the internal wiring (f0 → source → decoder). The manifest only needs to declare which files belong to which stage — the framework loads sessions and passes them to the stage constructor.
+**Trade-offs:** Stage implementations must handle their own internal multi-session coordination. But this is inherently model-specific anyway.
+**Depends on:** D2 (manifest-driven pipeline)
+**Sources:** CosyVoice3 architecture (14 ONNX files, 4 stages)
+**Exploration:** quick
+**Status:** captured
+
+## D8: Voice type variance — generic VoiceData record
+
+**Choice:** `VoiceData(Map<String, byte[]> segments)` — named byte segments. Audio8 stores `"codec_tokens"`, CosyVoice3 stores `"speaker_embedding"` + `"speech_tokens"`. Generator reads segments by key.
+**Alternatives:**
+- Sealed hierarchy (CodecVoice, EmbeddingVoice) — type-safe but requires adding a class per model
+- Raw Object with casts — minimal framework code but no type safety at registry boundary
+**Rationale:** Named segments are generic without losing identity. Each model documents its expected segment keys. The generator stage reads what it needs by key — type-safe within model code, generic across models. Segments are byte[] for serialisation simplicity; the generator deserialises to its native types.
+**Trade-offs:** Segment keys are stringly-typed — a typo silently returns null. Mitigated by model-specific constants for key names.
+**Depends on:** D5 (unified VoiceRegistry)
+**Sources:** VoiceRegistry.java, CosyVoice3 campplus (float[] embedding) + speech_tokenizer (int[] speech tokens)
+**Exploration:** quick
+**Status:** captured
+
+## D9: GPU execution providers — auto-detect with manifest override
+
+**Choice:** Framework auto-detects available GPU providers at startup (probe CUDA library, CoreML availability). Manifest can override with preferred provider and per-stage provider. Fallback chain: manifest preference → auto-detected GPU → CPU.
+**Alternatives:**
+- Explicit-only — no auto-detection, manifest must declare provider. Requires users to know hardware.
+- Global config — system property or env var, not per-pipeline. Can't mix CPU/GPU stages.
+**Rationale:** Auto-detection makes the default fast (GPU when available) without requiring manifest changes per deployment. Per-stage override enables keeping HiFT on CPU for numerical stability if needed (CosyVoice3 docs note FP32 is "required for HiFT numerical stability"). Manifest override gives control when auto-detection picks wrong.
+**Trade-offs:** Provider detection adds startup complexity. CUDA requires `onnxruntime-gpu` native library. CoreML may need model conversion. Provider probing must be fast (check library availability, not session creation).
+**Depends on:** D2 (manifest carries provider config), D4 (GPU from day one)
+**Sources:** [OnnxRuntime Execution Providers](https://onnxruntime.ai/docs/execution-providers/), OnnxRuntimeLibrary.java, CosyVoice3 precision strategy notes
+**Exploration:** quick
+**Status:** captured
+
+## D10: Module placement — all in speech-sherpa
+
+**Choice:** Pipeline framework lives in `speech-sherpa` alongside all ONNX-based TTS implementations. Stage SPIs, manifest parsing, session lifecycle, GPU provider detection — all in the same module.
+**Alternatives:**
+- New speech-pipeline module — cleaner separation but adds a module for a single-consumer abstraction
+- Split SPIs to speech-api — maximum decoupling but SPIs inherently reference ORT sessions
+**Rationale:** The pipeline framework is ONNX-specific — it manages ORT sessions, GPU providers, and model provisioning. These are all speech-sherpa concerns. Splitting into speech-api would create a leaky abstraction since the SPIs need ONNX session references. A separate module adds build complexity without adding consumers.
+**Trade-offs:** speech-sherpa grows larger. But the pipeline framework replaces boilerplate currently in Audio8TextToSpeech — net size increase is moderate.
+**Depends on:** D2 (pipeline framework architecture)
+**Sources:** speech-sherpa module structure, speech-api module (PhonemeAligner, LipSyncEnricher already there)
+**Exploration:** quick
+**Status:** captured
