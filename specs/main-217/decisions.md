@@ -98,10 +98,11 @@
 ```java
 sealed interface VoiceData permits CodecVoiceData, EmbeddingVoiceData {
     record CodecVoiceData(int[] codecTokens) implements VoiceData {}
-    record EmbeddingVoiceData(float[] speakerEmbedding, int[] speechTokens) implements VoiceData {}
+    record EmbeddingVoiceData(float[] speakerEmbedding, int[] speechTokens,
+                              float[] promptMel) implements VoiceData {}
 }
 ```
-Audio8's VoiceEncoder produces `CodecVoiceData`; CosyVoice3's produces `EmbeddingVoiceData`. Generator stage uses exhaustive `switch` to consume model-specific data.
+Audio8's VoiceEncoder produces `CodecVoiceData`; CosyVoice3's produces `EmbeddingVoiceData` (including precomputed prompt mel for flow decoder conditioning). Generator stage uses exhaustive `switch` to consume model-specific data.
 **Alternatives:**
 - `VoiceData(Map<String, byte[]> segments)` — generic but stringly-typed keys, silent null on typos, unnecessary byte[] serialization ceremony (encoding int[] → byte[] for storage, decoding byte[] → int[] for consumption)
 - Raw Object with casts — minimal framework code but no type safety at registry boundary

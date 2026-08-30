@@ -64,7 +64,18 @@ interface TtsGenerator {
                              GeneratorConfig config);
 }
 
-record GeneratorOutput(Object intermediateState) {}
+record GeneratorConfig(float temperature, int topK, float topP,
+                       int maxTokens, int minTokens) {
+    static GeneratorConfig defaults() {
+        return new GeneratorConfig(1.0f, 25, 0.9f, 500, 10);
+    }
+}
+
+sealed interface GeneratorOutput
+        permits SpeechTokenOutput, CodecFrameOutput {
+    record SpeechTokenOutput(int[] speechTokens) implements GeneratorOutput {}
+    record CodecFrameOutput(int[][] codecFrames) implements GeneratorOutput {}
+}
 
 interface TtsDecoder {
     float[] decode(GeneratorOutput generatorOutput,
@@ -77,9 +88,11 @@ interface TtsVoiceEncoder {
 }
 ```
 
+`GeneratorConfig` carries sampling parameters common to autoregressive generators. Default values match CosyVoice3's reference implementation (top-k=25). The pipeline reads overrides from the manifest.
+
 The `TtsVoiceEncoder` takes an optional transcript because CosyVoice3's voice cloning requires the prompt audio transcript (for text embedding), while Audio8's codec encoder does not.
 
-`GeneratorOutput` carries an opaque intermediate state — for CosyVoice3 this is the generated speech tokens (int[]); for Audio8 this is the codec frames (int[][]). The decoder knows how to consume its model's output.
+`GeneratorOutput` is a sealed hierarchy — CosyVoice3's generator produces `SpeechTokenOutput` (int[] of speech tokens); Audio8's produces `CodecFrameOutput` (int[][] of codec frames). The decoder uses exhaustive `switch` to consume its model's output, consistent with the sealed hierarchy philosophy from D8.
 
 ### TtsPipelineManifest (sealed hierarchy)
 
@@ -189,6 +202,10 @@ public final class TtsPipeline implements TextToSpeechService, AutoCloseable {
     public String registerVoice(Path referenceAudio) { ... }
     public String registerVoice(Path referenceAudio, String transcript) { ... }
     public void releaseVoice(String voiceId) { ... }
+
+    // Memory metadata (D12 trade-off: deployment-level memory awareness)
+    public int sessionCount() { ... }
+    public String modelName() { ... }
 
     @Override
     public void close() { /* close all sessions */ }
