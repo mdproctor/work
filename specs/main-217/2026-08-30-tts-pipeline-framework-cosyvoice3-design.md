@@ -133,7 +133,8 @@ record CosyVoice3Manifest(
     int hiftNFft,            // 16
     int hiftHopLength,       // 4
     int speakerEmbedDim,     // 192
-    String tokenizerDir      // relative path to Qwen2 tokenizer files
+    String tokenizerDir,     // relative path to Qwen2 tokenizer files
+    Map<String, String> defaultPrompts  // WAV filename → transcript text
 ) implements TtsPipelineManifest {}
 ```
 
@@ -230,7 +231,13 @@ The `fromModelDir` factory reads the manifest, detects the model type from the s
 
 Sessions are created once and held until `close()`. Mutable inference state (KV caches, diffusion intermediaries) is allocated per-synthesis-call using confined arenas.
 
-**Voice resolution:** `resolveVoice(options)` uses `SynthesisOptions.voice()` as the VoiceRegistry ID (the UUID returned by `registerVoice()`). When `voice` is null or empty, the pipeline uses the default voice loaded from the bundled reference prompts (`prompts/en_female_nova_greeting.wav`). CosyVoice3 always requires voice conditioning — the default voice is pre-registered during pipeline construction. This matches Audio8's existing pattern where `defaultVoiceCodes` are loaded from `reference_codes.npy` if available.
+**Voice resolution:** `resolveVoice(options)` uses `SynthesisOptions.voice()` as the VoiceRegistry ID (the UUID returned by `registerVoice()`). When `voice` is null or empty, the pipeline uses the default voice. CosyVoice3 always requires voice conditioning — the default voice is registered during pipeline construction using the manifest's `defaultPrompts` map:
+
+1. `fromModelDir()` reads `CosyVoice3Manifest.defaultPrompts()` — a map from WAV filename to transcript text (e.g., `{"en_female_nova_greeting.wav": "Hello, how can I help you today?"}`)
+2. The first entry is registered via `voiceRegistry.register(promptsDir.resolve(filename), transcript)`, running the full CosyVoice3VoiceEncoder pipeline (campplus + speech tokenizer + mel extraction)
+3. The resulting `VoiceData` is stored as `defaultVoice` in the VoiceRegistry
+
+This matches Audio8's pattern where `defaultVoiceCodes` are loaded from `reference_codes.npy`, but uses the live encoder pipeline instead of pre-computed data — CosyVoice3's voice data includes the prompt mel and transcript which cannot be meaningfully pre-serialized.
 
 **Per-call memory profile (CosyVoice3):**
 - KV-cache: `[48, 1, 2, seq_len, 64]` growing per decode step. At max length (1000 steps for 50-token input): 48 × 2 × 1000 × 64 × 4 bytes ≈ 24 MB
@@ -292,11 +299,14 @@ final class CosyVoice3Generator implements TtsGenerator {
                         OnnxRuntimeLibrary.Session llmInitial,
                         OnnxRuntimeLibrary.Session llmDecode,
                         OnnxRuntimeLibrary.Session llmDecoder,
-                        CosyVoice3Manifest manifest);
+                        CosyVoice3Manifest manifest,
+                        CosyVoice3Tokenizer tokenizer);
     GeneratorOutput generate(int[] tokens, VoiceData voiceData,
                              GeneratorConfig config);
 }
 ```
+
+The generator holds a tokenizer reference because CosyVoice3's text embedding requires `prompt_text + tts_text` tokenized together. The `int[] tokens` parameter from the pipeline carries TTS-only tokens. The generator internally tokenizes `EmbeddingVoiceData.promptText()`, prepends the result to `tokens`, and passes the concatenated sequence to the `text_embedding` model. GPT-2-style BPE pre-tokenizes on whitespace boundaries, so concatenating separately-tokenized segments is equivalent to tokenizing the full concatenated string — no cross-boundary merge issues. The `fromModelDir()` factory creates both the tokenizer and generator, passing the former to the latter during construction.
 
 ### Stage 3: CosyVoice3Decoder
 
@@ -439,7 +449,16 @@ Model directory layout:
 └── pipeline_manifest.json
 ```
 
-The `pipeline_manifest.json` is authored as part of this issue — it declares the CosyVoice3 stage-to-model mappings, hyperparameters, and provider preferences.
+The `pipeline_manifest.json` is authored as part of this issue — it declares the CosyVoice3 stage-to-model mappings, hyperparameters, provider preferences, and default prompt transcripts:
+
+```json
+{
+  "defaultPrompts": {
+    "en_female_nova_greeting.wav": "Hello, how can I help you today?",
+    "en_male_onyx_greeting.wav": "Welcome, what can I assist you with?"
+  }
+}
+```
 
 ## GPU Execution Providers (design, not implementation)
 
