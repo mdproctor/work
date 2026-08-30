@@ -10,10 +10,10 @@ active_issue: 217
 
 ## Queue
 - [ ] casehubio/blocks#217 — CosyVoice2 TTS — high-quality ONNX synthesis with streaming ← active
-  - [ ] Batch 1: Framework
-    - [ ] Task 1: Foundation types — VoiceData GeneratorOutput SPIs
-    - [ ] Task 2: VoiceRegistry generalisation + Audio8 migration
-    - [ ] Task 3: TtsPipelineManifest + TtsPipeline + INT32
+  - [x] Batch 1: Framework
+    - [x] Task 1: Foundation types — VoiceData GeneratorOutput SPIs
+    - [x] Task 2: VoiceRegistry generalisation + Audio8 migration
+    - [x] Task 3: TtsPipelineManifest + TtsPipeline + INT32
   - [ ] Batch 2: DSP
     - [ ] Task 4: FFT + MelSpectrogram
     - [ ] Task 5: STFT/ISTFT + AudioResampler
