@@ -1,0 +1,467 @@
+# TTS Pipeline Framework + CosyVoice3 Integration
+
+**Issue:** casehubio/blocks#217
+**Date:** 2026-08-30
+**Status:** Draft
+
+## Summary
+
+Build a manifest-driven TTS pipeline framework in `speech-sherpa` that manages ONNX session lifecycle, model provisioning, voice cloning, and execution provider configuration. Implement CosyVoice3 as the first pipeline configuration — a 14-model, 4-stage synthesis engine (LLM + flow diffusion + HiFT vocoder) with zero-shot voice cloning. Audio8 retrofit is a follow-up that validates the abstraction generalises.
+
+Three deliverables:
+1. **Pipeline framework** — `TtsPipeline`, `TtsPipelineManifest` (sealed hierarchy), stage SPIs (`TtsTokenizer`, `TtsGenerator`, `TtsDecoder`, `TtsVoiceEncoder`), `VoiceData` sealed hierarchy, generalised `VoiceRegistry`
+2. **CosyVoice3 implementation** — 4 stage implementations covering 14 ONNX models: prompt processing (campplus + speech tokenizer), LLM autoregressive generation (KV-cache transformer), flow decoder (10-step Euler ODE), HiFT vocoder (f0 + source + STFT/ISTFT)
+3. **Provisioner extensions** — HuggingFace download for CosyVoice3 (~3.8 GB), Qwen2 tokenizer bundling
+
+## Background
+
+### Why a pipeline framework
+
+Audio8 (#213) validated autoregressive ONNX TTS but its implementation is monolithic — `Audio8TextToSpeech` wires tokenizer, DualAR loop, codec decoder, and voice registry in a single factory method. CosyVoice3 has a fundamentally different architecture (LLM + flow diffusion + HiFT vocoder instead of DualAR + codec decoder) with 14 ONNX files across 4 stages. Without a framework, each new TTS model duplicates session lifecycle management, provisioning, voice registry, and execution provider configuration.
+
+The framework's primary value is **lifecycle management** — session creation/configuration/closure, model provisioning, manifest-driven wiring — not making stage logic generic. Stage implementations remain model-specific; the framework standardises the infrastructure around them.
+
+### Why CosyVoice3, not CosyVoice2
+
+CosyVoice2's ONNX export (Lourdle/CosyVoice2-0.5B_ONNX) is incomplete — only flow + HiFT, missing the LLM backbone. Without the LLM, there's no text-to-speech capability.
+
+CosyVoice3 (ayousanz/cosy-voice3-onnx) has a complete 14-file pipeline with a reference Python implementation (`onnx_inference_pure.py`). Apache 2.0. 3.8 GB total. Supports 9+ languages with auto-detection.
+
+### Pipeline scope
+
+The framework targets direct-ORT multi-stage models only. SherpaLibrary-based models (Kokoro, SherpaOnnx) and hybrid models (Vits with espeak) continue using their existing integration paths — they delegate session management to sherpa-onnx's C API internally.
+
+## Architecture
+
+### Pipeline Framework
+
+```
+TtsPipeline implements TextToSpeechService, AutoCloseable
+├── TtsPipelineManifest (sealed hierarchy)
+│   ├── PipelineHeader          — common: stages, ONNX files, sample rate, provider prefs
+│   ├── CosyVoice3Manifest      — CosyVoice3 hyperparams
+│   └── Audio8Manifest          — (future) Audio8 hyperparams from RuntimeManifest
+├── TtsTokenizer (SPI)          — String → int[]
+├── TtsGenerator (SPI)          — tokens + VoiceData → generated tokens/features
+├── TtsDecoder (SPI)            — generated tokens/features → float[] PCM
+├── TtsVoiceEncoder (SPI)       — byte[] audio → VoiceData
+├── VoiceRegistry               — generalised: register/release/get with VoiceData
+└── OnnxRuntimeLibrary.Session[] — managed lifecycle
+```
+
+### Stage SPIs
+
+Each SPI is a typed contract between the framework and model-specific logic. The framework creates ONNX sessions from the manifest and passes them to stage constructors. Stages own inference logic; the framework owns lifecycle.
+
+```java
+@FunctionalInterface
+interface TtsTokenizer {
+    int[] encode(String text);
+}
+
+interface TtsGenerator {
+    GeneratorOutput generate(int[] tokens, @Nullable VoiceData voiceData,
+                             GeneratorConfig config);
+}
+
+record GeneratorOutput(Object intermediateState) {}
+
+interface TtsDecoder {
+    float[] decode(GeneratorOutput generatorOutput,
+                   @Nullable VoiceData voiceData);
+}
+
+@FunctionalInterface
+interface TtsVoiceEncoder {
+    VoiceData encode(byte[] audioData, @Nullable String transcriptText);
+}
+```
+
+The `TtsVoiceEncoder` takes an optional transcript because CosyVoice3's voice cloning requires the prompt audio transcript (for text embedding), while Audio8's codec encoder does not.
+
+`GeneratorOutput` carries an opaque intermediate state — for CosyVoice3 this is the generated speech tokens (int[]); for Audio8 this is the codec frames (int[][]). The decoder knows how to consume its model's output.
+
+### TtsPipelineManifest (sealed hierarchy)
+
+```java
+sealed interface TtsPipelineManifest permits CosyVoice3Manifest, Audio8Manifest {
+    PipelineHeader header();
+}
+
+record PipelineHeader(
+    String name,
+    int sampleRate,
+    Map<String, List<String>> stageModels,   // stage name → ONNX filenames
+    @Nullable ExecutionProviderConfig provider,
+    Map<String, String> metadata
+) {}
+
+record ExecutionProviderConfig(
+    String preferred,                         // "cuda", "coreml", "cpu"
+    @Nullable Integer deviceId,
+    Map<String, String> stageOverrides        // stage name → provider
+) {}
+
+record CosyVoice3Manifest(
+    PipelineHeader header,
+    int hiddenDim,           // 896
+    int speechVocabSize,     // 6561
+    int sosId,               // 6561
+    int eosId,               // 6562
+    int taskId,              // 6563
+    int numLlmLayers,        // 24
+    int kvHeadDim,           // 64
+    int tokenMelRatio,       // 2
+    int flowSteps,           // 10
+    int melBins,             // 80
+    int hiftNFft,            // 16
+    int hiftHopLength,       // 4
+    int speakerEmbedDim,     // 192
+    String tokenizerDir      // relative path to Qwen2 tokenizer files
+) implements TtsPipelineManifest {}
+```
+
+The manifest JSON lives in the model directory alongside the ONNX files. The framework parses it and constructs the pipeline.
+
+### VoiceData (sealed hierarchy)
+
+```java
+sealed interface VoiceData permits CodecVoiceData, EmbeddingVoiceData {
+    record CodecVoiceData(int[] codecTokens) implements VoiceData {}
+    record EmbeddingVoiceData(
+        float[] speakerEmbedding,
+        int[] speechTokens,
+        float[] promptMel          // 24kHz mel for flow conditioning
+    ) implements VoiceData {}
+}
+```
+
+Audio8's `VoiceEncoder` produces `CodecVoiceData`; CosyVoice3's produces `EmbeddingVoiceData`. Generator stages use exhaustive `switch` to consume model-specific data.
+
+`EmbeddingVoiceData` includes the prompt mel spectrogram because the flow decoder needs it for conditioning — the mel must be precomputed during voice registration, not re-extracted during every synthesis call.
+
+### VoiceRegistry generalisation
+
+VoiceRegistry currently stores `Map<String, int[]>` with a `VoiceEncoder` that returns `int[]`. Generalise to `Map<String, VoiceData>` with a `TtsVoiceEncoder` that returns `VoiceData`.
+
+```java
+public final class VoiceRegistry implements AutoCloseable {
+    private final TtsVoiceEncoder encoder;
+    private final Map<String, VoiceData> cache = new ConcurrentHashMap<>();
+    private final @Nullable VoiceData defaultVoice;
+
+    public String register(Path referenceAudio) { ... }
+    public String register(Path referenceAudio, String transcript) { ... }
+    public VoiceData get(String voiceId) { ... }
+    public void release(String voiceId) { ... }
+    public Set<String> registeredVoices() { ... }
+}
+```
+
+The `register(Path, String)` overload supports CosyVoice3's requirement for a prompt transcript. Audio8 callers use the single-arg overload (transcript ignored by codec encoder).
+
+### TtsPipeline
+
+```java
+public final class TtsPipeline implements TextToSpeechService, AutoCloseable {
+    private final TtsPipelineManifest manifest;
+    private final TtsTokenizer tokenizer;
+    private final TtsGenerator generator;
+    private final TtsDecoder decoder;
+    private final VoiceRegistry voiceRegistry;
+    private final int sampleRate;
+    private final OnnxRuntimeLibrary.Session[] sessions;  // managed lifecycle
+
+    public static TtsPipeline fromModelDir(Path modelDir) { ... }
+
+    @Override
+    public SynthesisResult synthesise(String text, SynthesisOptions options) {
+        int[] tokens = tokenizer.encode(text);
+        VoiceData voice = resolveVoice(options);
+        GeneratorOutput output = generator.generate(tokens, voice,
+                                                     generatorConfig());
+        float[] samples = decoder.decode(output, voice);
+        byte[] wav = WavWriter.encode(samples, sampleRate, 1);
+        return new SynthesisResult(wav, "wav", List.of());
+    }
+
+    // Voice cloning delegation
+    public String registerVoice(Path referenceAudio) { ... }
+    public String registerVoice(Path referenceAudio, String transcript) { ... }
+    public void releaseVoice(String voiceId) { ... }
+
+    @Override
+    public void close() { /* close all sessions */ }
+}
+```
+
+The `fromModelDir` factory reads the manifest, detects the model type from the sealed hierarchy, instantiates the appropriate stage implementations, and creates all ONNX sessions. All-or-nothing: if any ONNX file fails to load, the entire pipeline fails cleanly.
+
+Sessions are created once and held until `close()`. Mutable inference state (KV caches, diffusion intermediaries) is allocated per-synthesis-call using confined arenas.
+
+## CosyVoice3 Implementation
+
+### Stage 1: CosyVoice3Tokenizer
+
+Implements `TtsTokenizer`. Parses Qwen2's `vocab.json` + `merges.txt` (same BPE format as GPT-2 but different vocabulary). The existing `Audio8Tokenizer` parses `tokenizer.json` (HuggingFace fast tokenizer format) — different enough that a separate implementation is justified. No language tags — CosyVoice3 auto-detects language from text.
+
+```java
+final class CosyVoice3Tokenizer implements TtsTokenizer {
+    static CosyVoice3Tokenizer load(Path tokenizerDir);  // reads vocab.json + merges.txt
+    int[] encode(String text);                            // no special tokens
+    String decode(int[] tokens);
+}
+```
+
+### Stage 2: CosyVoice3Generator
+
+Implements `TtsGenerator`. Manages the full LLM pipeline: text embedding → initial backbone pass → autoregressive decode loop → speech tokens.
+
+**ONNX sessions used:** `text_embedding_fp32.onnx`, `llm_speech_embedding_fp16.onnx`, `llm_backbone_initial_fp16.onnx`, `llm_backbone_decode_fp16.onnx`, `llm_decoder_fp16.onnx`
+
+**Input sequence construction:**
+```
+[SOS_emb, text_emb(prompt_text + tts_text), TASK_ID_emb, prompt_speech_emb]
+```
+- SOS (6561) and TASK_ID (6563) embedded via `llm_speech_embedding`
+- `text_embedding` processes concatenated prompt text + TTS text tokens
+- Prompt speech tokens (from `EmbeddingVoiceData.speechTokens()`) embedded via `llm_speech_embedding`
+
+**KV-cache management:**
+- Initial pass: `llm_backbone_initial` processes the full input sequence → hidden states `[1, seq_len, 896]` + KV-cache `[48, 1, 2, seq_len, 64]` (24 layers × 2 key/value)
+- Decode loop: `llm_backbone_decode` processes single-token embeddings, updating KV-cache (grows by 1 along sequence axis each step)
+- KV-cache allocated per-call via `Arena.ofConfined()` — safe for concurrent use
+- Attention mask grows each step: `[1, initial_len + steps_so_far]`
+
+**Token sampling:** Top-k (k=25) — compute log-softmax, take top-25, softmax, categorical sample.
+
+**Termination:** EOS token (6562) after minimum length `max(10, text_token_count * 2)`, or maximum length `min(500, text_token_count * 20)`.
+
+**Output:** `GeneratorOutput` wrapping `int[]` of generated speech tokens.
+
+```java
+final class CosyVoice3Generator implements TtsGenerator {
+    CosyVoice3Generator(OnnxRuntimeLibrary.Session textEmbedding,
+                        OnnxRuntimeLibrary.Session speechEmbedding,
+                        OnnxRuntimeLibrary.Session llmInitial,
+                        OnnxRuntimeLibrary.Session llmDecode,
+                        OnnxRuntimeLibrary.Session llmDecoder,
+                        CosyVoice3Manifest manifest);
+    GeneratorOutput generate(int[] tokens, VoiceData voiceData,
+                             GeneratorConfig config);
+}
+```
+
+### Stage 3: CosyVoice3Decoder
+
+Implements `TtsDecoder`. Runs the flow decoder (10-step Euler ODE) followed by HiFT vocoder.
+
+**ONNX sessions used:** `flow_token_embedding_fp16.onnx`, `flow_pre_lookahead_fp16.onnx`, `flow_speaker_projection_fp16.onnx`, `flow.decoder.estimator.fp16.onnx`, `hift_f0_predictor_fp32.onnx`, `hift_source_generator_fp32.onnx`, `hift_decoder_fp32.onnx`
+
+**Flow decoder pipeline:**
+1. Concatenate prompt speech tokens + generated tokens → full token sequence
+2. `flow_token_embedding` → token embeddings
+3. `flow_pre_lookahead` → `h` with repeat_interleave ×2 (token_mel_ratio), shape `[1, total_tokens*2, dim]`
+4. Transpose to `mu = [1, dim, mel_len]`
+5. L2-normalize speaker embedding → `flow_speaker_projection` → `spks`
+6. Build conditioning tensor `conds [1, 80, mel_len]`: prompt mel (from `EmbeddingVoiceData.promptMel()`) resized to `prompt_tokens * 2` frames, zero-padded
+7. **10-step Euler ODE:** initialise `x` from Gaussian noise `[1, 80, mel_len]`, batch to size 2, iterate:
+   - `t = [i/10, i/10]`
+   - `velocity = flow_estimator(x, mask, mu, t, spks, cond)`
+   - `x = x + velocity * (1/10)`
+8. Slice off prompt portion: `mel = x[:1, :, prompt_mel_frames:]`
+
+**HiFT vocoder pipeline:**
+1. `hift_f0_predictor`: mel `[1, 80, mel_len]` → F0 contour `[1, mel_len]`
+2. `hift_source_generator`: F0 `[1, 1, mel_len]` → source waveform
+3. STFT (Java implementation): source → `[1, 18, stft_frames]` (n_fft=16, hop_length=4, Hann window)
+4. `hift_decoder`: mel + source_stft → magnitude `[1, 9, time]` + phase `[1, 9, time]`
+5. ISTFT (Java implementation): magnitude + phase → audio, clamped to [-0.99, 0.99]
+6. Upsample factor: [8, 5, 3] = 120×, so stft_frames ≈ mel_frames × 120
+
+```java
+final class CosyVoice3Decoder implements TtsDecoder {
+    CosyVoice3Decoder(OnnxRuntimeLibrary.Session flowTokenEmbedding,
+                      OnnxRuntimeLibrary.Session flowPreLookahead,
+                      OnnxRuntimeLibrary.Session flowSpeakerProjection,
+                      OnnxRuntimeLibrary.Session flowEstimator,
+                      OnnxRuntimeLibrary.Session hiftF0,
+                      OnnxRuntimeLibrary.Session hiftSource,
+                      OnnxRuntimeLibrary.Session hiftDecoder,
+                      CosyVoice3Manifest manifest);
+    float[] decode(GeneratorOutput output, VoiceData voiceData);
+}
+```
+
+### Stage 4: CosyVoice3VoiceEncoder
+
+Implements `TtsVoiceEncoder`. Extracts speaker embedding and speech tokens from reference audio, plus precomputes prompt mel for flow conditioning.
+
+**ONNX sessions used:** `campplus.onnx`, `speech_tokenizer_v3.onnx`
+
+**Processing pipeline:**
+1. Load reference audio, resample to 16kHz (for campplus and speech tokenizer) and 24kHz (for mel extraction)
+2. **Campplus:** compute 80-band mel (n_fft=400, hop=160, fmin=20, fmax=7600, at 16kHz) → log → mean-normalise → `campplus` model → speaker embedding `[1, 192]`
+3. **Speech tokenizer:** compute 128-band mel Whisper-style (n_fft=400, hop=160, fmin=0, fmax=8000, at 16kHz) → log10 → clamp → normalise → `speech_tokenizer_v3` model → speech tokens `[1, N]`
+4. **Prompt mel:** compute 80-band mel (n_fft=1024, hop=256, fmin=0, fmax=12000, at 24kHz) → log → store for flow conditioning
+5. Return `EmbeddingVoiceData(speakerEmbedding, speechTokens, promptMel)`
+
+```java
+final class CosyVoice3VoiceEncoder implements TtsVoiceEncoder {
+    CosyVoice3VoiceEncoder(OnnxRuntimeLibrary.Session campplus,
+                           OnnxRuntimeLibrary.Session speechTokenizer,
+                           CosyVoice3Manifest manifest);
+    VoiceData encode(byte[] audioData, String transcriptText);
+}
+```
+
+The campplus and speech tokenizer sessions are held persistently (unlike Audio8's transient codec encoder). CosyVoice3's models are smaller (~1 GB combined) and voice cloning requires both models for every registration — transient loading would be wasteful.
+
+### Audio preprocessing utilities
+
+CosyVoice3 needs mel spectrogram extraction with multiple configurations (campplus mel vs Whisper mel vs flow mel). Add a reusable `MelSpectrogram` utility:
+
+```java
+record MelConfig(int sampleRate, int nFft, int hopLength, int nMels,
+                 float fMin, float fMax) {}
+
+final class MelSpectrogram {
+    static float[][] compute(float[] audio, MelConfig config);
+    static float[][] logMel(float[][] mel);
+    static float[][] whisperNormalize(float[][] logMel);
+    static void meanNormalize(float[][] mel);
+}
+```
+
+This avoids duplicating mel extraction logic across the voice encoder, flow decoder conditioning, and potential future models. Implemented in pure Java using the existing FFT/signal processing primitives.
+
+### STFT/ISTFT for HiFT
+
+HiFT requires a Short-Time Fourier Transform and its inverse with specific parameters (n_fft=16, hop_length=4, Hann window). Pure Java implementation:
+
+```java
+final class StftUtils {
+    static float[][] stft(float[] signal, int nFft, int hopLength);  // → [n_bins, frames]
+    static float[] istft(float[][] magnitude, float[][] phase,
+                         int nFft, int hopLength);                   // → audio
+}
+```
+
+Small FFT (n_fft=16) so performance is not a concern.
+
+## Provisioner Extensions
+
+```java
+// CosyVoice3 models from HuggingFace
+Provisioner.ensureCosyVoice3Model();  // ~3.8 GB download
+```
+
+Model directory layout:
+```
+~/.casehub/models/cosyvoice3/
+├── campplus.onnx
+├── speech_tokenizer_v3.onnx
+├── text_embedding_fp32.onnx
+├── llm_backbone_initial_fp16.onnx
+├── llm_backbone_decode_fp16.onnx
+├── llm_decoder_fp16.onnx
+├── llm_speech_embedding_fp16.onnx
+├── flow_token_embedding_fp16.onnx
+├── flow_pre_lookahead_fp16.onnx
+├── flow_speaker_projection_fp16.onnx
+├── flow.decoder.estimator.fp16.onnx
+├── hift_f0_predictor_fp32.onnx
+├── hift_source_generator_fp32.onnx
+├── hift_decoder_fp32.onnx
+├── tokenizer/
+│   ├── vocab.json
+│   ├── merges.txt
+│   └── tokenizer_config.json
+├── prompts/                              (bundled reference voices)
+│   ├── en_female_nova_greeting.wav
+│   └── en_male_onyx_greeting.wav
+└── pipeline_manifest.json
+```
+
+The `pipeline_manifest.json` is authored as part of this issue — it declares the CosyVoice3 stage-to-model mappings, hyperparameters, and provider preferences.
+
+## GPU Execution Providers (design, not implementation)
+
+The manifest carries `ExecutionProviderConfig` with preferred provider and per-stage overrides. The framework reserves these fields but implements CPU-only initially.
+
+When GPU support is added (separate issue):
+- Framework probes for available providers at startup (check library availability)
+- `OnnxRuntimeLibrary` gains vtable entries for `OrtSessionOptionsAppendExecutionProvider_CUDA` and CoreML equivalents
+- Per-stage provider override enables keeping HiFT on FP32/CPU (CosyVoice3 docs: "FP32 required for HiFT numerical stability")
+- Fallback chain: manifest preference → auto-detected GPU → CPU
+
+## Integration with SpeechSession
+
+No changes to `SpeechSession` or the WebSocket protocol. `TtsPipeline` implements `TextToSpeechService` — it's a drop-in replacement for any existing TTS engine:
+
+```java
+TextToSpeechService tts = TtsPipeline.fromModelDir(cosyVoice3Dir);
+TextToSpeechService withLipSync = LipSyncEnricher.wrap(tts,
+                                      EspeakPhonemeAligner.withDefaults());
+```
+
+The `LipSyncEnricher` composable pipeline from #213 provides lip-sync enrichment (CosyVoice3 returns empty phonemes → enricher fills them via espeak-ng alignment).
+
+## ORT Version Compatibility
+
+CosyVoice3's docs warn about onnxruntime 1.19+ FP16 issues in Python bindings. Our `OnnxRuntimeLibrary` uses the C API via FFM — a different code path. Verification plan:
+
+1. Run the reference Python inference (`onnx_inference_pure.py`) with onnxruntime 1.18.0 to get a reference output
+2. Port each stage to Java, run with our ORT (vtable v1.21.0)
+3. Compare outputs at each stage boundary — numerical equivalence within tolerance
+4. If FP16 issues surface in the C API, pin to onnxruntime 1.18.0 native library
+
+This is a blocking verification — must confirm before full integration.
+
+## Testing Strategy
+
+| Component | Test type | What it verifies |
+|-----------|-----------|-----------------|
+| `TtsPipeline` | Unit (mocked stages) | Lifecycle management, manifest parsing, voice delegation |
+| `TtsPipelineManifest` | Unit | JSON parsing, sealed hierarchy dispatch |
+| `VoiceRegistry` (generalised) | Unit | Register/release lifecycle with VoiceData sealed hierarchy |
+| `VoiceData` hierarchy | Unit | Exhaustive switch coverage, serialisation round-trip |
+| `CosyVoice3Tokenizer` | Unit | Qwen2 BPE encoding correctness against Python reference |
+| `CosyVoice3Generator` | Unit (mocked sessions) | Input sequence construction, KV-cache protocol, EOS detection, sampling |
+| `CosyVoice3Decoder` | Unit (mocked sessions) | Flow token processing, Euler step count, HiFT pipeline wiring |
+| `CosyVoice3VoiceEncoder` | Unit (mocked sessions) | Mel extraction config, campplus input shape, speech tokenizer input shape |
+| `MelSpectrogram` | Unit | Mel band computation against librosa reference values |
+| `StftUtils` | Unit | STFT/ISTFT round-trip, known-signal verification |
+| `CosyVoice3 end-to-end` | Integration | Full synthesis with real models (guarded by `-Dspeech.integration=true`) |
+| `Provisioner` | Integration | Model download, checksum verification, idempotent re-provisioning |
+| Audio8 existing tests | Regression | All existing Audio8 tests pass unchanged (VoiceRegistry generalisation must not break existing callers) |
+
+## Future: Audio8 Retrofit
+
+After CosyVoice3 validates the framework, Audio8 is retrofitted as a second pipeline configuration:
+
+- `Audio8Manifest` extends `TtsPipelineManifest` — carries RuntimeManifest's 27 fields
+- `Audio8Generator` wraps `DualARLoop` — implements `TtsGenerator`
+- `Audio8Decoder` wraps `CodecDecoder` — implements `TtsDecoder`
+- `Audio8VoiceEncoder` wraps existing codec encoder logic — produces `CodecVoiceData`
+- `Audio8TextToSpeech` becomes a thin wrapper around `TtsPipeline.fromModelDir()`
+- All existing Audio8 tests continue passing via the new pipeline
+
+## Future: Streaming
+
+Streaming remains on concrete implementations until a common pattern emerges. CosyVoice3's flow decoder uses 10-step Euler diffusion — whether it can run incrementally on partial token sequences needs investigation. If viable, CosyVoice3 streaming would add a `synthesiseStreaming()` method on a `CosyVoice3Pipeline` subclass or wrapper, similar to Audio8's current approach.
+
+## References
+
+- [HuggingFace ayousanz/cosy-voice3-onnx](https://huggingface.co/ayousanz/cosy-voice3-onnx) — CosyVoice3 ONNX models + reference inference
+- [HuggingFace Lourdle/CosyVoice2-0.5B_ONNX](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX) — CosyVoice2 ONNX (incomplete)
+- [FunAudioLLM/CosyVoice](https://github.com/FunAudioLLM/CosyVoice) — official CosyVoice repository
+- `Audio8TextToSpeech.java` — existing monolithic TTS with DualAR pipeline
+- `DualARLoop.java` — autoregressive inference with KV-cache + Mamba state
+- `VoiceRegistry.java` — existing voice cloning lifecycle (to be generalised)
+- `OnnxRuntimeLibrary.java` — FFM C API bindings for onnxruntime
+- `Provisioner.java` — model download with SHA-256 verification
+- `LipSyncEnricher.java` — composable lip-sync decorator (#213)
+- `EspeakPhonemeAligner.java` — espeak-ng phoneme alignment (#213)
+- GitHub issue #217 — CosyVoice2 TTS integration
+- arXiv 2407.05407 — CosyVoice paper
