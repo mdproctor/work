@@ -806,12 +806,19 @@ class CosyVoice3IntegrationTest {
 }
 ```
 
-- [ ] **Step 4: Run unit tests (all batches)**
+- [ ] **Step 4: ORT version compatibility check (blocking)**
+
+This is the spec's blocking verification (§ORT Version Compatibility). The integration test implicitly validates FP16 auto-cast — if onnxruntime's C API doesn't auto-cast FP32 inputs to FP16 for FP16 models, the integration test fails with incorrect output or ORT errors. If failures occur:
+1. Check if the issue is FP16-specific (compare FP32 model files if available in the CosyVoice3 repo)
+2. If FP16 auto-cast doesn't work via C API, pin to onnxruntime 1.18.0 native library
+3. If the issue is broader, investigate ORT vtable compatibility
+
+- [ ] **Step 5: Run unit tests (all batches)**
 
 Run: `mvn --batch-mode test -pl speech-sherpa`
 Expected: ALL PASS (integration test skipped without `-Dspeech.integration=true`)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git -C /Users/mdproctor/claude/casehub/slots/161/blocks commit -am "feat(#217): Provisioner + end-to-end CosyVoice3 wiring in TtsPipeline.fromModelDir  Refs #217"
