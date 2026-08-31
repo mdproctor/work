@@ -1,34 +1,27 @@
-# Handoff — casehub-blocks
+# HANDOFF — casehub-blocks
 
-**Branch:** issue-142-narrative-identity
-**Issue:** casehubio/blocks#142
-**Date:** 2026-08-25
+## Last Session
 
-## Status
+Completed Batches 2 and 3 of the CosyVoice3 TTS pipeline (#217). Batch 2 added pure-Java DSP primitives: Cooley-Tukey radix-2 FFT, MelSpectrogram with three mel configs (campplus 80-band, whisper 128-band, flow 80-band), STFT/ISTFT with overlap-add reconstruction (verified with HiFT n_fft=16 params), and windowed sinc audio resampler. Batch 3 added the Qwen2 byte-level BPE tokenizer (vocab.json + merges.txt format) and CosyVoice3VoiceEncoder (campplus speaker embedding + speech tokenizer + flow prompt mel extraction with functional interfaces for testability). 420 tests passing, 0 failures.
 
-#144, #145, #146 complete — CbrNarrativeStore, narrative-to-drive modulation wiring, SocialNormDetector. Queue at position 4/7, active issue #147 (CollectiveGoalFormation). 1877 tests passing.
+## Immediate Next Step
 
-## What Was Built
+Batch 4: CosyVoice3 generator + decoder + end-to-end wiring — the most complex batch. Three tasks:
+- Task 8: CosyVoice3Generator — LLM autoregressive pipeline with KV-cache (5 ONNX sessions: text_embedding, llm_speech_embedding, llm_backbone_initial, llm_backbone_decode, llm_decoder). Top-k sampling, EOS detection, NaN guard.
+- Task 9: CosyVoice3Decoder — flow diffusion (10-step Euler ODE, 4 ONNX sessions) + HiFT vocoder (f0 + source + STFT/ISTFT decoder, 3 ONNX sessions). Uses StftUtils with n_fft=16.
+- Task 10: Provisioner + manifest + end-to-end wiring via TtsPipeline.fromModelDir().
 
-- **CbrNarrativeStore** (#144) — CBR-backed NarrativeStore with NarrativeStateSchema handling polymorphic NarrativeFragment serialization (type discriminators for episode/group_episode/theme). NarrativeConfig gained memoryDomain/caseType. CbrNarrativeStore is now @DefaultBean; NoOpNarrativeStore lost default status.
+## Design Notes for Batch 4
 
-- **NarrativeFeedback** (#145) — DriveOrchestrator wired to NarrativeOrchestrator via Instance<> (CDI optional). tick() reads current narrative, computes modulation via NarrativeModulation.compute(), passes to DriveComposer.compose(). CognitiveObservationSections.narrativeSection() already existed. GoalPriorityEscalationPolicy deferred → filed as #166 (cross-repo engine-api).
+- Generator and Decoder should follow the same testability pattern as CosyVoice3VoiceEncoder — functional interfaces for ORT inference calls, with fromSessions() factory methods for production wiring.
+- KV-cache: [48, 1, 2, seq_len, 64] allocated per-call via Arena.ofConfined().
+- Flow decoder: 10 Euler steps, Gaussian noise init, speaker embedding L2-normalized.
+- HiFT: f0 → source → STFT(n_fft=16, hop=4) → decoder → ISTFT → clamp [-0.99, 0.99].
+- ORT FP16 auto-cast: 9 of 14 models are FP16. C API should auto-cast FP32 inputs — verify in integration test.
 
-- **SocialNormDetector** (#146) — compositor reading NormObservation cases from CBR, grouping by behavioralPattern, computing adherence rates, classifying EMERGING/ESTABLISHED/DECLINING. Prior-state tracking for decline detection. NormDetectionConfig gained memoryDomain/caseType. NormObservationSchema for CBR serialization.
+## References
 
-## Key Design Decisions
-
-- Polymorphic CBR serialization: hand-rolled JSON with type discriminators in a single FeatureValue.string feature, consistent with MentalModelSchema pattern
-- DECLINING norm detection requires cached previous state — norms that were ESTABLISHED but dropped below decliningThreshold transition to DECLINING
-
-## What's Next
-
-| Item | Scale | Complexity |
-|------|-------|------------|
-| #147 CollectiveGoalFormation — drive alignment to JointIntention | L | High |
-| #148 GroupIdentity — shared narrative across agent collectives | L | High |
-
-## Cross-Module
-
-**Enabled:**
-- `engine-api` — GoalPriorityEscalationPolicy SPI (#166) can now be implemented; narrative types and modulation infrastructure are in place · S · Med
+- Spec: `specs/main-217/2026-08-30-tts-pipeline-framework-cosyvoice3-design.md`
+- Decisions: `specs/main-217/decisions.md` (13 decisions, D1-D13)
+- Plan: `plans/2026-08-30-tts-pipeline-cosyvoice3.md` (10 tasks, 4 batches)
+- CosyVoice3 reference: `ayousanz/cosy-voice3-onnx` on HuggingFace (14 ONNX files, `onnx_inference_pure.py`)
