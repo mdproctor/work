@@ -502,7 +502,7 @@ feat(#212): extend filler removal — discourse markers, false starts
 
 **Files:**
 - Modify: `speech-sherpa/src/main/java/io/casehub/blocks/speech/sherpa/Provisioner.java` (fix GECToR URL/checksum)
-- Modify: `speech-demo/src/main/java/io/casehub/blocks/speech/demo/SpeechProducers.java` (wire PunctuationFilter)
+- Modify: `../../../../../platform/Users/mdproctor/claude/casehub/slots/167/blocks-ui/examples/avatar-demo/src/main/java/io/casehub/blocks/speech/demo/SpeechProducers.java` (wire PunctuationFilter)
 
 **Interfaces:**
 - Consumes: existing `PunctuationFilter`, `GectorFilter`, `Provisioner`
@@ -739,7 +739,7 @@ feat(#212): extend TranscriptionOptions + add ConversationVocabulary
 
 **Files:**
 - Modify: `speech-ws/src/main/java/io/casehub/blocks/speech/ws/SpeechSession.java`
-- Modify: `speech-demo/src/main/java/io/casehub/blocks/speech/demo/SpeechProducers.java`
+- Modify: `../../../../../platform/Users/mdproctor/claude/casehub/slots/167/blocks-ui/examples/avatar-demo/src/main/java/io/casehub/blocks/speech/demo/SpeechProducers.java`
 - Modify: `speech-ws/src/test/java/io/casehub/blocks/speech/ws/SpeechSessionTest.java`
 
 **Interfaces:**
