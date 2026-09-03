@@ -207,7 +207,6 @@ import io.casehub.blocks.summarisation.Summariser;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -217,10 +216,10 @@ class TieredObservationRendererTest {
 
     static final EventLevel LEVEL = new EventLevel("test", 0);
 
-    Function<String, String> eventRenderer = s -> s;
-    Function<String, String> groupKeyExtractor = s -> s.split(":")[0];
-    Summariser<String, String> summariser = batch ->
-            CompletableFuture.completedFuture(List.of("Summary of " + batch.size() + " events"));
+    Function<String, String>   eventRenderer     = s -> s;
+    Function<String, String>   groupKeyExtractor = s -> s.split(":")[0];
+    Summariser<String, String> summariser        = batch ->
+                                                           CompletableFuture.completedFuture(List.of("Summary of " + batch.size() + " events"));
 
     @Test
     void rejects_negativeVerbatimThreshold() {
@@ -645,8 +644,6 @@ import io.casehub.blocks.summarisation.EventLevel;
 import io.casehub.blocks.summarisation.LevelEvent;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -662,14 +659,14 @@ class ObservationAccumulatorTest {
     static final EventLevel LEVEL = new EventLevel("test", 0);
 
     ObservationRenderer<String> verbatimRenderer = (events, ctx) ->
-            CompletableFuture.completedFuture(new ObservationResult(
-                    "rendered:" + events.size(),
-                    events.stream().map(e -> new ObservationChunk(
-                            e.payload(), e.timestamp(),
-                            ObservationTier.VERBATIM, 1, Map.of())).toList(),
-                    events.size(),
-                    ctx.timeSinceLastDrain(),
-                    ObservationTier.VERBATIM));
+                                                           CompletableFuture.completedFuture(new ObservationResult(
+                                                                   "rendered:" + events.size(),
+                                                                   events.stream().map(e -> new ObservationChunk(
+                                                                           e.payload(), e.timestamp(),
+                                                                           ObservationTier.VERBATIM, 1, Map.of())).toList(),
+                                                                   events.size(),
+                                                                   ctx.timeSinceLastDrain(),
+                                                                   ObservationTier.VERBATIM));
 
     @Test
     void collectAndDrain_lifecycle() {
@@ -686,7 +683,7 @@ class ObservationAccumulatorTest {
 
     @Test
     void emptyDrain_returnsEmptyResult() {
-        var acc = new ObservationAccumulator<>(verbatimRenderer, 1000);
+        var acc    = new ObservationAccumulator<>(verbatimRenderer, 1000);
         var result = acc.drainObservation(2000).toCompletableFuture().join();
         assertThat(result.eventCount()).isZero();
         assertThat(result.tier()).isNull();
@@ -741,7 +738,7 @@ class ObservationAccumulatorTest {
     @Test
     void rendererFailure_propagatesViaCompletionStage() {
         ObservationRenderer<String> failingRenderer = (events, ctx) ->
-                CompletableFuture.failedFuture(new RuntimeException("LLM timeout"));
+                                                              CompletableFuture.failedFuture(new RuntimeException("LLM timeout"));
         var acc = new ObservationAccumulator<>(failingRenderer, 1000);
         acc.collect(new LevelEvent<>("a", 1100, LEVEL));
 
@@ -755,21 +752,21 @@ class ObservationAccumulatorTest {
 
     @Test
     void concurrentCollectDuringDrain_noDataLoss() throws Exception {
-        final int preCollect = 50;
+        final int preCollect        = 50;
         final int concurrentCollect = 200;
-        var acc = new ObservationAccumulator<>(verbatimRenderer, 0);
+        var       acc               = new ObservationAccumulator<>(verbatimRenderer, 0);
 
         for (int i = 0; i < preCollect; i++) {
             acc.collect(new LevelEvent<>("pre-" + i, i, LEVEL));
         }
 
-        var latch = new CountDownLatch(1);
+        var             latch    = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(4);
         try {
             for (int i = 0; i < concurrentCollect; i++) {
                 final int val = i;
                 executor.submit(() -> {
-                    try { latch.await(); } catch (InterruptedException e) {
+                    try {latch.await();} catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
                     acc.collect(new LevelEvent<>("concurrent-" + val, 1000 + val, LEVEL));
@@ -783,7 +780,7 @@ class ObservationAccumulatorTest {
             assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
 
             var result2 = acc.drainObservation(6000).toCompletableFuture().join();
-            int total = result.eventCount() + result2.eventCount() + acc.eventCount();
+            int total   = result.eventCount() + result2.eventCount() + acc.eventCount();
             assertThat(total).isEqualTo(preCollect + concurrentCollect);
         } finally {
             executor.shutdownNow();

@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-152-small-cleanups
-state: scaffolded
+state: closing:promoted
 project-sha: 4c91719529bb6c209d20e63af4bb8324c380b04c
 date: 2026-09-03
 issue-repo: casehubio/blocks
@@ -11,5 +11,6 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#152 — Issue #152 ← active
