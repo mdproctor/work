@@ -163,6 +163,7 @@ pipeline:
           - name: weight-mismatch
             when: "weight > 50.0"
             category: WEIGHT_MISMATCH
+            severity: HIGH
       emit:
         cloud-event-type: io.casehub.logistics.anomaly.v1
 
@@ -207,6 +208,39 @@ A `grouping:` block with a `type:` discriminator (D4). Mutually exclusive modes:
 
 All implement `Summariser<E, OUT>`. `phase-detect` state is framework-managed, per-partition (tenant × key group), in-memory. State lost on restart — persistence is Tier 2 territory (D8).
 
+#### Built-in Output Schemas (Tier 1)
+
+For Tier 1 (`E = Map<String, Object>`), each built-in summariser produces output Maps with defined keys. These schemas are the contract between levels — the next level's expressions and aggregate-fields operate on these keys.
+
+**threshold-classify:** One output Map per event-rule match.
+
+| Key | Type | Source |
+|---|---|---|
+| `ruleName` | `String` | From the rule's `name` field |
+| `category` | `String` | From the rule's `category` field |
+| *(user-defined)* | `Object` | Any additional key-value pairs in the rule config (e.g., `severity: HIGH`) |
+| *(input fields)* | `Object` | All fields from the matched input event's payload, merged at lower precedence (rule fields win on collision) |
+
+Rule config fields `name` and `when` are reserved (identification and predicate). All other key-value pairs in a rule are literal output fields. This enables arbitrary classification metadata without a separate `output:` block.
+
+**phase-detect:** Zero or one output Map per batch (on transition only).
+
+| Key | Type | Source |
+|---|---|---|
+| `from` | `String` | Previous state |
+| `to` | `String` | New state |
+| `phase` | `String` | Alias for `to` (convenience for downstream expressions) |
+
+**count:** One output Map per batch.
+
+| Key | Type | Source |
+|---|---|---|
+| *(category values)* | `Integer` | Keys are distinct values of `category-field`; values are occurrence counts |
+
+**field-extract:** One output Map per JQ result node. Each `JsonNode` in the JQ result list is converted to `Map<String, Object>`.
+
+**pass-through:** Same Map as input — the input event's payload is returned unchanged.
+
 #### phase-detect Lifecycle
 
 **State granularity:** One state machine instance per partition. With automatic tenant partitioning, each tenant has its own state. With keyed grouping, each key group within a tenant has its own state machine.
@@ -221,7 +255,7 @@ All implement `Summariser<E, OUT>`. `phase-detect` state is framework-managed, p
 
 #### Compaction
 
-`Compactor<E>` is supported in the Java API (Tier 2) but has no YAML surface representation. Compaction logic is inherently domain-specific — deduplication strategies (by field, by time window, by priority) vary across use cases and cannot be expressed generically in YAML without creating a mini-language. Tier 2 Java-constructed pipelines have full compaction support via `SummarisationRunner` and `KeyedSummarisationRunner` constructors. Future YAML compaction support is deferred (issue TBD — `feat: YAML compactor block with built-in dedup strategy`).
+`Compactor<E>` is supported in the Java API (Tier 2) but has no YAML surface representation. Compaction logic is inherently domain-specific — deduplication strategies (by field, by time window, by priority) vary across use cases and cannot be expressed generically in YAML without creating a mini-language. Tier 2 Java-constructed pipelines have full compaction support via `SummarisationRunner` and `KeyedSummarisationRunner` constructors. Future YAML compaction support is deferred. **Deferred issue (file before implementation):** `feat: YAML compactor block with built-in dedup strategy` — analyse common compaction patterns from real YAML pipeline usage; design a `compactor:` block in the level definition with at least a `dedup-by-field` built-in strategy. Ref: this spec §Compaction, `MultiAgentObservationPipelineTest.compact()` as the reference implementation pattern.
 
 ### Expression Engine
 
@@ -236,6 +270,8 @@ Expressions evaluated via platform `ExpressionEngine` SPI — `CompiledExpressio
 | `field-extract` `expression` | JQ | `JsonNode` (Tier 1 only) | `List<JsonNode>` |
 
 Pre-computed batch aggregates (D10): `size`, `counts.<field>.<value>`, `sums.<field>`, `avgs.<field>`. Only declared `aggregate-fields` are pre-computed — bounded, no speculative enumeration. Used by `phase-detect`; not used by `threshold-classify` (which evaluates per-event, not per-batch).
+
+**Non-numeric field handling:** `counts.<field>.<value>` is always computed (counts occurrences of each distinct value — works for any type). `sums.<field>` and `avgs.<field>` silently skip non-numeric values: for a field with no numeric values, `sums` is `0` and `avgs` is `null`. No runtime error. This means `aggregate-fields: [severity]` where severity is a string produces valid `counts.severity.HIGH` but `sums.severity` is `0` — which is harmless because `phase-detect` expressions typically use `counts`, not `sums`/`avgs`, for categorical fields.
 
 ### SummariserRegistry and Tier 2
 
@@ -290,11 +326,11 @@ class CompiledPipeline<IN> {
 1. Classpath scan for `META-INF/summarisation/*.yaml`
 2. `@SummariserTypeId` registry scan via Jandex
 3. Validation: unknown summariser types, unreachable states (phase-detect), cross-level type consistency, mutual exclusivity (windowed vs keyed)
-4. `@Record(RUNTIME_INIT)` recorder: constructs `PipelineCompiler`, compiles all discovered pipelines, registers `CompiledPipeline` beans
+4. `@Record(RUNTIME_INIT)` recorder: constructs `PipelineCompiler`, compiles all discovered pipelines, registers `CompiledPipeline` beans. **Multi-pipeline qualification:** when multiple pipelines are discovered, beans are qualified with `@PipelineQualifier(name)` using `PipelineDefinition.name`. Two-pass approach (count first, then qualify): single-pipeline applications retain `@Default` for unqualified injection; qualifiers are only added when multiple pipelines exist. This avoids the desiredstate#110 gotcha where adding a CDI qualifier silently removes `@Default`.
 5. `@Scheduled` tick driver registration with configurable interval:
    - Config property: `casehub.summarisation.tick-interval-ms` (long, milliseconds)
    - Default: `1000` (1 second)
-   - Global — applies to all compiled pipelines in the application. Per-pipeline intervals are a future concern (issue TBD if needed).
+   - Global — applies to all compiled pipelines in the application. Per-pipeline intervals are a future concern. **Deferred issue (file if needed):** `feat: per-pipeline tick interval configuration` — allow different pipelines in the same application to tick at different rates. Ref: this spec §Build-time Processing step 5.
 
 ### Validation Rules
 
