@@ -13,3 +13,20 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#233 — Issue #233 ← active
+  - [ ] Batch 1: API Extraction
+    - [ ] Task 1: Create summarisation-api module and move types
+    - [ ] Task 2: Add tenancyId to LevelEvent
+    - [ ] Task 3: Widen KeyedAccumulator key extractor
+  - [ ] Batch 2: CloudEvent Bridge
+    - [ ] Task 4: CloudEvent module with ingestion and emission
+  - [ ] Batch 3: YAML Foundation
+    - [ ] Task 5: Canonical model records and YAML deserialization
+    - [ ] Task 6: SummariserRegistry and pass-through built-in
+  - [ ] Batch 4: Compiler and Built-ins
+    - [ ] Task 7: PipelineCompiler and CompiledPipeline
+    - [ ] Task 8: threshold-classify and count with batch aggregates
+    - [ ] Task 9: phase-detect and field-extract built-ins
+  - [ ] Batch 5: Deployment and Integration
+    - [ ] Task 10: Build-time validation
+    - [ ] Task 11: Quarkus deployment module
+    - [ ] Task 12: End-to-end integration test
