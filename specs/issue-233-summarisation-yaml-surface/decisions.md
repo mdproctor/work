@@ -134,15 +134,16 @@
 **Exploration:** quick (surfaced by reviewer)
 **Status:** captured
 
-## D12: Tenant partitioning — KeyedAccumulator with tenancyId
+## D12: Tenant partitioning — KeyedAccumulator with tenancyId (key extractor API change)
 
-**Choice:** Windowed levels that require tenant-homogeneous batches use `KeyedAccumulator` with `tenancyId` as the grouping key. The WindowPolicy completion test is adapted as the `completionTest` predicate. Keyed levels already partition by their declared key; if multi-tenant, the key naturally includes tenancyId.
+**Choice:** Windowed levels that require tenant-homogeneous batches use `KeyedAccumulator` with `tenancyId` as the grouping key. The key extractor signature changes from `Function<E, K>` (payload-only) to `Function<LevelEvent<E>, K>` (full event access), enabling extraction from LevelEvent fields (tenancyId, timestamp, level) in addition to payload fields. Same change applies to `KeyedSummarisationRunner`. The WindowPolicy completion test is adapted as the `completionTest` predicate. Keyed levels already partition by their declared key; if multi-tenant, the key naturally includes tenancyId.
 **Alternatives:**
 - New TenantAwareAccumulator wrapping EventAccumulator — adds a type that duplicates KeyedAccumulator's functionality
 - One EventAccumulator per tenant — lifecycle management overhead, unbounded accumulator creation
 - EventAccumulator becomes `Map<String, List<LevelEvent<E>>>` internally — breaks the simple flat-buffer contract
-**Rationale:** KeyedAccumulator already exists and handles per-key grouping with completion predicates and stale timeouts. Using tenancyId as the key reuses this proven component. The framework creates the appropriate accumulator based on whether the pipeline is multi-tenant (tenancyId present in source events).
-**Trade-offs:** Windowed levels in multi-tenant pipelines use keyed accumulation under the hood — slightly different batching semantics (per-tenant windows rather than global windows). This is correct behavior: tenants should have independent windows.
-**Sources:** KeyedAccumulator.java, EventAccumulator.java, LevelEvent.tenancyId (D1), R1-13 reviewer challenge
+- Keep `Function<E, K>` and duplicate tenancyId into payload — violates D1's design (tenancyId is event metadata, not payload content)
+**Rationale:** KeyedAccumulator handles per-key grouping with completion predicates and stale timeouts — the concept is correct. The key extractor must be widened to `Function<LevelEvent<E>, K>` so it can access `event.tenancyId()` for tenant partitioning. The current `keyExtractor.apply(event.payload())` in `collect()` cannot reach LevelEvent-level fields. This is a natural companion to D1's #231 breaking change — existing payload-based key extractors change from `e -> e.transactionId()` to `event -> event.payload().transactionId()`, a mechanical migration.
+**Trade-offs:** Breaking change to KeyedAccumulator and KeyedSummarisationRunner constructors — ~1 production call site, ~12 test constructors. Existing callers add `.payload()` to their key extractors. Bundled with #231's LevelEvent breaking change. Windowed levels in multi-tenant pipelines use keyed accumulation under the hood — per-tenant windows rather than global windows, which is correct behavior.
+**Sources:** KeyedAccumulator.java (current `Function<E, K>` signature, `collect()` line 28), KeyedSummarisationRunner.java (current `Function<IN, K>` signature), LevelEvent.tenancyId (D1), R1-13/R2-01 reviewer challenges
 **Exploration:** quick (surfaced by reviewer)
-**Status:** captured
+**Status:** revised — acknowledged key extractor API change from `Function<E, K>` to `Function<LevelEvent<E>, K>` per R2-01
