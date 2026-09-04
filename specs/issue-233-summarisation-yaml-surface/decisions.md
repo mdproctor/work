@@ -65,3 +65,50 @@
 **Sources:** #233 issue body (build-time processing spec), Quarkus extension patterns (recorder-based construction)
 **Exploration:** quick
 **Status:** captured
+
+## D7: Event payload type — generic throughout
+
+**Choice:** The pipeline stays generic (`LevelEvent<E>`) throughout. No special-casing for Tier 1 vs Tier 2. Tier 1 (YAML-only) happens to use `E = Map<String, Object>` from JSON deserialization; Tier 2 uses domain types. Built-in summariser types use expression evaluation for field access, which MVEL3 handles transparently for both maps and typed objects.
+**Alternatives:**
+- Map-only Tier 1 (framework special-cases Map) — breaks the ContextBridge pattern used across the platform, makes Tier 1 a second-class citizen
+- JsonNode payload — JQ-native but MVEL3 field access becomes verbose (`node.get("field").asDouble()`)
+**Rationale:** Follows the ContextBridge pattern used for domain contexts everywhere in CaseHub. The framework is type-agnostic — the concrete type is an implementation detail of the source/ingestion layer.
+**Trade-offs:** None — this is the natural design. Expression evaluation via MVEL3 handles both typed objects and maps transparently.
+**Sources:** Platform ContextBridge pattern, MVEL3 property access semantics
+**Exploration:** quick
+**Status:** captured
+
+## D8: phase-detect initial state — explicit in YAML
+
+**Choice:** The `phase-detect` built-in declares `initial: <STATE>` in the YAML. Every new tenant starts in that state. First batch evaluates transitions from the initial state.
+**Alternatives:**
+- First-match on first batch (no initial state — evaluate all transitions cold) — handles cold-start more accurately but adds edge cases (what if nothing matches?) and makes the default state implicit
+**Rationale:** Simple, predictable, no magic. The initial state is always visible in the YAML definition. Stateful summariser state is per-tenant (via LevelEvent.tenancyId).
+**Trade-offs:** If the real-world initial state varies by tenant, the YAML can't express that. Tier 2 (custom Java) needed for tenant-specific initial states.
+**Sources:** #233 issue body (phase-detect spec), HubPhaseSummariser.java (existing phase classification pattern)
+**Exploration:** quick
+**Status:** captured
+
+## D9: Expression engine — platform expression SPI
+
+**Choice:** Depend on `casehub-platform-api` (SPI: `ExpressionEngine`, `CompiledExpression<C,R>`, `ExpressionEngineRegistry`) and `casehub-platform-expression` (runtime: `MvelExpressionEngine`, `JQExpressionEngine`). No direct jackson-jq or MVEL3 dependency.
+**Alternatives:**
+- Bundle own jackson-jq/MVEL3 dependencies — duplicates expression infrastructure already provided by platform
+- Depend on engine-api ExpressionEngine — couples to `CaseContext`, which summarisation pipelines don't use
+**Rationale:** Platform-api `CompiledExpression<C, R>` is fully generic (`R eval(C)`) — works for `CompiledExpression<BatchContext, Boolean>` (predicates) and `CompiledExpression<JsonNode, List<JsonNode>>` (JQ transforms). No gaps. Unifies on the same expression SPI used across the platform.
+**Trade-offs:** Summarisation-yaml gains a `provided` dependency on casehub-platform-api. Consumers must have platform-expression on classpath for MVEL3/JQ evaluation — but any Quarkus app already does.
+**Sources:** javap analysis of platform-api ExpressionEngine/CompiledExpression/ExpressionEngineRegistry, casehub-platform-expression implementations (MvelExpressionEngine, JQExpressionEngine, JexlExpressionEngine)
+**Exploration:** quick
+**Status:** captured
+
+## D10: Pre-computed batch aggregates for expression context
+
+**Choice:** The runtime pre-computes batch statistics (size, counts by field value, sums/avgs of numeric fields) and exposes them as flat variables in the expression context. Raw batch available as `batch` for escape hatch.
+**Alternatives:**
+- Raw batch only (expression computes everything inline) — more flexible but expressions become complex and performance unpredictable
+- Schema-driven projection (YAML declares which fields to project/aggregate) — more explicit but verbose schema definition per level
+**Rationale:** Summariser `when` expressions need aggregate statistics (e.g., "highSeverityCount >= 3"). Pre-computing these keeps expressions simple and predictable. The `batch` escape hatch preserves full flexibility.
+**Trade-offs:** The runtime must introspect event payloads to compute aggregates. For typed objects, this uses reflection or MVEL3 property access. For maps, direct key access. Performance cost is per-batch, not per-event.
+**Sources:** HubPhaseSummariser.java (counts high-severity anomalies), AnomalyDetectorSummariser.java (weight statistics)
+**Exploration:** quick
+**Status:** captured
