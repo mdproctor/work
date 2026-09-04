@@ -266,8 +266,17 @@ Expressions evaluated via platform `ExpressionEngine` SPI — `CompiledExpressio
 | `threshold-classify` `when` | MVEL3 | Event payload (individual event) | `Boolean` |
 | `phase-detect` `when` | MVEL3 | Pre-computed batch aggregates | `Boolean` |
 | `keyed` `key` | MVEL3 | Event payload | `Object` |
-| `keyed` `completion` | MVEL3 | Batch (list of events) | `Boolean` |
+| `keyed` `completion` | MVEL3 | Key group context Map (see below) | `Boolean` |
 | `field-extract` `expression` | JQ | `JsonNode` (Tier 1 only) | `List<JsonNode>` |
+
+**Keyed completion context:** The `PipelineCompiler` wraps the key group in a `Map<String, Object>` for MVEL evaluation (raw `List` cannot be used as MVEL context — `Introspector.getBeanInfo(List.class)` does not expose `size` as a JavaBean property, only `empty` from `isEmpty()`).
+
+| Key | Type | Description |
+|---|---|---|
+| `size` | `int` | Number of events in the key group |
+| `events` | `List<Map<String, Object>>` | Event payloads (Tier 1) |
+
+Examples: `size >= 10` (count-based), `events[size - 1].status == 'COMPLETE'` (sentinel event).
 
 Pre-computed batch aggregates (D10): `size`, `counts.<field>.<value>`, `sums.<field>`, `avgs.<field>`. Only declared `aggregate-fields` are pre-computed — bounded, no speculative enumeration. Used by `phase-detect`; not used by `threshold-classify` (which evaluates per-event, not per-batch).
 
