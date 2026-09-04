@@ -1,0 +1,15 @@
+# Work Plan — issue-233-summarisation-yaml-surface
+
+## State
+branch: issue-233-summarisation-yaml-surface
+state: scaffolded
+project-sha: d9f0d6846256e792b3a6a4994451387c24789a80
+date: 2026-09-04
+issue-repo: casehubio/blocks
+covers: 233,231,232
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/blocks#233 — Issue #233 ← active
