@@ -9,8 +9,8 @@ Current: casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses
 date: 2026-09-05
 
 ## Queue
-- [ ] casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses ← active
-- [ ] casehubio/blocks#200 — Avatar Tier 2: Drive-influenced proactive speech
-- [ ] casehubio/blocks#201 — Avatar Tier 2: Mental model awareness
-- [ ] casehubio/blocks#202 — Avatar Tier 2: User model personalization
-- [ ] casehubio/blocks#203 — Avatar Tier 2: Strategy learning
+- [x] casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses
+- [x] casehubio/blocks#200 — Avatar Tier 2: Drive-influenced proactive speech
+- [x] casehubio/blocks#201 — Avatar Tier 2: Mental model awareness
+- [x] casehubio/blocks#202 — Avatar Tier 2: User model personalization
+- [x] casehubio/blocks#203 — Avatar Tier 2: Strategy learning
