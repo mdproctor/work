@@ -64,6 +64,8 @@ public interface AvatarCognition {
 
     default void initialize(String agentId, String tenantId) {}
 
+    default void tick(String agentId, String tenantId, Set<String> activeSubjects) {}
+
     default @Nullable String evaluateProactive(String agentId, String tenantId,
                                                 String channelContext) {
         return null;
@@ -77,7 +79,7 @@ public interface AvatarCognition {
 
 `AvatarCognition` is the composition root — the single interface speech-ws uses to access all social cognition capabilities. speech-ws injects `Instance<AvatarCognition>` and checks `isResolvable()`. blocks provides the implementation. This avoids speech-ws needing any dependency on blocks.
 
-`initialize()` is called at session open to hydrate orchestrator state before the first user turn. `wrapAssembler()` takes a `Supplier<String>` for the current speaker's subjectId, which is resolved per-turn by SpeechSession and threaded through `PromptContext` to sections that need it.
+`initialize()` is called at session open to hydrate orchestrator state before the first user turn. `tick()` is called by the proactive tick loop on each interval to process accumulated signals across all orchestrators. `activeSubjects` is the set of speaker IDs identified during the current session — needed for subject-scoped orchestrators (UserModel, MentalModel) which require per-subject ticking. `wrapAssembler()` takes a `Supplier<String>` for the current speaker's subjectId, which is resolved per-turn by SpeechSession and threaded through `PromptContext` to sections that need it.
 
 All types move to package `io.casehub.blocks.speech` (from `io.casehub.blocks.speech.ws` and `io.casehub.blocks.speech.ws.protocol`). speech-ws retains `DefaultPromptAssembler` (re-imports from speech-api).
 
@@ -139,8 +141,6 @@ public class SocialAvatarCognition implements AvatarCognition {
     @Inject Instance<InnerLifeOrchestrator> innerLife;
     @Inject Instance<AgentRegistry> agentRegistry;
 
-    private @Nullable AgentDescriptor descriptor;
-
     @Override
     public SpeechPromptAssembler wrapAssembler(SpeechPromptAssembler base, String agentId, String tenantId,
                                           Supplier<String> subjectIdSupplier) {
@@ -152,17 +152,40 @@ public class SocialAvatarCognition implements AvatarCognition {
     public void initialize(String agentId, String tenantId) {
         if (agentRegistry.isResolvable()) {
             agentRegistry.get().findById(agentId, tenantId)
-                    .ifPresent(desc -> {
-                        this.descriptor = desc;
-                        drives.tick(agentId, tenantId, desc);
-                    });
+                    .ifPresent(desc -> drives.tick(agentId, tenantId, desc));
+        }
+    }
+
+    @Override
+    public void tick(String agentId, String tenantId, Set<String> activeSubjects) {
+        // Agent-scoped orchestrators
+        record(() -> mood.tick(agentId, tenantId));
+        record(() -> strategy.tick(agentId, tenantId));
+        if (narrative.isResolvable()) {
+            record(() -> narrative.get().tick(agentId, tenantId));
+        }
+        if (goals.isResolvable() && agentRegistry.isResolvable()) {
+            agentRegistry.get().findById(agentId, tenantId)
+                    .ifPresent(desc -> record(() -> goals.get().tick(agentId, tenantId, desc)));
+        }
+        // Subject-scoped orchestrators — tick each identified speaker
+        for (String subjectId : activeSubjects) {
+            record(() -> userModel.tick(agentId, subjectId, tenantId));
+            record(() -> mentalModel.tick(agentId, subjectId, tenantId));
         }
     }
 
     @Override
     public @Nullable String evaluateProactive(String agentId, String tenantId,
                                                String channelContext) {
-        // delegates to InnerLifeOrchestrator when available
+        // Resolves descriptor per-call from AgentRegistry — no instance state
+        if (!innerLife.isResolvable() || !agentRegistry.isResolvable()) return null;
+        return agentRegistry.get().findById(agentId, tenantId)
+                .map(desc -> {
+                    var support = new ProactiveSpeechSupport(innerLife.get(), desc);
+                    return support.evaluateProactive(channelContext);
+                })
+                .orElse(null);
     }
 
     @Override
@@ -170,10 +193,7 @@ public class SocialAvatarCognition implements AvatarCognition {
                                    @Nullable String subjectId,
                                    String userMessage, String response) {
         // Each orchestrator is isolated — a failure in one does not prevent others from recording.
-        // Mood is agent-scoped (no subjectId). The others are subject-scoped and require a subjectId.
-        record(() -> mood.record(
-                new MoodSignal.InteractionAppraisal(0.0, 0.0, 0.0, null),
-                agentId, tenantId));
+        // Subject-scoped signals require an identified speaker.
         if (subjectId != null) {
             record(() -> userModel.record(
                     new InteractionSignal.CustomSignal(userMessage, QualitySignal.NEUTRAL),
@@ -187,8 +207,10 @@ public class SocialAvatarCognition implements AvatarCognition {
                             Map.of(), response),
                     agentId, subjectId, tenantId));
         }
-        if (innerLife.isResolvable() && descriptor != null) {
-            record(() -> innerLife.get().observeResponse(descriptor));
+        // Reset proactive initiation counter — descriptor resolved per-call
+        if (innerLife.isResolvable() && agentRegistry.isResolvable()) {
+            agentRegistry.get().findById(agentId, tenantId)
+                    .ifPresent(desc -> record(() -> innerLife.get().observeResponse(desc)));
         }
     }
 
@@ -216,7 +238,7 @@ Each reads cached state from its orchestrator. All are plain classes (not CDI be
 | `NarrativePromptSection` | `NarrativeOrchestrator.currentNarrative()` | Calls `CognitiveObservationSections.narrativeSection()` → renders `ObservationSection` via `AffordanceRenderer.renderObservation()` |
 | `GoalPromptSection` | `GoalProposalOrchestrator.currentProposals()` | Renders directly from `DriveGoalProposal`: "Your current goals: \n- [PRIORITY] description (drive: axis, intensity)" |
 
-The `PersonalityPromptSection` is unique — it reads from `AgentDescriptor` directly (passed at construction), not from an orchestrator query method. Personality is session-static by design: `PersonalityEvolutionOrchestrator` evolves personality across sessions (via `DispositionProfileStore.update()`), not within a single conversation. The next session open picks up the evolved descriptor from `AgentRegistry`.
+The `PersonalityPromptSection` is unique — it reads from `AgentDescriptor` directly (resolved from `AgentRegistry` during `buildSections()` and passed at construction), not from an orchestrator query method. Personality is session-static by design: `PersonalityEvolutionOrchestrator` evolves personality across sessions (via `DispositionProfileStore.update()`), not within a single conversation. The next session open picks up the evolved descriptor from `AgentRegistry`.
 
 The `UserModelPromptSection` needs a `subjectId` (the user being spoken to), obtained from `PromptContext.subjectId()`. This is resolved per-turn by the `subjectIdSupplier` passed to `SocialPromptAssembler`. SpeechSession resolves the current speaker via `SpeakerRegistry` and defaults to `"anonymous"` when no speaker is identified.
 
@@ -288,11 +310,15 @@ Instance<AvatarCognition> avatarCognition;
 Proactive speech: if `AvatarCognition` is available, starts a proactive tick loop on a virtual thread with the following contract:
 
 1. **Fixed-delay loop** — waits `proactiveTickIntervalSeconds` after each tick *completes* before starting the next. This prevents tick queuing when a tick takes longer than the interval (e.g., slow LLM).
-2. **Turn-busy gating** — an `AtomicBoolean turnInProgress` is set `true` at the start of `handleText()`/`handleStop()` and cleared when the turn completes. The proactive tick checks this flag and skips the tick if a user turn is in progress. This prevents concurrent `handleText()` calls on SpeechSession, which is not thread-safe (`history` is a plain `ArrayList`).
+2. **Turn-busy gating** — an `AtomicBoolean turnInProgress` is set `true` at the start of `handleText()`/`handleStop()` and cleared when the turn completes. The proactive tick checks this flag and skips the tick if a user turn is in progress. This prevents concurrent modification of SpeechSession state, which is not thread-safe (`history` is a plain `ArrayList`).
 3. **Thread lifecycle** — the proactive tick thread reference is stored in SpeechSession. `close()` sets an `isClosed` flag and interrupts the thread. The tick loop checks `isClosed` before each iteration and before calling `evaluateProactive()`.
 4. **Tick timeout** — `ProactiveSpeechSupport.evaluateProactive()` wraps the `InnerLifeOrchestrator.tick()` call in a try-catch. If the underlying LLM call hangs, the tick thread is interruptible via the close() path. The fixed-delay loop prevents queuing regardless.
 
-When `evaluateProactive()` returns content, calls `session.handleText(content)` to generate and speak the response.
+Each tick iteration performs two steps:
+1. **Process accumulated signals** — calls `cognition.tick(agentId, tenantId, activeSubjects)` where `activeSubjects` is the set of speaker IDs identified during the session (tracked by SpeechSession via speaker identification). This ticks all orchestrators, processing pending signals into queryable state so that PromptSections have fresh data for subsequent conversation turns.
+2. **Evaluate proactive initiation** — calls `cognition.evaluateProactive(agentId, tenantId, channelContext)`.
+
+When `evaluateProactive()` returns content, calls `session.handleProactiveSpeech(content)` — a dedicated path that differs from `handleText()` (see §Proactive Speech Lifecycle below).
 
 **channelContext definition:** The `channelContext` string passed to `evaluateProactive()` is assembled by SpeechWebSocket from available session state:
 
@@ -306,9 +332,42 @@ Speaker: {identified speaker name, or "anonymous"}
 
 This matches how `InnerLifeOrchestrator.assemblePrompt()` uses channelContext — it appears under "Available channels and context:" in the LLM prompt. The content is intentionally simple (no conversation summary, no RAG retrieval) because the inner life pipeline already has its own observation buffer and reflection sources.
 
+#### Proactive Speech Lifecycle
+
+Proactive speech follows a dedicated path — distinct from user-initiated `handleText()` — to avoid history corruption, signal pollution, and redundant LLM calls.
+
+SpeechSession gains a `handleProactiveSpeech(String content)` method:
+
+```java
+public void handleProactiveSpeech(String content) {
+    // Content IS the avatar's speech — InnerLifeOrchestrator already generated
+    // conversational text via its motivation assessment LLM call.
+    history.add(new ConversationTurn("assistant", content));
+    send(new AvatarMessage.Response(content));
+    String[] sentences = content.split("(?<=[.!?])\\s+");
+    for (int i = 0; i < sentences.length; i++) {
+        if (!sentences[i].isBlank()) {
+            synthesiseAndSend(ttsService, sentences[i], i + 1);
+        }
+    }
+    // No recordInteraction() — this is self-initiated, not a user interaction.
+    // Signal recording is only for user-to-avatar interactions.
+}
+```
+
+Key differences from `handleText()`:
+- **No phantom "user" turn** — content is added as `"assistant"`, not `"user"`. The proactive content is the avatar's speech, not something a user said.
+- **No second LLM call** — `InnerLifeOrchestrator.tick()` already generates the conversational content via its motivation assessment. The `content` field in `InnerLifeTick.Initiated` is "what you want to say" — the actual utterance, not a motivation summary that needs further processing.
+- **No signal recording** — `recordInteraction()` dispatches subject-scoped signals (UserModel, MentalModel, Strategy) that attribute input to the current speaker. Proactive content originates from the avatar itself and must not pollute user models.
+- **No prompt assembly** — since there's no LLM call, `SocialPromptAssembler` is not invoked.
+
+The proactive tick loop calls `session.handleProactiveSpeech(content)` (not `session.handleText(content)`) when `evaluateProactive()` returns content.
+
+**Turn-busy gating** applies symmetrically: `handleProactiveSpeech()` also sets `turnInProgress = true` while executing (TTS may be slow), preventing concurrent proactive ticks from racing on the history `ArrayList`.
+
 #### Signal feedback (SpeechSession)
 
-SpeechSession gains a `withAvatarCognition(AvatarCognition cognition, String agentId, String tenantId)` method (follows the existing `withSpeakerServices()` pattern — no constructor change, no new overload). After each conversation turn:
+SpeechSession gains a `withAvatarCognition(AvatarCognition cognition, String agentId, String tenantId)` method (follows the existing `withSpeakerServices()` pattern — no constructor change, no new overload). After each **user-initiated** conversation turn:
 
 ```java
 private void recordInteraction(String userMessage, String response) {
@@ -318,29 +377,54 @@ private void recordInteraction(String userMessage, String response) {
 }
 ```
 
-`subjectId` comes from speaker identification (SpeechSession already tracks identified speakers via `SpeakerRegistry`). Defaults to `"anonymous"` when no speaker is identified.
+`subjectId` comes from speaker identification (SpeechSession already tracks identified speakers via `SpeakerRegistry`). Defaults to `"anonymous"` when no speaker is identified. Signal recording is only called from `handleText()` / `handleStop()` — never from `handleProactiveSpeech()`.
 
 `SocialAvatarCognition.recordInteraction()` (in blocks) dispatches to each orchestrator with per-call exception isolation (see `SocialAvatarCognition` code above). Concrete signal construction:
 
 | Orchestrator | Signal construction | Scope |
 |---|---|---|
-| `MoodOrchestrator.record()` | `new MoodSignal.InteractionAppraisal(0.0, 0.0, 0.0, null)` — zero PAD delta (neutral interaction, no emotional shift) | agent-scoped |
 | `UserModelOrchestrator.record()` | `new InteractionSignal.CustomSignal(userMessage, QualitySignal.NEUTRAL)` — records interaction text for profile synthesis | subject-scoped |
 | `MentalModelOrchestrator.record()` | `new MentalStateSignal.VerbalCue(userMessage, CueType.BELIEF_STATEMENT)` — feeds heuristic belief extraction | subject-scoped |
 | `StrategyLearningOrchestrator.record()` | `new EngagementSignal.TurnOutcome(EngagementEvent.ofTurn(...), Map.of(), response)` — see note below | subject-scoped |
-| `InnerLifeOrchestrator.observeResponse()` | `observeResponse(descriptor)` — resets `consecutiveInitiationsWithoutResponse` counter | agent-scoped |
+| `InnerLifeOrchestrator.observeResponse()` | `observeResponse(descriptor)` — resets `consecutiveInitiationsWithoutResponse` counter. Descriptor resolved per-call from AgentRegistry | agent-scoped |
 
 Subject-scoped signals are only dispatched when `subjectId != null` (speaker identified).
 
-**EngagementEvent.ofTurn() factory:** `EngagementEvent` has 15 constructor parameters. The spec proposes a static factory `EngagementEvent.ofTurn(agentId, subjectId, tenantId, userMessage, response)` that supplies sensible defaults: `turnId` = UUID, `timestamp` = now, `responded` = true, `responseLength` = response length, remaining fields null. This factory is a new addition to the EngagementEvent API in neocortex-memory-api — it does not exist today.
+**MoodOrchestrator is intentionally excluded from conversation signal recording.** Computing meaningful PAD deltas from a conversation turn requires sentiment/emotion analysis of the interaction content — the speech pipeline doesn't have this capability. Recording a zero-delta `InteractionAppraisal(0.0, 0.0, 0.0, null)` has no effect even when processed by `mood.tick()`. Mood state changes come from domain-level events (observed through `InnerLifeOrchestrator.observe()`) and temporal dynamics (decay during `mood.tick()`). Conversation-driven mood assessment via LLM-based sentiment analysis is a future enhancement.
+
+**EngagementEvent.ofTurn() factory:** `EngagementEvent` has 15 constructor parameters. The spec proposes a static factory `EngagementEvent.ofTurn(agentId, subjectId, tenantId, userMessage, response)` in neocortex-memory-api with the following mapping:
+
+| EngagementEvent field | Value | Source |
+|---|---|---|
+| `agentId` | `agentId` | parameter |
+| `otherAgentId` | `subjectId` | parameter (the other party) |
+| `tenantId` | `tenantId` | parameter |
+| `caseId` | `null` | no case context in speech pipeline |
+| `turnId` | `UUID.randomUUID().toString()` | generated |
+| `timestamp` | `Instant.now()` | generated |
+| `description` | `userMessage.isBlank() ? "[interaction]" : userMessage` | parameter, with blank guard |
+| `confidence` | `null` | not assessed |
+| `metadata` | `Map.of()` | empty, satisfies non-null constraint |
+| `responded` | `true` | always true (avatar always responds) |
+| `responseTimeMs` | `null` | not measured at this layer |
+| `responseLength` | `(long) response.length()` | derived |
+| `affectShift` | `null` | not assessed |
+| `reactionCount` | `null` | not applicable |
+| `continued` | `null` | not assessed |
+
+The `description` blank guard prevents `IllegalArgumentException` from the `EngagementEvent` constructor when `cleanupConfig` strips all content from a user message. The `agentId != otherAgentId` constraint is inherently satisfied because `subjectId` comes from speaker identification (a human speaker ID) while `agentId` is the avatar's agent ID — they are structurally different identifiers.
 
 All `record()` calls are in-memory operations (ConcurrentHashMap writes + counter increments). They are synchronous by design — the microsecond-level latency does not justify the complexity of async dispatch.
 
 **Orchestrators that do NOT receive conversation signals, by design:**
 - `PersonalityEvolutionOrchestrator` — `record(E, AgentDescriptor)` dispatches to typed `TraitPressureSource<E>` implementations. Conversation turns are not a registered pressure source event type. Personality evolves across sessions via domain events (MoodSignal, engagement metrics), not within a single conversation turn.
-- `NarrativeOrchestrator` — tick-driven only (no `record()` method). Narrative state is synthesised from episodes on periodic ticks, not from individual conversation turns.
-- `GoalProposalOrchestrator` — tick-driven only (no `record()` method). Goal proposals derive from drive state, not conversation signals.
-- `DriveOrchestrator` — tick-driven. Its `tick()` is called internally by `InnerLifeOrchestrator.doTick()` during the proactive initiation pipeline. Drive levels change based on temporal decay and drive-specific sources, not conversation events.
+- `DriveOrchestrator` — tick-driven. Its `tick()` is called internally by `InnerLifeOrchestrator.doTick()` during the proactive initiation pipeline and during `initialize()`. Drive levels change based on temporal decay and drive-specific sources, not conversation events.
+
+**Orchestrators that are tick-driven only (no `record()` method):**
+- `NarrativeOrchestrator` — narrative state is synthesised from episodes on periodic ticks. Ticked via `AvatarCognition.tick()` in the proactive tick loop.
+- `GoalProposalOrchestrator` — goal proposals derive from drive state. Ticked via `AvatarCognition.tick()` in the proactive tick loop.
+
+**Signal processing lifecycle:** Signals accumulate in orchestrator state (ConcurrentHashMap writes) during `recordInteraction()`. They are processed into queryable state (profiles, snapshots, strategies) when `AvatarCognition.tick()` is called by the proactive tick loop. PromptSections read the processed state during `contribute()`. This decouples signal recording (synchronous, on the conversation path) from signal processing (periodic, on the background tick thread), keeping conversation latency low while ensuring fresh state for prompt enrichment.
 
 ## Dependency changes
 
@@ -373,7 +457,10 @@ All new code is plain JUnit 5 + Mockito (no Quarkus runtime), following the bloc
 - **Per-PromptSection unit tests** — mock orchestrator, verify rendered text format and null-when-empty behavior.
 - **SocialPromptAssembler test** — verify composition: base prompt + N sections appended, null sections skipped.
 - **ProactiveSpeechSupport test** — mock InnerLifeOrchestrator, verify Initiated → content, Silent → null.
-- **SocialSignalRecorder test** — verify correct signal types dispatched per turn.
+- **SocialSignalRecorder test** — verify correct signal types dispatched per turn. Verify no mood signal is dispatched. Verify descriptor is resolved per-call from AgentRegistry (not stored).
+- **SocialAvatarCognition.tick() test** — verify all orchestrators are ticked. Verify subject-scoped orchestrators are ticked for each subject in activeSubjects.
+- **handleProactiveSpeech test** — verify content is added to history as "assistant" turn, NOT "user". Verify no recordInteraction() is called. Verify no second LLM call is made.
+- **EngagementEvent.ofTurn() test** — verify factory mapping, blank message guard, field defaults.
 - **Integration test** — construct full SocialPromptAssembler with all 8 sections, verify the assembled prompt contains all social cognition context.
 
 ## Issue mapping
