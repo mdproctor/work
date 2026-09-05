@@ -2,12 +2,13 @@
 
 ## State
 branch: issue-199-avatar-tier2-remaining
-state: active
+state: closing:promoted
 issue-repo: casehubio/blocks
 covers: 199,200,201,202,203
 Current: casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses
 date: 2026-09-05
 
+evidence-era: true
 ## Queue
 - [x] casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses
 - [x] casehubio/blocks#200 — Avatar Tier 2: Drive-influenced proactive speech
