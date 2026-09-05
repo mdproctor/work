@@ -1,27 +1,15 @@
-# Work Plan — issue-198-avatar-social-cognition
+# Work Plan — issue-199-avatar-tier2-remaining
 
 ## State
-branch: issue-198-avatar-social-cognition
-state: closing:promoted
+branch: issue-199-avatar-tier2-remaining
+state: active
 issue-repo: casehubio/blocks
-covers: 198
-Current: casehubio/blocks#198 — Avatar Tier 2: Personality modulation in speech pipeline
+covers: 199,200,201,202,203
+Current: casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses
 date: 2026-09-05
 
-evidence-era: true
 ## Queue
-- [ ] casehubio/blocks#198 — Avatar Tier 2: Personality modulation in speech pipeline ← active
-  - [x] Batch 1: SPI Foundation
-    - [x] Task 1: Create speech-api SPI types and move existing types
-  - [x] Batch 2: PromptSections
-    - [x] Task 2: SocialPromptAssembler + Personality + Mood sections
-    - [x] Task 3: Drive + Narrative + Goal sections
-    - [x] Task 4: MentalModel + UserModel + Strategy sections
-  - [x] Batch 3: Composition Root
-    - [x] Task 5: SocialAvatarCognition + ProactiveSpeechSupport
-  - [x] Batch 4: Endpoint Integration
-    - [x] Task 6: AvatarConfig + SpeechWebSocket + SpeechSession wiring
-- [ ] casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses
+- [ ] casehubio/blocks#199 — Avatar Tier 2: Mood-affected responses ← active
 - [ ] casehubio/blocks#200 — Avatar Tier 2: Drive-influenced proactive speech
 - [ ] casehubio/blocks#201 — Avatar Tier 2: Mental model awareness
 - [ ] casehubio/blocks#202 — Avatar Tier 2: User model personalization

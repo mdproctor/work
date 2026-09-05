@@ -1,1 +1,1 @@
-# Design Journal — issue-198-avatar-social-cognition
+# Design Journal — issue-199-avatar-tier2-remaining
