@@ -1,29 +1,31 @@
-# HANDOFF — casehub-blocks
+# Session Handover — 2026-09-05
 
-## Last Session
+**Branch:** `issue-233-summarisation-yaml-surface`
+**Issues:** #233, #231, #232
+**State:** Batch 1 of 5 complete — API Extraction + Unification done
 
-Designed and implemented the Avatar Social Cognition integration — wiring all 9 social cognition orchestrators into the speech pipeline. Full Build flow: brainstorming (6 decisions), 4-dimension standard design review ($75, 54 issues, 8 accepted), implementation plan (6 tasks, 4 batches), TDD execution. All tests passing (117 across speech-api, blocks, speech-ws).
+## What happened
 
-### What was built
+Designed and began implementing a unified summarisation model for blocks. The original scope (three new modules) expanded into a consolidation of blocks' three batch-transform subsystems into one composable SPI. Batch 1 (5 tasks) implemented: module extraction, `LevelEvent` tenancyId, `KeyedAccumulator` key extractor widening, `StatefulSummariser<IN,OUT,S>` SPI, `ContentSummariser<T,R>` generification with `asSummariser()` bridge. `ContentSummariserToSummariser` deleted.
 
-Three-layer architecture:
-1. **speech-api** — 6 new SPI types: SpeechPromptAssembler (renamed from PromptAssembler), AssembledPrompt, ConversationTurn (moved from speech-ws), PromptContext, PromptSection, AvatarCognition
-2. **blocks** — new `agentic/social/prompt/` package with 12 classes: SocialPromptAssembler, 8 PromptSection implementations (Personality, Mood, Drive, Narrative, Goal, MentalModel, UserModel, Strategy), ProactiveSpeechSupport, SocialAvatarCognition CDI bean
-3. **speech-ws** — AvatarConfig gains agentId/tenantId/proactiveTickIntervalSeconds. SpeechWebSocket discovers AvatarCognition via Instance<>. SpeechSession gains handleProactiveSpeech(), signal recording, proactive tick loop.
+## Key decisions
 
-## Immediate Next Step
+- D1: LevelEvent clean break — no convenience factory, all 248 callers explicit
+- D13: StatefulSummariser with framework-managed state per partition
+- D14: ContentSummariser generified to <T,R> — breaks qhorus coupling
 
-Work-end partially complete — code review and branch audit passed (0 findings), sweeps done. The orchestrator hit a phantom rebase conflict (both repos rebase cleanly, `git rebase main` returns "already up to date"). Next session should:
+Full decisions: `specs/issue-233-summarisation-yaml-surface/decisions.md`
 
-1. Delete `.close-progress` in workspace and re-run `work end`, or
-2. Manually: squash commits, merge to main, push, stamp the branch
+## Resume point
 
-Also needed:
-- File new GitHub issues for NarrativePromptSection and GoalPromptSection (not in #198-#203 queue)
-- Update CLAUDE.md Key Directories with `agentic/social/prompt/` package
+Start Batch 2 (Task 6): CloudEvent bridge module — `EventSink<T>`, `CloudEventIngestionAdapter`, `CloudEventEmitter`, `PipelineTickScheduler`.
 
 ## References
 
-- Spec: `specs/issue-198-avatar-social-cognition/2026-09-05-avatar-social-cognition-design.md`
-- Decisions: `specs/issue-198-avatar-social-cognition/decisions.md` (D1-D6)
-- Plan: `plans/2026-09-05-avatar-social-cognition.md` (6 tasks, 4 batches)
+| Artifact | Path |
+|----------|------|
+| Design spec | `specs/issue-233-summarisation-yaml-surface/2026-09-05-summarisation-yaml-surface-design.md` |
+| Implementation plan | `plans/2026-09-05-summarisation-yaml-surface.md` |
+| Decisions | `specs/issue-233-summarisation-yaml-surface/decisions.md` |
+| Journal | `JOURNAL.md` |
+| Diary | `blog/2026-09-05-mdp01-the-silo-that-wasnt.md` |
