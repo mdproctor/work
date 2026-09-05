@@ -308,7 +308,7 @@ void tick_asyncFailure_propagatesThroughReturnedStage() {
     List<Integer> received = new ArrayList<>();
     outputBus.subscribe(i -> true, e -> received.add(e.payload()));
 
-    runner.collect(new LevelEvent<>("a", 1, INPUT_LEVEL));
+    runner.collect(new LevelEvent<>("a", 1, INPUT_LEVEL, null));
     CompletionStage<Void> result = runner.tick(5);
 
     assertThat(result).isNotNull();
@@ -361,7 +361,7 @@ public class SummarisationRunner<IN, OUT> {
         var batch = accumulator.drain();
         return summariser.summarise(batch).thenAccept(results -> {
             for (var payload : results) {
-                outputBus.publish(new LevelEvent<>(payload, now, outputLevel));
+                outputBus.publish(new LevelEvent<>(payload, now, outputLevel, null));
             }
         });
     }
@@ -847,8 +847,7 @@ class ClinicalPipelineTest {
         var failingRunner = new SummarisationRunner<>(
             new WindowPolicy(0, 1), failingSummariser, narrativeBus, L4_NARRATIVE);
 
-        failingRunner.collect(new LevelEvent<>(
-            new CarePhase("STABLE", 1000, "test"), 1, L3_PHASES));
+        failingRunner.collect(new LevelEvent<>(new CarePhase("STABLE", 1000, "test"), 1, L3_PHASES, null));
 
         CompletionStage<Void> result = failingRunner.tick(2);
 
@@ -885,8 +884,7 @@ class ClinicalPipelineTest {
     }
 
     private void feedVital(VitalType type, double value, String unit, long timestamp) {
-        vitalsBus.publish(new LevelEvent<>(
-            new VitalReading(type, value, unit), timestamp, L1_VITALS));
+        vitalsBus.publish(new LevelEvent<>(new VitalReading(type, value, unit), timestamp, L1_VITALS, null));
     }
 }
 ```
@@ -1237,9 +1235,7 @@ class LogisticsPipelineTest {
 
     private void feedScan(String scanId, String warehouseId, double weight,
                           String destination, ScanType scanType, long timestamp) {
-        scanBus.publish(new LevelEvent<>(
-            new PackageScan(scanId, warehouseId, weight, destination, scanType),
-            timestamp, L1_SCANS));
+        scanBus.publish(new LevelEvent<>(new PackageScan(scanId, warehouseId, weight, destination, scanType), timestamp, L1_SCANS, null));
     }
 }
 ```

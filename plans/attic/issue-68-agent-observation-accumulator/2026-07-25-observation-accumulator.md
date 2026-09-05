@@ -443,7 +443,7 @@ Append to `TieredObservationRendererTest`:
 
 ```java
     private LevelEvent<String> event(String payload, long timestamp) {
-        return new LevelEvent<>(payload, timestamp, LEVEL);
+        return new LevelEvent<>(payload, timestamp, LEVEL, null);
     }
 
     private ObservationContext ctx(long now, long sinceLast) {
@@ -671,8 +671,8 @@ class ObservationAccumulatorTest {
     @Test
     void collectAndDrain_lifecycle() {
         var acc = new ObservationAccumulator<>(verbatimRenderer, 1000);
-        acc.collect(new LevelEvent<>("a", 1100, LEVEL));
-        acc.collect(new LevelEvent<>("b", 1200, LEVEL));
+        acc.collect(new LevelEvent<>("a", 1100, LEVEL, null));
+        acc.collect(new LevelEvent<>("b", 1200, LEVEL, null));
         assertThat(acc.eventCount()).isEqualTo(2);
 
         var result = acc.drainObservation(1500).toCompletableFuture().join();
@@ -697,7 +697,7 @@ class ObservationAccumulatorTest {
         acc.drainObservation(2000).toCompletableFuture().join();
         acc.drainObservation(3000).toCompletableFuture().join();
 
-        acc.collect(new LevelEvent<>("a", 3100, LEVEL));
+        acc.collect(new LevelEvent<>("a", 3100, LEVEL, null));
         var result = acc.drainObservation(4000).toCompletableFuture().join();
         assertThat(result.timeSinceLastDrain())
                 .as("time since creation, not since empty drains")
@@ -707,7 +707,7 @@ class ObservationAccumulatorTest {
     @Test
     void firstDrain_timeSinceCreation() {
         var acc = new ObservationAccumulator<>(verbatimRenderer, 1000);
-        acc.collect(new LevelEvent<>("a", 1100, LEVEL));
+        acc.collect(new LevelEvent<>("a", 1100, LEVEL, null));
         var result = acc.drainObservation(1500).toCompletableFuture().join();
         assertThat(result.timeSinceLastDrain()).isEqualTo(500);
     }
@@ -715,10 +715,10 @@ class ObservationAccumulatorTest {
     @Test
     void subsequentDrain_timeSinceLastNonEmptyDrain() {
         var acc = new ObservationAccumulator<>(verbatimRenderer, 1000);
-        acc.collect(new LevelEvent<>("a", 1100, LEVEL));
+        acc.collect(new LevelEvent<>("a", 1100, LEVEL, null));
         acc.drainObservation(2000).toCompletableFuture().join();
 
-        acc.collect(new LevelEvent<>("b", 2500, LEVEL));
+        acc.collect(new LevelEvent<>("b", 2500, LEVEL, null));
         var result = acc.drainObservation(3000).toCompletableFuture().join();
         assertThat(result.timeSinceLastDrain()).isEqualTo(1000);
     }
@@ -726,8 +726,8 @@ class ObservationAccumulatorTest {
     @Test
     void clear_emptiesBuffer() {
         var acc = new ObservationAccumulator<>(verbatimRenderer, 1000);
-        acc.collect(new LevelEvent<>("a", 1100, LEVEL));
-        acc.collect(new LevelEvent<>("b", 1200, LEVEL));
+        acc.collect(new LevelEvent<>("a", 1100, LEVEL, null));
+        acc.collect(new LevelEvent<>("b", 1200, LEVEL, null));
         acc.clear();
         assertThat(acc.eventCount()).isZero();
 
@@ -740,7 +740,7 @@ class ObservationAccumulatorTest {
         ObservationRenderer<String> failingRenderer = (events, ctx) ->
                                                               CompletableFuture.failedFuture(new RuntimeException("LLM timeout"));
         var acc = new ObservationAccumulator<>(failingRenderer, 1000);
-        acc.collect(new LevelEvent<>("a", 1100, LEVEL));
+        acc.collect(new LevelEvent<>("a", 1100, LEVEL, null));
 
         var stage = acc.drainObservation(2000);
         assertThatThrownBy(() -> stage.toCompletableFuture().join())
@@ -757,7 +757,7 @@ class ObservationAccumulatorTest {
         var       acc               = new ObservationAccumulator<>(verbatimRenderer, 0);
 
         for (int i = 0; i < preCollect; i++) {
-            acc.collect(new LevelEvent<>("pre-" + i, i, LEVEL));
+            acc.collect(new LevelEvent<>("pre-" + i, i, LEVEL, null));
         }
 
         var             latch    = new CountDownLatch(1);
@@ -769,7 +769,7 @@ class ObservationAccumulatorTest {
                     try {latch.await();} catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
-                    acc.collect(new LevelEvent<>("concurrent-" + val, 1000 + val, LEVEL));
+                    acc.collect(new LevelEvent<>("concurrent-" + val, 1000 + val, LEVEL, null));
                 });
             }
 
@@ -1013,8 +1013,7 @@ class ObservationExampleTest {
     }
 
     private void publish(String actor, String action, String category, long timestamp) {
-        eventBus.publish(new LevelEvent<>(
-                new GameEvent(actor, action, category), timestamp, L1_EVENTS));
+        eventBus.publish(new LevelEvent<>(new GameEvent(actor, action, category), timestamp, L1_EVENTS, null));
     }
 }
 ```

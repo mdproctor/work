@@ -71,9 +71,9 @@ class KeyedAccumulatorTest {
     void collect_groupsEventsByKey() {
         var acc = new KeyedAccumulator<String, String>(
             s -> s.substring(0, 1), group -> false, 0);
-        acc.collect(new LevelEvent<>("a1", 1, LEVEL));
-        acc.collect(new LevelEvent<>("a2", 2, LEVEL));
-        acc.collect(new LevelEvent<>("b1", 3, LEVEL));
+        acc.collect(new LevelEvent<>("a1", 1, LEVEL, null));
+        acc.collect(new LevelEvent<>("a2", 2, LEVEL, null));
+        acc.collect(new LevelEvent<>("b1", 3, LEVEL, null));
         assertThat(acc.groupCount()).isEqualTo(2);
         assertThat(acc.eventCount()).isEqualTo(3);
     }
@@ -84,8 +84,8 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> group.size() >= 2,
             0);
-        acc.collect(new LevelEvent<>("k1", 1, LEVEL));
-        acc.collect(new LevelEvent<>("k1", 2, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 1, LEVEL, null));
+        acc.collect(new LevelEvent<>("k1", 2, LEVEL, null));
         var groups = acc.drain(10);
         assertThat(groups).hasSize(1);
         assertThat(groups.get(0)).hasSize(2);
@@ -98,8 +98,8 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> group.size() >= 2,
             0);
-        acc.collect(new LevelEvent<>("k1", 1, LEVEL));
-        acc.collect(new LevelEvent<>("k1", 2, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 1, LEVEL, null));
+        acc.collect(new LevelEvent<>("k1", 2, LEVEL, null));
         acc.drain(10);
         assertThat(acc.groupCount()).isZero();
         assertThat(acc.eventCount()).isZero();
@@ -111,8 +111,8 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> group.size() >= 3,
             0);
-        acc.collect(new LevelEvent<>("k1", 1, LEVEL));
-        acc.collect(new LevelEvent<>("k1", 2, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 1, LEVEL, null));
+        acc.collect(new LevelEvent<>("k1", 2, LEVEL, null));
         var groups = acc.drain(10);
         assertThat(groups).isEmpty();
         assertThat(acc.groupCount()).isEqualTo(1);
@@ -126,7 +126,7 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> false,
             100);
-        acc.collect(new LevelEvent<>("k1", 10, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 10, LEVEL, null));
         assertThat(acc.drain(50)).as("not stale yet").isEmpty();
         var groups = acc.drain(111);
         assertThat(groups).as("stale after 100ms of inactivity").hasSize(1);
@@ -139,9 +139,9 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> false,
             100);
-        acc.collect(new LevelEvent<>("k1", 10, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 10, LEVEL, null));
         assertThat(acc.drain(80)).as("not stale at t=80").isEmpty();
-        acc.collect(new LevelEvent<>("k1", 90, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 90, LEVEL, null));
         assertThat(acc.drain(150)).as("timer reset at t=90, not stale at t=150").isEmpty();
         var groups = acc.drain(191);
         assertThat(groups).as("stale at t=191 (90+100+1)").hasSize(1);
@@ -154,7 +154,7 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> false,
             0);
-        acc.collect(new LevelEvent<>("k1", 1, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 1, LEVEL, null));
         assertThat(acc.drain(999_999)).isEmpty();
         assertThat(acc.groupCount()).isEqualTo(1);
     }
@@ -167,9 +167,9 @@ class KeyedAccumulatorTest {
             s -> s.substring(0, 2),
             group -> group.stream().anyMatch(e -> e.payload().endsWith("!")),
             100);
-        acc.collect(new LevelEvent<>("k1-start", 10, LEVEL));
-        acc.collect(new LevelEvent<>("k1!", 20, LEVEL));
-        acc.collect(new LevelEvent<>("k2-start", 10, LEVEL));
+        acc.collect(new LevelEvent<>("k1-start", 10, LEVEL, null));
+        acc.collect(new LevelEvent<>("k1!", 20, LEVEL, null));
+        acc.collect(new LevelEvent<>("k2-start", 10, LEVEL, null));
         var groups = acc.drain(200);
         assertThat(groups).hasSize(2);
     }
@@ -182,9 +182,9 @@ class KeyedAccumulatorTest {
             s -> s.substring(0, 1),
             group -> group.size() >= 2,
             0);
-        acc.collect(new LevelEvent<>("a1", 1, LEVEL));
-        acc.collect(new LevelEvent<>("b1", 2, LEVEL));
-        acc.collect(new LevelEvent<>("a2", 3, LEVEL));
+        acc.collect(new LevelEvent<>("a1", 1, LEVEL, null));
+        acc.collect(new LevelEvent<>("b1", 2, LEVEL, null));
+        acc.collect(new LevelEvent<>("a2", 3, LEVEL, null));
         var groups = acc.drain(10);
         assertThat(groups).as("only group 'a' completed").hasSize(1);
         assertThat(groups.get(0)).extracting(e -> e.payload()).containsExactly("a1", "a2");
@@ -206,7 +206,7 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> true,
             0);
-        acc.collect(new LevelEvent<>("k1", 1, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 1, LEVEL, null));
         var groups = acc.drain(10);
         assertThat(groups).hasSize(1);
         assertThat(groups.get(0)).hasSize(1);
@@ -216,8 +216,8 @@ class KeyedAccumulatorTest {
     void clear_removesAllGroups() {
         var acc = new KeyedAccumulator<String, String>(
             s -> s, group -> false, 0);
-        acc.collect(new LevelEvent<>("a", 1, LEVEL));
-        acc.collect(new LevelEvent<>("b", 2, LEVEL));
+        acc.collect(new LevelEvent<>("a", 1, LEVEL, null));
+        acc.collect(new LevelEvent<>("b", 2, LEVEL, null));
         acc.clear();
         assertThat(acc.groupCount()).isZero();
         assertThat(acc.eventCount()).isZero();
@@ -228,7 +228,7 @@ class KeyedAccumulatorTest {
     void collect_nullKeyFromExtractor_throwsNPE() {
         var acc = new KeyedAccumulator<String, String>(
             s -> null, group -> false, 0);
-        assertThatThrownBy(() -> acc.collect(new LevelEvent<>("a", 1, LEVEL)))
+        assertThatThrownBy(() -> acc.collect(new LevelEvent<>("a", 1, LEVEL, null)))
             .isInstanceOf(NullPointerException.class);
     }
 
@@ -238,8 +238,8 @@ class KeyedAccumulatorTest {
             s -> s,
             group -> group.size() >= 2,
             0);
-        acc.collect(new LevelEvent<>("k1", 1, LEVEL));
-        acc.collect(new LevelEvent<>("k1", 2, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 1, LEVEL, null));
+        acc.collect(new LevelEvent<>("k1", 2, LEVEL, null));
         assertThat(acc.groupCount()).as("group still present before drain").isEqualTo(1);
         acc.drain(10);
         assertThat(acc.groupCount()).as("removed after drain").isZero();
@@ -251,7 +251,7 @@ class KeyedAccumulatorTest {
     void drain_staleBoundary_exactlyAtTimeout() {
         var acc = new KeyedAccumulator<String, String>(
             s -> s, group -> false, 100);
-        acc.collect(new LevelEvent<>("k1", 10, LEVEL));
+        acc.collect(new LevelEvent<>("k1", 10, LEVEL, null));
         assertThat(acc.drain(109)).as("1ms below timeout").isEmpty();
         var groups = acc.drain(110);
         assertThat(groups).as("exactly at timeout").hasSize(1);
@@ -274,7 +274,7 @@ class KeyedAccumulatorTest {
                 final int val = i;
                 executor.submit(() -> {
                     try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                    acc.collect(new LevelEvent<>(val, val, LEVEL));
+                    acc.collect(new LevelEvent<>(val, val, LEVEL, null));
                 });
             }
             latch.countDown();
@@ -422,8 +422,8 @@ class KeyedSummarisationRunnerTest {
         List<LevelEvent<Integer>> received = new ArrayList<>();
         outputBus.subscribe(i -> true, received::add);
 
-        runner.collect(new LevelEvent<>("a1", 1, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("a2", 2, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("a1", 1, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("a2", 2, INPUT_LEVEL, null));
         runner.tick(10);
 
         assertThat(received).hasSize(1);
@@ -443,7 +443,7 @@ class KeyedSummarisationRunnerTest {
         List<Integer> received = new ArrayList<>();
         outputBus.subscribe(i -> true, e -> received.add(e.payload()));
 
-        runner.collect(new LevelEvent<>("k1", 1, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("k1", 1, INPUT_LEVEL, null));
         runner.tick(10);
 
         assertThat(received).isEmpty();
@@ -460,7 +460,7 @@ class KeyedSummarisationRunnerTest {
         List<Integer> received = new ArrayList<>();
         outputBus.subscribe(i -> true, e -> received.add(e.payload()));
 
-        runner.collect(new LevelEvent<>("k1", 10, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("k1", 10, INPUT_LEVEL, null));
         runner.tick(50);
         assertThat(received).as("not stale yet").isEmpty();
 
@@ -481,10 +481,10 @@ class KeyedSummarisationRunnerTest {
         List<String> received = new ArrayList<>();
         outputBus.subscribe(s -> true, e -> received.add(e.payload()));
 
-        runner.collect(new LevelEvent<>("a1", 1, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("b1", 2, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("a2", 3, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("b2", 4, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("a1", 1, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("b1", 2, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("a2", 3, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("b2", 4, INPUT_LEVEL, null));
         runner.tick(10);
 
         assertThat(received).containsExactlyInAnyOrder("group-a-size-2", "group-b-size-2");
@@ -502,7 +502,7 @@ class KeyedSummarisationRunnerTest {
             s -> s, group -> group.size() >= 1, 0,
             failingSummariser, outputBus, OUTPUT_LEVEL);
 
-        runner.collect(new LevelEvent<>("k1", 1, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("k1", 1, INPUT_LEVEL, null));
         CompletionStage<Void> result = runner.tick(10);
 
         assertThatThrownBy(() -> result.toCompletableFuture().join())
@@ -528,8 +528,8 @@ class KeyedSummarisationRunnerTest {
         List<Integer> received = new ArrayList<>();
         outputBus.subscribe(i -> true, e -> received.add(e.payload()));
 
-        runner.collect(new LevelEvent<>("good", 1, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("fail", 2, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("good", 1, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("fail", 2, INPUT_LEVEL, null));
         runner.tick(10);
 
         assertThat(received).as("successful group published despite sibling failure").containsExactly(1);
@@ -554,8 +554,8 @@ class KeyedSummarisationRunnerTest {
             s -> s, group -> false, 0,
             Summariser.ofSync(batch -> List.of()), new EventStreamBus<>(),
             OUTPUT_LEVEL);
-        runner.collect(new LevelEvent<>("a", 1, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("b", 2, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("a", 1, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("b", 2, INPUT_LEVEL, null));
         runner.clear();
         assertThat(runner.groupCount()).isZero();
         assertThat(runner.eventCount()).isZero();
@@ -567,9 +567,9 @@ class KeyedSummarisationRunnerTest {
             s -> s.substring(0, 1), group -> false, 0,
             Summariser.ofSync(batch -> List.of()), new EventStreamBus<>(),
             OUTPUT_LEVEL);
-        runner.collect(new LevelEvent<>("a1", 1, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("a2", 2, INPUT_LEVEL));
-        runner.collect(new LevelEvent<>("b1", 3, INPUT_LEVEL));
+        runner.collect(new LevelEvent<>("a1", 1, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("a2", 2, INPUT_LEVEL, null));
+        runner.collect(new LevelEvent<>("b1", 3, INPUT_LEVEL, null));
         assertThat(runner.groupCount()).isEqualTo(2);
         assertThat(runner.eventCount()).isEqualTo(3);
     }
@@ -625,7 +625,7 @@ public class KeyedSummarisationRunner<K, IN, OUT> {
         CompletableFuture<Void>[] futures = groups.stream()
             .map(group -> summariser.summarise(group).thenAccept(results -> {
                 for (var payload : results) {
-                    outputBus.publish(new LevelEvent<>(payload, now, outputLevel));
+                    outputBus.publish(new LevelEvent<>(payload, now, outputLevel, null));
                 }
             }).toCompletableFuture())
             .toArray(CompletableFuture[]::new);
@@ -875,8 +875,7 @@ public class ChannelEventAdapter<E> implements MessageObserver {
             return;
         }
         if (extracted == null) return;
-        outputBus.publish(new LevelEvent<>(extracted,
-            event.occurredAt().toEpochMilli(), level));
+        outputBus.publish(new LevelEvent<>(extracted, event.occurredAt().toEpochMilli(), level, null));
     }
 
     @Override
@@ -967,7 +966,7 @@ class ChannelEventPublisherTest {
         new ChannelEventPublisher<>(bus, dispatcher,
             event -> buildDispatch("content:" + event.payload()));
 
-        bus.publish(new LevelEvent<>("hello", 1, LEVEL));
+        bus.publish(new LevelEvent<>("hello", 1, LEVEL, null));
 
         assertThat(dispatched).hasSize(1);
         assertThat(dispatched.get(0).content()).isEqualTo("content:hello");
@@ -987,8 +986,8 @@ class ChannelEventPublisherTest {
         new ChannelEventPublisher<>(bus, dispatcher,
             event -> buildDispatch(event.payload()));
 
-        bus.publish(new LevelEvent<>("first", 1, LEVEL));
-        bus.publish(new LevelEvent<>("second", 2, LEVEL));
+        bus.publish(new LevelEvent<>("first", 1, LEVEL, null));
+        bus.publish(new LevelEvent<>("second", 2, LEVEL, null));
 
         assertThat(dispatched).hasSize(2);
         assertThat(dispatched.get(0).content()).isEqualTo("first");
@@ -1005,8 +1004,8 @@ class ChannelEventPublisherTest {
         new ChannelEventPublisher<>(bus, dispatcher,
             event -> buildDispatch(event.payload()));
 
-        bus.publish(new LevelEvent<>("hello", 1, LEVEL));
-        bus.publish(new LevelEvent<>("world", 2, LEVEL));
+        bus.publish(new LevelEvent<>("hello", 1, LEVEL, null));
+        bus.publish(new LevelEvent<>("world", 2, LEVEL, null));
         // no exception propagated — bus continues to work
     }
 
@@ -1024,9 +1023,9 @@ class ChannelEventPublisherTest {
         new ChannelEventPublisher<>(bus, dispatcher,
             event -> event.payload().equals("skip") ? null : buildDispatch(event.payload()));
 
-        bus.publish(new LevelEvent<>("keep", 1, LEVEL));
-        bus.publish(new LevelEvent<>("skip", 2, LEVEL));
-        bus.publish(new LevelEvent<>("keep2", 3, LEVEL));
+        bus.publish(new LevelEvent<>("keep", 1, LEVEL, null));
+        bus.publish(new LevelEvent<>("skip", 2, LEVEL, null));
+        bus.publish(new LevelEvent<>("keep2", 3, LEVEL, null));
 
         assertThat(dispatched).hasSize(2);
         assertThat(dispatched.get(0).content()).isEqualTo("keep");
@@ -1309,8 +1308,7 @@ class ChannelSummarisationPipelineTest {
                 .content("Episode: " + event.payload().summary())
                 .build());
 
-        episodeBus.publish(new LevelEvent<>(
-            new Episode("c1", 3, "chain of 3"), 1000, L2));
+        episodeBus.publish(new LevelEvent<>(new Episode("c1", 3, "chain of 3"), 1000, L2, null));
 
         assertThat(dispatched).hasSize(1);
         assertThat(dispatched.get(0).content()).isEqualTo("Episode: chain of 3");
