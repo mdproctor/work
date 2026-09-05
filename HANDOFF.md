@@ -2,26 +2,28 @@
 
 ## Last Session
 
-Completed Batches 2 and 3 of the CosyVoice3 TTS pipeline (#217). Batch 2 added pure-Java DSP primitives: Cooley-Tukey radix-2 FFT, MelSpectrogram with three mel configs (campplus 80-band, whisper 128-band, flow 80-band), STFT/ISTFT with overlap-add reconstruction (verified with HiFT n_fft=16 params), and windowed sinc audio resampler. Batch 3 added the Qwen2 byte-level BPE tokenizer (vocab.json + merges.txt format) and CosyVoice3VoiceEncoder (campplus speaker embedding + speech tokenizer + flow prompt mel extraction with functional interfaces for testability). 420 tests passing, 0 failures.
+Designed and implemented the Avatar Social Cognition integration — wiring all 9 social cognition orchestrators into the speech pipeline. Full Build flow: brainstorming (6 decisions), 4-dimension standard design review ($75, 54 issues, 8 accepted), implementation plan (6 tasks, 4 batches), TDD execution. All tests passing (117 across speech-api, blocks, speech-ws).
+
+### What was built
+
+Three-layer architecture:
+1. **speech-api** — 6 new SPI types: SpeechPromptAssembler (renamed from PromptAssembler), AssembledPrompt, ConversationTurn (moved from speech-ws), PromptContext, PromptSection, AvatarCognition
+2. **blocks** — new `agentic/social/prompt/` package with 12 classes: SocialPromptAssembler, 8 PromptSection implementations (Personality, Mood, Drive, Narrative, Goal, MentalModel, UserModel, Strategy), ProactiveSpeechSupport, SocialAvatarCognition CDI bean
+3. **speech-ws** — AvatarConfig gains agentId/tenantId/proactiveTickIntervalSeconds. SpeechWebSocket discovers AvatarCognition via Instance<>. SpeechSession gains handleProactiveSpeech(), signal recording, proactive tick loop.
 
 ## Immediate Next Step
 
-Batch 4: CosyVoice3 generator + decoder + end-to-end wiring — the most complex batch. Three tasks:
-- Task 8: CosyVoice3Generator — LLM autoregressive pipeline with KV-cache (5 ONNX sessions: text_embedding, llm_speech_embedding, llm_backbone_initial, llm_backbone_decode, llm_decoder). Top-k sampling, EOS detection, NaN guard.
-- Task 9: CosyVoice3Decoder — flow diffusion (10-step Euler ODE, 4 ONNX sessions) + HiFT vocoder (f0 + source + STFT/ISTFT decoder, 3 ONNX sessions). Uses StftUtils with n_fft=16.
-- Task 10: Provisioner + manifest + end-to-end wiring via TtsPipeline.fromModelDir().
+Work-end partially complete — code review and branch audit passed (0 findings), sweeps done. The orchestrator hit a phantom rebase conflict (both repos rebase cleanly, `git rebase main` returns "already up to date"). Next session should:
 
-## Design Notes for Batch 4
+1. Delete `.close-progress` in workspace and re-run `work end`, or
+2. Manually: squash commits, merge to main, push, stamp the branch
 
-- Generator and Decoder should follow the same testability pattern as CosyVoice3VoiceEncoder — functional interfaces for ORT inference calls, with fromSessions() factory methods for production wiring.
-- KV-cache: [48, 1, 2, seq_len, 64] allocated per-call via Arena.ofConfined().
-- Flow decoder: 10 Euler steps, Gaussian noise init, speaker embedding L2-normalized.
-- HiFT: f0 → source → STFT(n_fft=16, hop=4) → decoder → ISTFT → clamp [-0.99, 0.99].
-- ORT FP16 auto-cast: 9 of 14 models are FP16. C API should auto-cast FP32 inputs — verify in integration test.
+Also needed:
+- File new GitHub issues for NarrativePromptSection and GoalPromptSection (not in #198-#203 queue)
+- Update CLAUDE.md Key Directories with `agentic/social/prompt/` package
 
 ## References
 
-- Spec: `specs/main-217/2026-08-30-tts-pipeline-framework-cosyvoice3-design.md`
-- Decisions: `specs/main-217/decisions.md` (13 decisions, D1-D13)
-- Plan: `plans/2026-08-30-tts-pipeline-cosyvoice3.md` (10 tasks, 4 batches)
-- CosyVoice3 reference: `ayousanz/cosy-voice3-onnx` on HuggingFace (14 ONNX files, `onnx_inference_pure.py`)
+- Spec: `specs/issue-198-avatar-social-cognition/2026-09-05-avatar-social-cognition-design.md`
+- Decisions: `specs/issue-198-avatar-social-cognition/decisions.md` (D1-D6)
+- Plan: `plans/2026-09-05-avatar-social-cognition.md` (6 tasks, 4 batches)
