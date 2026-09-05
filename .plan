@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-233-summarisation-yaml-surface
-state: active
+state: closing:promoted
 project-sha: d9f0d6846256e792b3a6a4994451387c24789a80
 date: 2026-09-04
 issue-repo: casehubio/blocks
@@ -11,25 +11,6 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
-- [ ] casehubio/blocks#233 — Issue #233 ← active
-  - [x] Batch 1: API Extraction
-    - [x] Task 1: Create summarisation-api module and move types
-    - [x] Task 2: Add tenancyId to LevelEvent
-    - [x] Task 3: Widen KeyedAccumulator key extractor
-  - [x] Batch 2: API Unification
-    - [x] Task 4: Add StatefulSummariser and enhance SummarisationRunner
-    - [x] Task 5: Generify ContentSummariser and move to summarisation-api
-  - [x] Batch 3: CloudEvent Bridge
-    - [x] Task 6: CloudEvent module with ingestion and emission
-  - [x] Batch 4: YAML Foundation
-    - [x] Task 7: Canonical model records and YAML deserialization
-    - [x] Task 8: SummariserRegistry and pass-through built-in
-  - [x] Batch 5: Compiler and Built-ins
-    - [x] Task 9: PipelineCompiler and CompiledPipeline
-    - [x] Task 10: threshold-classify and count with batch aggregates
-    - [x] Task 11: phase-detect and field-extract built-ins
-  - [x] Batch 6: Deployment and Integration
-    - [x] Task 12: Build-time validation
-    - [x] Task 13: Quarkus deployment module
-    - [x] Task 14: End-to-end integration test
+- [x] casehubio/blocks#233 — Issue #233
