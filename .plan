@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-233-summarisation-yaml-surface
-state: scaffolded
+state: active
 project-sha: d9f0d6846256e792b3a6a4994451387c24789a80
 date: 2026-09-04
 issue-repo: casehubio/blocks
@@ -13,13 +13,13 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#233 — Issue #233 ← active
-  - [ ] Batch 1: API Extraction
-    - [ ] Task 1: Create summarisation-api module and move types
-    - [ ] Task 2: Add tenancyId to LevelEvent
-    - [ ] Task 3: Widen KeyedAccumulator key extractor
-  - [ ] Batch 2: API Unification
-    - [ ] Task 4: Add StatefulSummariser and enhance SummarisationRunner
-    - [ ] Task 5: Generify ContentSummariser and move to summarisation-api
+  - [x] Batch 1: API Extraction
+    - [x] Task 1: Create summarisation-api module and move types
+    - [x] Task 2: Add tenancyId to LevelEvent
+    - [x] Task 3: Widen KeyedAccumulator key extractor
+  - [x] Batch 2: API Unification
+    - [x] Task 4: Add StatefulSummariser and enhance SummarisationRunner
+    - [x] Task 5: Generify ContentSummariser and move to summarisation-api
   - [ ] Batch 3: CloudEvent Bridge
     - [ ] Task 6: CloudEvent module with ingestion and emission
   - [ ] Batch 4: YAML Foundation
