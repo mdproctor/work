@@ -139,6 +139,8 @@ public class SocialAvatarCognition implements AvatarCognition {
     @Inject Instance<InnerLifeOrchestrator> innerLife;
     @Inject Instance<AgentRegistry> agentRegistry;
 
+    private @Nullable AgentDescriptor descriptor;
+
     @Override
     public SpeechPromptAssembler wrapAssembler(SpeechPromptAssembler base, String agentId, String tenantId,
                                           Supplier<String> subjectIdSupplier) {
@@ -148,11 +150,12 @@ public class SocialAvatarCognition implements AvatarCognition {
 
     @Override
     public void initialize(String agentId, String tenantId) {
-        // Hydrate drive state so DrivePromptSection contributes from the first turn.
-        // DriveOrchestrator.tick() is computational (no LLM call).
         if (agentRegistry.isResolvable()) {
             agentRegistry.get().findById(agentId, tenantId)
-                    .ifPresent(desc -> drives.tick(agentId, tenantId, desc));
+                    .ifPresent(desc -> {
+                        this.descriptor = desc;
+                        drives.tick(agentId, tenantId, desc);
+                    });
         }
     }
 
@@ -183,6 +186,9 @@ public class SocialAvatarCognition implements AvatarCognition {
                             EngagementEvent.ofTurn(agentId, subjectId, tenantId, userMessage, response),
                             Map.of(), response),
                     agentId, subjectId, tenantId));
+        }
+        if (innerLife.isResolvable() && descriptor != null) {
+            record(() -> innerLife.get().observeResponse(descriptor));
         }
     }
 
