@@ -20,16 +20,16 @@ flyway-next-v: none
   - [x] Batch 2: API Unification
     - [x] Task 4: Add StatefulSummariser and enhance SummarisationRunner
     - [x] Task 5: Generify ContentSummariser and move to summarisation-api
-  - [ ] Batch 3: CloudEvent Bridge
-    - [ ] Task 6: CloudEvent module with ingestion and emission
-  - [ ] Batch 4: YAML Foundation
-    - [ ] Task 7: Canonical model records and YAML deserialization
-    - [ ] Task 8: SummariserRegistry and pass-through built-in
-  - [ ] Batch 5: Compiler and Built-ins
-    - [ ] Task 9: PipelineCompiler and CompiledPipeline
-    - [ ] Task 10: threshold-classify and count with batch aggregates
-    - [ ] Task 11: phase-detect and field-extract built-ins
-  - [ ] Batch 6: Deployment and Integration
-    - [ ] Task 12: Build-time validation
-    - [ ] Task 13: Quarkus deployment module
-    - [ ] Task 14: End-to-end integration test
+  - [x] Batch 3: CloudEvent Bridge
+    - [x] Task 6: CloudEvent module with ingestion and emission
+  - [x] Batch 4: YAML Foundation
+    - [x] Task 7: Canonical model records and YAML deserialization
+    - [x] Task 8: SummariserRegistry and pass-through built-in
+  - [x] Batch 5: Compiler and Built-ins
+    - [x] Task 9: PipelineCompiler and CompiledPipeline
+    - [x] Task 10: threshold-classify and count with batch aggregates
+    - [x] Task 11: phase-detect and field-extract built-ins
+  - [x] Batch 6: Deployment and Integration
+    - [x] Task 12: Build-time validation
+    - [x] Task 13: Quarkus deployment module
+    - [x] Task 14: End-to-end integration test
