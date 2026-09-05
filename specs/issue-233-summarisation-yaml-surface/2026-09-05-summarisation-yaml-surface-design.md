@@ -6,7 +6,7 @@
 
 ## Overview
 
-Three new Maven modules that layer a declarative YAML pipeline surface over the existing summarisation framework. The extraction (#231) creates a zero-dependency API module. The CloudEvent bridge (#232) provides ingestion and emission adapters. The YAML surface (#233) adds a canonical model, pipeline compiler, and five built-in summariser types.
+Three new Maven modules that layer a declarative YAML pipeline surface over a unified summarisation model. The extraction (#231) creates a zero-dependency API module with a unified SPI: `Summariser` (stateless), `StatefulSummariser` (stateful with framework-managed state), and `ContentSummariser` (simplified API for content summarisation, composable into pipelines via `.asSummariser()`). The CloudEvent bridge (#232) provides ingestion and emission adapters. The YAML surface (#233) adds a canonical model, pipeline compiler, and five built-in summariser types. This consolidation eliminates three separate batch-transform subsystems (temporal, content, observation) into one composable model.
 
 ## Module Architecture
 
@@ -21,7 +21,7 @@ casehub-blocks-summarisation-api  (zero external deps, pure Java)
 
 | Module | Artifact ID | Dependencies | Contents |
 |---|---|---|---|
-| `summarisation-api/` | `casehub-blocks-summarisation-api` | jspecify only | 10 extracted types + LevelEvent with tenancyId |
+| `summarisation-api/` | `casehub-blocks-summarisation-api` | jspecify only | 10 extracted types + LevelEvent with tenancyId + StatefulSummariser + ContentSummariser<T,R> + VerbatimContentSummariser |
 | `cloudevents/` | `casehub-blocks-cloudevents` | summarisation-api, cloudevents-api | Ingestion adapter, emitter, EventSink SPI, tick scheduler |
 | `summarisation-yaml/` | `casehub-blocks-summarisation-yaml` | summarisation-api, cloudevents, platform-api (provided) | Canonical model, PipelineCompiler, SummariserRegistry, 5 built-in types |
 | `summarisation-yaml-deployment/` | `casehub-blocks-summarisation-yaml-deployment` | summarisation-yaml, quarkus-core-deployment | Jandex scan, YAML validation, recorder, CDI bean registration |
@@ -44,25 +44,90 @@ All move from `blocks/blocks/src/main/java/io/casehub/blocks/summarisation/` to 
 | `SummarisationRunner<IN, OUT>` | class | None |
 | `KeyedAccumulator<K, E>` | class | Key extractor widened: `Function<E, K>` → `Function<LevelEvent<E>, K>` (D12) |
 | `KeyedSummarisationRunner<K, IN, OUT>` | class | Same key extractor change as KeyedAccumulator (D12) |
+| `StatefulSummariser<IN, OUT, S>` | interface | NEW — stateful variant of Summariser with framework-managed state (D13) |
+| `SummariseResult<OUT, S>` | record | NEW — output + new state, inner type of StatefulSummariser |
+| `ContentSummariser<T, R>` | interface | MOVED from blocks, generified: `R` replaces qhorus `SummaryResult` (D14). `asSummariser()` bridges to `StatefulSummariser<T, R, R>` |
+| `VerbatimContentSummariser<T>` | class | MOVED from blocks — pure Java, implements `ContentSummariser<T, String>` |
+
+### Unified Summarisation Model (D13, D14)
+
+Blocks previously had three separate batch-transform subsystems:
+
+| Subsystem | SPI | Statefulness | Accumulation |
+|---|---|---|---|
+| Temporal | `Summariser<IN, OUT>` | Hidden (phase-detect) | `EventAccumulator` |
+| Content | `ContentSummariser<T>` | `previous` parameter | Ad-hoc |
+| Observation | `ObservationRenderer<E>` | None | `ObservationAccumulator` (reimplements EventAccumulator) |
+
+Unified model — one composable hierarchy:
+
+```java
+// Stateless batch transform (existing, unchanged)
+@FunctionalInterface
+interface Summariser<IN, OUT> {
+    CompletionStage<List<OUT>> summarise(List<LevelEvent<IN>> batch);
+}
+
+// Stateful batch transform (NEW — D13)
+interface StatefulSummariser<IN, OUT, S> extends Summariser<IN, OUT> {
+    CompletionStage<SummariseResult<OUT, S>> summarise(
+        List<LevelEvent<IN>> batch, @Nullable S previousState);
+
+    default CompletionStage<List<OUT>> summarise(List<LevelEvent<IN>> batch) {
+        return summarise(batch, null).thenApply(SummariseResult::outputs);
+    }
+
+    record SummariseResult<OUT, S>(List<OUT> outputs, @Nullable S newState) {}
+}
+
+// Content summarisation — simplified API, composable into pipelines (D14)
+@FunctionalInterface
+interface ContentSummariser<T, R> {
+    CompletionStage<R> summarise(List<T> items, @Nullable R previous);
+
+    default StatefulSummariser<T, R, R> asSummariser() {
+        return (batch, prev) -> {
+            var items = batch.stream().map(LevelEvent::payload).toList();
+            return summarise(items, prev)
+                .thenApply(out -> new SummariseResult<>(List.of(out), out));
+        };
+    }
+}
+```
+
+**Framework state management:** `SummarisationRunner` detects `StatefulSummariser` and manages state per partition (keyed by tenancyId or "default"). State stored in `ConcurrentHashMap<String, S>`. On each tick, the runner passes the previous state to `summarise(batch, state)` and stores the returned new state.
+
+**What this enables:**
+- `phase-detect` implements `StatefulSummariser<E, Map, String>` — framework manages state per partition instead of ad-hoc internal ConcurrentHashMap
+- `ContentSummariser.asSummariser()` makes content summarisation a pipeline citizen with state — replaces `ContentSummariserToSummariser` bridge (which lost the `previous` context)
+- `ObservationAccumulator` can wrap `EventAccumulator` instead of reimplementing buffering
+- Future: `llm-summarise` YAML built-in type wrapping `ContentSummariser`
 
 ### What Stays in blocks
 
-`ContentSummariser<T>`, `VerbatimContentSummariser`, `TieredContentSummariser`, `ContentSummariserToSummariser`, `SummaryMode` — depend on qhorus-api (`SummaryResult`). `LlmContentSummariser` — depends on platform-agent-api. Entire `observation` package — depends on qhorus-api and platform-agent-api.
+`TieredContentSummariser<T, R>` (gains second type param), `SummaryMode`, `LlmContentSummariser<T>` (implements `ContentSummariser<T, SummaryResult>`), `HeuristicMessageSummariser` (implements `ContentSummariser<Message, SummaryResult>`), channel summary integration (`ChannelSummariser`, `ThreadSummaryObserver`, `NoOpThreadSummaryStore`). Entire `observation` package — depends on qhorus-api and platform-agent-api. `ObservationAccumulator` consolidated to wrap `EventAccumulator` internally.
+
+### What is Deleted
+
+`ContentSummariserToSummariser` — replaced by `ContentSummariser.asSummariser()`. No bridge adapter needed.
 
 ### Breaking Changes
 
 1. **LevelEvent** — 3-arg → 4-arg canonical constructor. All callers pass tenancyId explicitly (null for single-tenant). No convenience factory — compiler-enforced decision at every call site (D1).
 2. **KeyedAccumulator / KeyedSummarisationRunner** — key extractor takes `LevelEvent<E>` not `E`. Existing callers add `.payload()`: `e -> e.transactionId()` becomes `event -> event.payload().transactionId()` (D12).
-
-3. **`casehub-blocks` gains compile dependency on `casehub-blocks-summarisation-api`** — types remaining in blocks (`ContentSummariserToSummariser`, `ChannelEventAdapter`, `ChannelEventPublisher`) reference extracted types (`Summariser`, `LevelEvent`, `EventLevel`, `EventStreamBus`). A new `<dependency>` entry in `blocks/pom.xml` is required.
+3. **`casehub-blocks` gains compile dependency on `casehub-blocks-summarisation-api`** — types remaining in blocks (`ChannelEventAdapter`, `ChannelEventPublisher`) reference extracted types (`Summariser`, `LevelEvent`, `EventLevel`, `EventStreamBus`). A new `<dependency>` entry in `blocks/pom.xml` is required.
+4. **ContentSummariser<T> → ContentSummariser<T, R>** — generified result type (D14). Migration: add second type parameter. `ContentSummariser<Message>` → `ContentSummariser<Message, SummaryResult>`. ~10 consumer files, mechanical via `ide_refactor_rename` / find-replace.
+5. **SummarisationRunner** — enhanced with state management for `StatefulSummariser`. Backward compatible for stateless `Summariser` implementations.
 
 ### Downstream Migration
 
 | Consumer | Call sites | Migration |
 |---|---|---|
 | quarkmind | ~6 production | LevelEvent constructor + key extractor |
+| blocks (content summariser consumers) | ~10 files | `ContentSummariser<T>` → `ContentSummariser<T, SummaryResult>` |
 | blocks tests | ~90 test | LevelEvent constructor |
 | logistics/clinical examples | ~20 test | LevelEvent constructor |
+| blocks `ContentSummariserToSummariser` | 1 file + consumers | DELETE — replaced by `.asSummariser()` |
 
 ## Module 2: CloudEvent Bridge (#232)
 

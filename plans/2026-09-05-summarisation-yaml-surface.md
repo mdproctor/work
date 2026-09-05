@@ -9,9 +9,9 @@
 **Focal issue:** #233 — feat: summarisation YAML surface with composable runtime
 **Issue group:** #231, #232, #233
 
-**Goal:** Extract summarisation types to a zero-dependency API module, add CloudEvent ingestion/emission adapters, and build a YAML pipeline surface with 5 built-in summariser types and a Quarkus build extension.
+**Goal:** Unify blocks' three separate batch-transform subsystems (temporal, content, observation) into one composable model. Extract to a zero-dependency API module with `StatefulSummariser` and generified `ContentSummariser<T, R>`. Add CloudEvent ingestion/emission adapters. Build a YAML pipeline surface with 5 built-in summariser types and a Quarkus build extension.
 
-**Architecture:** Three new Maven modules in dependency order: `summarisation-api` (pure Java extraction), `cloudevents` (CE bridge with EventSink SPI), `summarisation-yaml` (canonical model, PipelineCompiler, built-in types) with a `summarisation-yaml-deployment` Quarkus build extension. YAML and Java are peer representations targeting immutable model records. The PipelineCompiler wires `SummarisationRunner` chains from the model.
+**Architecture:** Three new Maven modules in dependency order: `summarisation-api` (pure Java — unified SPI with `Summariser`, `StatefulSummariser`, `ContentSummariser<T, R>`), `cloudevents` (CE bridge with EventSink SPI), `summarisation-yaml` (canonical model, PipelineCompiler, built-in types) with a `summarisation-yaml-deployment` Quarkus build extension. YAML and Java are peer representations targeting immutable model records. The PipelineCompiler wires `SummarisationRunner` chains from the model. `ContentSummariser.asSummariser()` enables content summarisation as a pipeline citizen — no bridge adapter needed.
 
 **Tech Stack:** Java 17, Maven, JUnit 5, Mockito, AssertJ, Jackson YAML, cloudevents-api, casehub-platform-api (ExpressionEngine SPI), Quarkus deployment API
 
@@ -29,7 +29,7 @@
 
 ## Batch 1: Summarisation API Module (#231)
 
-After this batch: 10 pure-Java types live in `casehub-blocks-summarisation-api`, `LevelEvent` has tenancyId, key extractor is widened, `casehub-blocks` depends on the API module. All existing tests pass.
+After this batch: unified summarisation SPI lives in `casehub-blocks-summarisation-api` — 10 extracted types + `StatefulSummariser` + generified `ContentSummariser<T, R>` + `VerbatimContentSummariser`. `LevelEvent` has tenancyId, key extractor is widened, `SummarisationRunner` manages state for `StatefulSummariser`. `ContentSummariserToSummariser` bridge deleted. All existing tests pass.
 
 ### Task 1: Create summarisation-api module and move types
 
@@ -311,13 +311,218 @@ Enables tenant partitioning via event.tenancyId() in key extraction.
 Refs #231"
 ```
 
+### Task 4: Add StatefulSummariser and enhance SummarisationRunner
+
+**Files:**
+- Create: `summarisation-api/src/main/java/io/casehub/blocks/summarisation/StatefulSummariser.java`
+- Modify: `summarisation-api/src/main/java/io/casehub/blocks/summarisation/SummarisationRunner.java` — state management
+- Modify: `summarisation-api/src/main/java/io/casehub/blocks/summarisation/KeyedSummarisationRunner.java` — state management
+- Test: `summarisation-api/src/test/java/io/casehub/blocks/summarisation/StatefulSummariserTest.java`
+
+**Interfaces:**
+- Produces: `StatefulSummariser<IN, OUT, S>` with `SummariseResult<OUT, S>` inner record
+- Produces: Enhanced `SummarisationRunner` — detects `StatefulSummariser`, manages state per partition
+
+- [ ] **Step 1: Write failing test for StatefulSummariser in SummarisationRunner**
+
+```java
+@Test
+void runner_passesAndStoresState_forStatefulSummariser() {
+    var stateLog = new ArrayList<String>();
+
+    StatefulSummariser<String, String, String> summariser = (batch, prev) -> {
+        stateLog.add("prev=" + prev);
+        String newState = (prev == null ? "" : prev) + batch.size();
+        return CompletableFuture.completedFuture(
+            new SummariseResult<>(List.of("out"), newState));
+    };
+
+    var outputBus = new EventStreamBus<String>();
+    var runner = new SummarisationRunner<>(
+        WindowPolicy.ofCount(1), summariser, outputBus, LEVEL);
+
+    runner.collect(new LevelEvent<>("a", 100L, LEVEL, null));
+    runner.tick(200L).toCompletableFuture().join();
+
+    runner.collect(new LevelEvent<>("b", 300L, LEVEL, null));
+    runner.tick(400L).toCompletableFuture().join();
+
+    assertThat(stateLog).containsExactly("prev=null", "prev=1");
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `mvn --batch-mode test -pl summarisation-api -Dtest=StatefulSummariserTest`
+Expected: FAIL — `StatefulSummariser` doesn't exist
+
+- [ ] **Step 3: Write StatefulSummariser interface**
+
+```java
+package io.casehub.blocks.summarisation;
+
+import org.jspecify.annotations.Nullable;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+
+public interface StatefulSummariser<IN, OUT, S> extends Summariser<IN, OUT> {
+
+    CompletionStage<SummariseResult<OUT, S>> summarise(
+            List<LevelEvent<IN>> batch, @Nullable S previousState);
+
+    @Override
+    default CompletionStage<List<OUT>> summarise(List<LevelEvent<IN>> batch) {
+        return summarise(batch, null).thenApply(SummariseResult::outputs);
+    }
+
+    record SummariseResult<OUT, S>(List<OUT> outputs, @Nullable S newState) {}
+}
+```
+
+- [ ] **Step 4: Enhance SummarisationRunner with state management**
+
+In `SummarisationRunner.tick()` and `flush()`: detect if `summariser instanceof StatefulSummariser`, if so call the stateful overload with per-partition state from a `ConcurrentHashMap<String, Object>` keyed by tenancyId (from batch's first event, or "default" for null).
+
+- [ ] **Step 5: Same enhancement for KeyedSummarisationRunner**
+
+- [ ] **Step 6: Test multi-tenant state isolation**
+
+```java
+@Test
+void runner_maintainsSeparateState_perTenant() {
+    // Two tenants, each gets independent state
+    StatefulSummariser<String, String, Integer> counter = (batch, prev) -> {
+        int count = (prev == null ? 0 : prev) + batch.size();
+        return CompletableFuture.completedFuture(
+            new SummariseResult<>(List.of("count=" + count), count));
+    };
+    // Feed events for tenant-1 and tenant-2, verify independent counts
+}
+```
+
+- [ ] **Step 7: Build and verify**
+
+Run: `mvn --batch-mode install -pl summarisation-api`
+Expected: PASS
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add summarisation-api/
+git commit -m "feat(#231): add StatefulSummariser SPI with framework-managed state per partition
+
+SummarisationRunner detects StatefulSummariser and manages state keyed by tenancyId.
+Refs #231"
+```
+
+### Task 5: Generify ContentSummariser and move to summarisation-api
+
+**Files:**
+- Create: `summarisation-api/src/main/java/io/casehub/blocks/summarisation/ContentSummariser.java` (generified)
+- Create: `summarisation-api/src/main/java/io/casehub/blocks/summarisation/VerbatimContentSummariser.java`
+- Delete: `blocks/blocks/src/main/java/io/casehub/blocks/summarisation/ContentSummariser.java`
+- Delete: `blocks/blocks/src/main/java/io/casehub/blocks/summarisation/VerbatimContentSummariser.java`
+- Delete: `blocks/blocks/src/main/java/io/casehub/blocks/summarisation/ContentSummariserToSummariser.java`
+- Modify: all ContentSummariser consumers in blocks — add second type parameter
+- Test: `summarisation-api/src/test/java/io/casehub/blocks/summarisation/ContentSummariserTest.java`
+
+**Interfaces:**
+- Produces: `ContentSummariser<T, R>` with `asSummariser()` → `StatefulSummariser<T, R, R>`
+- Produces: `VerbatimContentSummariser<T>` implements `ContentSummariser<T, String>`
+
+- [ ] **Step 1: Write failing test for asSummariser() bridge**
+
+```java
+@Test
+void asSummariser_carriesPreviousState() {
+    ContentSummariser<String, String> cs = (items, prev) ->
+        CompletableFuture.completedFuture(
+            (prev == null ? "" : prev + " ") + String.join(",", items));
+
+    StatefulSummariser<String, String, String> s = cs.asSummariser();
+
+    var batch1 = List.of(new LevelEvent<>("a", 100L, LEVEL, null));
+    var r1 = s.summarise(batch1, null).toCompletableFuture().join();
+    assertThat(r1.outputs()).containsExactly("a");
+    assertThat(r1.newState()).isEqualTo("a");
+
+    var batch2 = List.of(new LevelEvent<>("b", 200L, LEVEL, null));
+    var r2 = s.summarise(batch2, r1.newState()).toCompletableFuture().join();
+    assertThat(r2.outputs()).containsExactly("a b");
+    assertThat(r2.newState()).isEqualTo("a b");
+}
+```
+
+- [ ] **Step 2: Write ContentSummariser<T, R> in summarisation-api**
+
+```java
+package io.casehub.blocks.summarisation;
+
+import org.jspecify.annotations.Nullable;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+
+@FunctionalInterface
+public interface ContentSummariser<T, R> {
+    CompletionStage<R> summarise(List<T> items, @Nullable R previous);
+
+    default StatefulSummariser<T, R, R> asSummariser() {
+        return (batch, prev) -> {
+            var items = batch.stream().map(LevelEvent::payload).toList();
+            return summarise(items, prev)
+                .thenApply(out -> new StatefulSummariser.SummariseResult<>(List.of(out), out));
+        };
+    }
+}
+```
+
+- [ ] **Step 3: Write VerbatimContentSummariser in summarisation-api**
+
+Pure Java — renders items as bullet list via `Function<T, String>`. Implements `ContentSummariser<T, String>`.
+
+- [ ] **Step 4: Delete old files from blocks**
+
+Delete: `ContentSummariser.java`, `VerbatimContentSummariser.java`, `ContentSummariserToSummariser.java` from blocks. Delete `ContentSummariserToSummariserTest.java`.
+
+- [ ] **Step 5: Update all ContentSummariser consumers in blocks**
+
+Use `ide_search_text` to find all `ContentSummariser<` references. Add second type parameter:
+- `ContentSummariser<Message>` → `ContentSummariser<Message, SummaryResult>`
+- `ContentSummariser<T>` → `ContentSummariser<T, SummaryResult>` (in generic contexts)
+
+Key files: `HeuristicMessageSummariser.java`, `ChannelSummariser.java`, `ThreadSummaryObserver.java`, `MemoryHygieneOrchestrator.java`, `StrategyLearningOrchestrator.java`, `TieredContentSummariser.java`, `LlmContentSummariser.java`
+
+- [ ] **Step 6: Update TieredContentSummariser**
+
+Add second type parameter: `TieredContentSummariser<T>` → `TieredContentSummariser<T, R>`. Mechanical — the delegates are `ContentSummariser<T, R>` now.
+
+- [ ] **Step 7: Replace ContentSummariserToSummariser usages**
+
+Search for `ContentSummariserToSummariser` usages. Replace with `contentSummariser.asSummariser()`.
+
+- [ ] **Step 8: Build and verify**
+
+Run: `mvn --batch-mode install`
+Expected: BUILD SUCCESS — all tests pass with generified ContentSummariser
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add -A
+git commit -m "feat(#231): unify ContentSummariser<T,R> into summarisation-api with asSummariser() bridge
+
+Generified result type breaks qhorus coupling. ContentSummariserToSummariser deleted —
+replaced by ContentSummariser.asSummariser() which carries state.
+Refs #231"
+```
+
 ---
 
 ## Batch 2: CloudEvent Bridge (#232)
 
 After this batch: `casehub-blocks-cloudevents` module exists with `EventSink`, `CloudEventIngestionAdapter`, `CloudEventEmitter`, and `PipelineTickScheduler`, all with full test coverage.
 
-### Task 4: CloudEvent module with ingestion and emission
+### Task 6: CloudEvent module with ingestion and emission
 
 **Files:**
 - Create: `cloudevents/pom.xml`
@@ -506,7 +711,7 @@ Refs #232"
 
 After this batch: canonical model records exist, YAML deserializes to them via Jackson, SummariserRegistry works with `pass-through` built-in. No compiler yet.
 
-### Task 5: Canonical model records and YAML deserialization
+### Task 7: Canonical model records and YAML deserialization
 
 **Files:**
 - Create: `summarisation-yaml/pom.xml`
@@ -601,7 +806,7 @@ git commit -m "feat(#233): canonical model records with Jackson YAML deserializa
 Refs #233"
 ```
 
-### Task 6: SummariserRegistry and pass-through built-in
+### Task 8: SummariserRegistry and pass-through built-in
 
 **Files:**
 - Create: `summarisation-yaml/src/main/java/io/casehub/blocks/summarisation/yaml/SummariserRegistry.java`
@@ -675,7 +880,7 @@ Refs #233"
 
 After this batch: `PipelineCompiler` wires full pipelines. All 5 built-in summariser types work with tests. Batch aggregates computed for expression context.
 
-### Task 7: PipelineCompiler and CompiledPipeline
+### Task 9: PipelineCompiler and CompiledPipeline
 
 **Files:**
 - Create: `summarisation-yaml/src/main/java/io/casehub/blocks/summarisation/yaml/PipelineCompiler.java`
@@ -770,7 +975,7 @@ git commit -m "feat(#233): PipelineCompiler wires model to SummarisationRunner c
 Refs #233"
 ```
 
-### Task 8: threshold-classify and count built-ins with batch aggregates
+### Task 10: threshold-classify and count built-ins with batch aggregates
 
 **Files:**
 - Create: `summarisation-yaml/src/main/java/io/casehub/blocks/summarisation/yaml/builtin/ThresholdClassifySummariser.java`
@@ -872,7 +1077,7 @@ git commit -m "feat(#233): threshold-classify, count built-ins with batch aggreg
 Refs #233"
 ```
 
-### Task 9: phase-detect and field-extract built-ins
+### Task 11: phase-detect and field-extract built-ins
 
 **Files:**
 - Create: `summarisation-yaml/src/main/java/io/casehub/blocks/summarisation/yaml/builtin/PhaseDetectSummariser.java`
@@ -961,7 +1166,7 @@ Refs #233"
 
 After this batch: Quarkus deployment module discovers YAML pipelines, validates, registers beans. End-to-end integration test with logistics pipeline in YAML.
 
-### Task 10: Build-time validation
+### Task 12: Build-time validation
 
 **Files:**
 - Create: `summarisation-yaml/src/main/java/io/casehub/blocks/summarisation/yaml/PipelineValidator.java`
@@ -1014,7 +1219,7 @@ git commit -m "feat(#233): PipelineValidator — build-time validation rules
 Refs #233"
 ```
 
-### Task 11: Quarkus deployment module
+### Task 13: Quarkus deployment module
 
 **Files:**
 - Create: `summarisation-yaml-deployment/pom.xml`
@@ -1072,7 +1277,7 @@ git commit -m "feat(#233): Quarkus deployment module — YAML discovery, validat
 Refs #233"
 ```
 
-### Task 12: End-to-end integration test
+### Task 14: End-to-end integration test
 
 **Files:**
 - Create: `summarisation-yaml/src/test/resources/META-INF/summarisation/logistics-hub.yaml`

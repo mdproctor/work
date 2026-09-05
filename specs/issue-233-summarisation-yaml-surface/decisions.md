@@ -3,22 +3,20 @@
 **Choice:** Add `@Nullable String tenancyId` as 4th record component. No convenience factory — all callers pass tenancyId explicitly (null or a value).
 **Alternatives:**
 - Convenience factory `LevelEvent.of(payload, timestamp, level)` — backward-compatibility shim; hides the tenancyId decision point behind a default
-- Both constructor + factory — redundant
 **Rationale:** Breaking change is the point: every caller must choose whether they are tenant-aware. A process guard ("code review must catch") is weaker than a design guard (compiler forces the choice). ~6 production call sites and ~90 test call sites — mechanical migration.
 **Trade-offs:** Noisier diffs for the migration commit. Every test fixture must pass an explicit null tenancyId.
-**Sources:** LevelEvent.java (current 3-arg record), #231 issue body (breaking change spec), R1-01 reviewer challenge
+**Sources:** LevelEvent.java, #231 issue body, R1-01 reviewer challenge
 **Exploration:** quick
-**Status:** revised — removed convenience factory per R1-01; design philosophy requires explicit decisions at every call site
+**Status:** revised — removed convenience factory per R1-01
 
 ## D2: CloudEvent bridge — plain Java SPI, no CDI dependency
 
-**Choice:** CloudEvent bridge module defines a `@FunctionalInterface EventSink<T>` for emission. No quarkus-arc dependency — overrides #232's dependency list, which includes quarkus-arc. Consumer provides CDI wiring as a lambda.
+**Choice:** CloudEvent bridge module defines a `@FunctionalInterface EventSink<T>` for emission. No quarkus-arc dependency. Consumer provides CDI wiring as a lambda.
 **Alternatives:**
-- Direct quarkus-arc dependency (module uses `@Inject Event<CloudEvent>`) — simpler consumer wiring but couples module to Quarkus, untestable without CDI container
-- `Consumer<CloudEvent>` instead of named `EventSink<T>` — saves one type but loses domain naming and independent evolution
-**Rationale:** Keeps the module testable with plain JUnit (no CDI container). Consumer wiring is ~1 lambda. Follows the same pattern as other blocks modules (plain Java + consumer CDI wiring). Named SPI convention is consistent with `Summariser<IN, OUT>`, `ContentSummariser<T>`, `Compactor<IN>` — domain operations get named types, not raw functional interfaces.
+- Direct quarkus-arc dependency — couples module to Quarkus, untestable without CDI container
+**Rationale:** Keeps the module testable with plain JUnit. Follows blocks module patterns (VouchService, Summariser — consumer-constructed, not CDI-managed).
 **Trade-offs:** Consumer writes ~1 extra line of wiring code per pipeline.
-**Sources:** #232 issue body (plain Java utilities), blocks module patterns (VouchService, Summariser, ContentSummariser), R1-02 reviewer challenge
+**Sources:** #232 issue body, blocks module patterns, R1-02 reviewer challenge
 **Exploration:** quick
 **Status:** captured
 
@@ -26,124 +24,138 @@
 
 **Choice:** Levels are ordered — level N's output feeds level N+1's input. A single `source:` block defines the external input. Linear topology enforced by construction.
 **Alternatives:**
-- Explicit source per level (each level names its input) — enables future non-linear topologies but adds verbosity and ambiguity for the linear case
-**Rationale:** The issue specifies "linear topology only — non-linear requires Tier 2." Implicit chaining enforces this at the grammar level rather than requiring validation. YAGNI — non-linear can be added later by extending the grammar.
-**Trade-offs:** Non-linear topologies (fan-out, diamond) require Tier 2 (Java code). If demand emerges, grammar extension needed.
-**Sources:** #233 issue body (linear topology constraint), LogisticsPipelineTest.java (wiring pattern — sequential bus→runner→bus chain)
+- Explicit source per level — enables future non-linear topologies but adds verbosity
+**Rationale:** Issue specifies "linear topology only — non-linear requires Tier 2." Implicit chaining enforces this at the grammar level. YAGNI.
+**Trade-offs:** Non-linear topologies require Tier 2 (Java code).
+**Sources:** #233 issue body, LogisticsPipelineTest.java
 **Exploration:** quick
 **Status:** captured
 
 ## D4: Grouping — `grouping:` block with type discriminator
 
-**Choice:** A single `grouping:` block with a `type:` discriminator replaces mutually exclusive top-level blocks. Type values: `keyed` (key expression, completion predicate, stale timeout) and `windowed` (maxAge, maxCount via WindowPolicy).
+**Choice:** A single `grouping:` block with a `type:` discriminator. Type values: `keyed` and `windowed`.
 **Alternatives:**
-- Mutually exclusive `keyed:` / `window:` top-level blocks — self-discriminating for two modes but doesn't scale to additional grouping modes (session windowing, sliding windows)
-- Separate level type field redundant with grouping block
-**Rationale:** Two mutually exclusive top-level blocks is manageable; five is not. Session windowing and sliding windows are legitimate event-processing patterns that could be added as new `type:` values without new top-level keys. The `grouping:` block follows conventional YAML schema patterns.
-**Trade-offs:** One extra nesting level in YAML. Type discriminator field must be validated.
+- Mutually exclusive `keyed:` / `window:` top-level blocks — doesn't scale to additional grouping modes
+**Rationale:** Two mutually exclusive top-level blocks is manageable; five is not. Session windowing and sliding windows could be added as new `type:` values.
+**Trade-offs:** One extra nesting level in YAML.
 **Sources:** KeyedSummarisationRunner.java, WindowPolicy.java, R1-04 reviewer challenge
 **Exploration:** quick
 **Status:** revised — adopted grouping: block with type discriminator per R1-04
 
 ## D5: CloudEvent emission — per-level optional
 
-**Choice:** Any level can declare an `emit:` block with a `cloud-event-type` URI. Non-emitting levels feed the next level internally only. Emission is unconditional on the level's output — the summariser controls what is produced (including empty results for no-emit conditions). Consumers filter by CloudEvent type URI.
+**Choice:** Any level can declare an `emit:` block with a `cloud-event-type` URI. Non-emitting levels feed the next level internally only.
 **Alternatives:**
-- Terminal-only emission (only last level emits) — simpler but prevents RAS Ganglia from subscribing to mid-pipeline events (e.g., L2 anomalies AND L3 phases)
-- Conditional `when:` predicate on `emit:` block — adds output-level filtering beyond what the summariser produces; deferred to future extension if needed
-**Rationale:** The desiredstate#74 spec describes RAS consuming events at multiple altitude levels. Per-level emission enables this without separate pipelines. Per-level emission is expected to be sparse in practice (1-2 emitting levels per pipeline, not all 5). Consumers that receive overlapping information at different abstraction levels filter by type URI — this is the standard CloudEvent consumption pattern.
-**Trade-offs:** More complex emission wiring; each emitting level needs a CloudEventEmitter instance. Depends on D2 (EventSink<T>).
-**Sources:** casehubio/casehub-desiredstate#74 (RAS integration), #232 issue body, R1-05 reviewer challenge
+- Terminal-only emission — prevents RAS Ganglia from subscribing to mid-pipeline events
+**Rationale:** desiredstate#74 describes RAS consuming events at multiple altitude levels. Per-level emission enables this without separate pipelines. Depends on D2 (EventSink<T>).
+**Trade-offs:** Each emitting level needs a CloudEventEmitter instance.
+**Sources:** casehubio/casehub-desiredstate#74, #232 issue body, R1-05 reviewer challenge
 **Exploration:** quick
-**Status:** revised — added cardinality guidance, conditional emission rationale, D2 dependency per R1-05
+**Status:** revised — added D2 dependency per R1-05
 
 ## D6: Pipeline compilation — single SummariserRegistry, dual population
 
-**Choice:** A single `SummariserRegistry` holds all discovered summariser types. Build-time: Jandex discovery populates the registry via recorder. Runtime: callers populate it via API. `PipelineCompiler` resolves types exclusively against the registry — one resolution path, one set of error messages.
+**Choice:** A single `SummariserRegistry` holds all discovered summariser types. Build-time: Jandex populates via recorder. Runtime: callers populate via API. `PipelineCompiler` resolves types against one registry.
 **Alternatives:**
-- Dual-path compiler with Jandex at build-time and registry at runtime — two type-resolution mechanisms, divergent error behavior
-- Build-time only (compiler locked behind deployment module) — prevents runtime pipeline construction
-- Full build-time codegen — faster startup but adds code generation complexity
-**Rationale:** The compiler should have exactly one way to resolve types. Whether Jandex or a manual API populated the registry is an implementation detail of registry population, not a compiler concern. Build-time and runtime compilation use the same validation depth — acceptable since pipeline compilation is a startup-time operation, not per-request.
-**Trade-offs:** Dynamic path still skips Jandex-based @SummariserTypeId discovery (no classpath scan). Dynamic callers register types explicitly. Runtime compilation pays the same validation cost as build-time.
+- Dual-path compiler with Jandex at build-time and registry at runtime — two type-resolution mechanisms
+**Rationale:** The compiler should have exactly one way to resolve types. Whether Jandex or API populated the registry is a population detail.
+**Trade-offs:** Dynamic path skips Jandex discovery. Dynamic callers register types explicitly.
 **Sources:** #233 issue body, Quarkus extension patterns, R1-06 reviewer challenge
 **Exploration:** quick
 **Status:** revised — unified type resolution through single registry per R1-06
 
 ## D7: Event payload type — generic throughout
 
-**Choice:** The pipeline stays generic (`LevelEvent<E>`) throughout. No special-casing for Tier 1 vs Tier 2. Tier 1 (YAML-only) happens to use `E = Map<String, Object>` from JSON deserialization; Tier 2 uses domain types. Built-in summariser types use expression evaluation for field access, which MVEL3 handles transparently for both maps and typed objects.
+**Choice:** The pipeline stays generic (`LevelEvent<E>`) throughout. Tier 1 uses `E = Map<String, Object>`. Tier 2 uses domain types. MVEL3 handles both transparently.
 **Alternatives:**
-- Map-only Tier 1 (framework special-cases Map) — makes Tier 1 a second-class citizen
-- JsonNode payload — JQ-native but MVEL3 field access becomes verbose (`node.get("field").asDouble()`)
-**Rationale:** The framework is correctly generic at the `LevelEvent<E>` level. Expression evaluation via MVEL3 property access handles both typed objects and maps transparently for predicate evaluation and field access.
-**Trade-offs:**
-- JQ expressions (D9) require JsonNode, not arbitrary types — typed payloads need serialization to JsonNode before JQ can process them. `field-extract` is not fully type-agnostic.
-- Pre-computed aggregates (D10) use different code paths for maps (key enumeration) vs typed objects (reflection), with different error modes (key miss → null vs reflection failure → exception).
-- Expression context assembly must handle both payload shapes.
+- Map-only Tier 1 — breaks ContextBridge pattern
+- JsonNode payload — JQ-native but MVEL3 field access becomes verbose
+**Rationale:** Follows the ContextBridge pattern used across the platform. Expression evaluation via MVEL3 handles both typed objects and maps.
+**Trade-offs:** JQ (field-extract) requires JsonNode — typed payloads need serialization. Pre-computed aggregates use different code paths for maps vs typed objects.
 **Sources:** Platform expression SPI, MVEL3 property access semantics, R1-07 reviewer challenge
 **Exploration:** quick
-**Status:** revised — acknowledged concrete trade-offs at expression evaluation and aggregate computation layers per R1-07
+**Status:** revised — acknowledged JQ/aggregate trade-offs per R1-07
 
 ## D8: phase-detect initial state — explicit in YAML, framework-managed state
 
-**Choice:** The `phase-detect` built-in declares `initial: <STATE>` in the YAML. Every new tenant starts in that state. First batch evaluates transitions from the initial state. Transitions are evaluated in YAML declaration order (first match wins). State is managed by the framework for built-in summarisers — per-tenant, in-memory.
+**Choice:** `phase-detect` declares `initial: <STATE>` in YAML. Every new tenant starts there. Transitions evaluated in YAML declaration order (first-match-wins). State is framework-managed per partition (tenant × key), in-memory.
 **Alternatives:**
-- First-match on first batch (no initial state — evaluate all transitions cold) — handles cold-start more accurately but adds edge cases (what if nothing matches?) and makes the default state implicit
-- Stateless Summariser interface with state passed as parameter — violates @FunctionalInterface, forces state management onto all summarisers including those that don't need it
-**Rationale:** Simple, predictable, no magic. The initial state is always visible in the YAML definition. The Summariser interface stays pure (batch → results) — @FunctionalInterface means single abstract method, not functional purity. Built-in YAML summarisers like phase-detect have framework-managed state internally. Transition evaluation order is YAML declaration order — explicit and documented.
-**Trade-offs:** In-memory state is lost on restart — all tenants revert to initial state. State persistence (e.g., for clinical domains where restart safety matters) is Tier 2 territory. If tenant-specific initial states are needed, Tier 2 (custom Java) required.
-**Sources:** #233 issue body (phase-detect spec), HubPhaseSummariser.java, R1-08 reviewer challenge
+- First-match on first batch — edge cases when nothing matches
+**Rationale:** Simple, predictable, no magic. Uses framework state management (D13) for per-partition state.
+**Trade-offs:** In-memory state lost on restart. State persistence is Tier 2 territory.
+**Sources:** #233 issue body, HubPhaseSummariser.java, R1-08 reviewer challenge
 **Exploration:** quick
-**Status:** revised — added evaluation order, state management model, persistence boundary per R1-08
+**Status:** revised — added evaluation order, state management model per R1-08
 
 ## D9: Expression engine — platform expression SPI (new precedent)
 
-**Choice:** Depend on `casehub-platform-api` (SPI: `ExpressionEngine`, `CompiledExpression<C,R>`, `ExpressionEngineRegistry`) and `casehub-platform-expression` (runtime: `MvelExpressionEngine`, `JQExpressionEngine`). No direct jackson-jq or MVEL3 dependency.
+**Choice:** Depend on `casehub-platform-api` (`ExpressionEngine`, `CompiledExpression<C,R>`, `ExpressionEngineRegistry`). No direct jackson-jq or MVEL3 dependency.
 **Alternatives:**
-- Bundle own jackson-jq/MVEL3 dependencies — duplicates expression infrastructure already provided by platform
-- Depend on engine-api ExpressionEngine — thinner platform-api dependency avoids pulling in engine concepts (CaseContext-coupled methods like `evaluate(ExpressionEvaluator, CaseContext)`, `ExpressionEvaluator`-based APIs) that summarisation doesn't need
-**Rationale:** Platform-api `CompiledExpression<C, R>` is fully generic (`R eval(C)`) — works for `CompiledExpression<BatchContext, Boolean>` (predicates) and `CompiledExpression<JsonNode, List<JsonNode>>` (JQ transforms). This is the first direct use of `CompiledExpression<C, R>` on the platform — RAS's `SituationDefinition` uses the marker `ExpressionEvaluator` interface instead. Establishes a new, cleaner precedent: typed compilation via `CompiledExpression` rather than the less-typed `ExpressionEvaluator`.
-**Trade-offs:** Summarisation-yaml gains a `provided` dependency on casehub-platform-api. Consumers must have platform-expression on classpath for MVEL3/JQ evaluation — but any Quarkus app already does.
-**Sources:** javap analysis of platform-api ExpressionEngine/CompiledExpression/ExpressionEngineRegistry, SituationDefinition.java (stores ExpressionEvaluator, not CompiledExpression), R1-09 reviewer challenge
+- Bundle own jackson-jq/MVEL3 — duplicates platform infrastructure
+- Depend on engine-api ExpressionEngine — coupled to CaseContext
+**Rationale:** Platform-api `CompiledExpression<C, R>` is fully generic (`R eval(C)`). New precedent: typed compilation via CompiledExpression rather than the less-typed ExpressionEvaluator.
+**Trade-offs:** Consumers must have platform-expression on classpath — but any Quarkus app already does.
+**Sources:** javap analysis of platform-api, SituationDefinition.java, R1-09 reviewer challenge
 **Exploration:** quick
-**Status:** revised — corrected framing: new precedent (not following RAS), thinner dependency (not escaping coupling) per R1-09
+**Status:** revised — corrected framing: new precedent per R1-09
 
 ## D10: Pre-computed batch aggregates with explicit field declaration
 
-**Choice:** The YAML declares aggregate fields per level (`aggregate-fields: [severity, temperature]`). The runtime pre-computes batch statistics (size, counts by declared field value, sums/avgs of declared numeric fields) and exposes them as flat variables in the expression context. Raw batch available as `batch` for escape hatch.
+**Choice:** YAML declares `aggregate-fields` per level. Runtime pre-computes `size`, `counts.<field>.<value>`, `sums.<field>`, `avgs.<field>`. Raw `batch` available as escape hatch.
 **Alternatives:**
-- Raw batch only (expression computes everything inline) — more flexible but expressions become complex and performance unpredictable
-- Speculative aggregation of all fields — wasteful for large payloads, unbounded for high-cardinality fields (UUID, timestamp), surprising behavior
-**Rationale:** Explicit field declaration makes pre-computation bounded and predictable. Summariser `when` expressions need aggregate statistics (e.g., "highSeverityCount >= 3"). Pre-computing only declared fields avoids speculative enumeration and unbounded count-by-value maps. The `batch` escape hatch preserves full flexibility for Tier 2 scenarios.
-**Trade-offs:** One additional YAML line per level. The runtime must still introspect payloads for declared fields — reflection for typed objects, key access for maps.
-**Sources:** HubPhaseSummariser.java (counts high-severity anomalies), AnomalyDetectorSummariser.java (weight statistics), R1-10 reviewer challenge
+- Raw batch only — complex expressions, unpredictable performance
+- Speculative aggregation of all fields — unbounded for high-cardinality fields
+**Rationale:** Explicit field declaration makes pre-computation bounded and predictable.
+**Trade-offs:** One additional YAML line per level.
+**Sources:** HubPhaseSummariser.java, AnomalyDetectorSummariser.java, R1-10 reviewer challenge
 **Exploration:** quick
-**Status:** revised — added explicit aggregate-fields declaration, bounded pre-computation per R1-10
+**Status:** revised — added explicit aggregate-fields per R1-10
 
 ## D11: Tick interval — deployment concern, not pipeline definition
 
-**Choice:** The tick interval is a deployment/runtime parameter, not part of the pipeline YAML definition. The consumer (or deployment module) configures tick scheduling. The YAML defines WHAT the pipeline does; the tick interval defines HOW OFTEN it's checked.
+**Choice:** Tick interval is a deployment/runtime parameter, not part of pipeline YAML. Config: `casehub.summarisation.tick-interval-ms` (default: 1000ms).
 **Alternatives:**
-- Tick interval in YAML per pipeline — couples operational tuning to pipeline definition, requires recompilation for frequency changes
-- Computed from WindowPolicy parameters — possible (Nyquist: tick at 2x shortest maxAge), but constrains operational flexibility
-- Hardcoded — inflexible, different domains need different timescales
-**Rationale:** Separation of concerns: pipeline topology and summarisation logic belong in YAML; scheduling frequency belongs in deployment configuration. WindowPolicy maxAge implicitly lower-bounds the useful tick interval (no point ticking faster than the shortest window), but the actual tick rate is an operational choice.
-**Trade-offs:** Pipeline authors must configure tick scheduling separately. No guidance in the YAML about expected timescales.
-**Sources:** SummarisationRunner.tick(long now), quarkmind game-loop origin, R1-12 reviewer challenge
+- Tick interval in YAML — couples operational tuning to pipeline definition
+- Computed from WindowPolicy — constrains operational flexibility
+**Rationale:** Separation of concerns: pipeline topology in YAML, scheduling frequency in deployment config.
+**Trade-offs:** Pipeline authors configure tick scheduling separately.
+**Sources:** SummarisationRunner.tick(), R1-12 reviewer challenge
 **Exploration:** quick (surfaced by reviewer)
 **Status:** captured
 
 ## D12: Tenant partitioning — KeyedAccumulator with tenancyId (key extractor API change)
 
-**Choice:** Windowed levels that require tenant-homogeneous batches use `KeyedAccumulator` with `tenancyId` as the grouping key. The key extractor signature changes from `Function<E, K>` (payload-only) to `Function<LevelEvent<E>, K>` (full event access), enabling extraction from LevelEvent fields (tenancyId, timestamp, level) in addition to payload fields. Same change applies to `KeyedSummarisationRunner`. The WindowPolicy completion test is adapted as the `completionTest` predicate. Keyed levels already partition by their declared key; if multi-tenant, the key naturally includes tenancyId.
+**Choice:** Key extractor widened from `Function<E, K>` to `Function<LevelEvent<E>, K>`, enabling `event.tenancyId()` access for tenant partitioning. Framework interposes tenant partitioning automatically at each pipeline level.
 **Alternatives:**
-- New TenantAwareAccumulator wrapping EventAccumulator — adds a type that duplicates KeyedAccumulator's functionality
-- One EventAccumulator per tenant — lifecycle management overhead, unbounded accumulator creation
-- EventAccumulator becomes `Map<String, List<LevelEvent<E>>>` internally — breaks the simple flat-buffer contract
-- Keep `Function<E, K>` and duplicate tenancyId into payload — violates D1's design (tenancyId is event metadata, not payload content)
-**Rationale:** KeyedAccumulator handles per-key grouping with completion predicates and stale timeouts — the concept is correct. The key extractor must be widened to `Function<LevelEvent<E>, K>` so it can access `event.tenancyId()` for tenant partitioning. The current `keyExtractor.apply(event.payload())` in `collect()` cannot reach LevelEvent-level fields. This is a natural companion to D1's #231 breaking change — existing payload-based key extractors change from `e -> e.transactionId()` to `event -> event.payload().transactionId()`, a mechanical migration.
-**Trade-offs:** Breaking change to KeyedAccumulator and KeyedSummarisationRunner constructors — ~1 production call site, ~12 test constructors. Existing callers add `.payload()` to their key extractors. Bundled with #231's LevelEvent breaking change. Windowed levels in multi-tenant pipelines use keyed accumulation under the hood — per-tenant windows rather than global windows, which is correct behavior.
-**Sources:** KeyedAccumulator.java (current `Function<E, K>` signature, `collect()` line 28), KeyedSummarisationRunner.java (current `Function<IN, K>` signature), LevelEvent.tenancyId (D1), R1-13/R2-01 reviewer challenges
+- New TenantAwareAccumulator — duplicates KeyedAccumulator
+- One EventAccumulator per tenant — lifecycle management overhead
+- Keep `Function<E, K>` and duplicate tenancyId into payload — violates D1
+**Rationale:** KeyedAccumulator handles per-key grouping correctly. Widening to `Function<LevelEvent<E>, K>` is the natural companion to D1's breaking change.
+**Trade-offs:** Breaking change to KeyedAccumulator/KeyedSummarisationRunner constructors.
+**Sources:** KeyedAccumulator.java, R1-13/R2-01 reviewer challenges
 **Exploration:** quick (surfaced by reviewer)
-**Status:** revised — acknowledged key extractor API change from `Function<E, K>` to `Function<LevelEvent<E>, K>` per R2-01
+**Status:** revised — acknowledged key extractor API change per R2-01
+
+## D13: Unified summarisation model — StatefulSummariser and framework state management
+
+**Choice:** Add `StatefulSummariser<IN, OUT, S> extends Summariser<IN, OUT>` to summarisation-api. The framework manages state per partition (tenant × key). `SummarisationRunner` detects StatefulSummariser and passes/stores state automatically.
+**Alternatives:**
+- Keep state hidden inside individual summariser implementations (status quo: phase-detect, ContentSummariser) — three separate subsystems with duplicated patterns
+- Add state to Summariser directly — forces statefulness on all summarisers
+**Rationale:** Blocks has three separate batch-transform subsystems (temporal, content, observation) that share the same fundamental pattern: accumulate → batch → transform. They diverge only in statefulness and output type. A unified model with optional state eliminates bridge adapters, shares accumulation infrastructure, and enables ContentSummariser in YAML pipelines. `StatefulSummariser` extends `Summariser` — stateless summarisers are unchanged. Framework state management (per-partition, in-memory, with future persistence SPI hook) replaces ad-hoc state in each implementation.
+**Trade-offs:** Adds one interface and one record to summarisation-api. SummarisationRunner gains state management complexity. Phase-detect must implement StatefulSummariser instead of managing state internally.
+**Sources:** ContentSummariserToSummariser.java (bridge adapter that loses state), phase-detect internal state management, ObservationAccumulator reimplementing EventAccumulator, TieredContentSummariser/TieredObservationRenderer duplication
+**Exploration:** deep-analysis
+**Status:** captured
+
+## D14: ContentSummariser generification — R replaces SummaryResult
+
+**Choice:** `ContentSummariser<T>` becomes `ContentSummariser<T, R>` in summarisation-api (zero deps). The generic `R` replaces the qhorus-api `SummaryResult` dependency. `asSummariser()` default method bridges to `StatefulSummariser<T, R, R>` — no separate bridge class needed. `ContentSummariserToSummariser` is deleted.
+**Alternatives:**
+- Keep ContentSummariser in blocks with SummaryResult — leaves three separate subsystems, requires bridge adapter
+- Define SummaryOutput interface in summarisation-api that SummaryResult implements — requires qhorus-api change
+**Rationale:** Generifying the result type breaks the qhorus coupling cleanly. Consumers use `ContentSummariser<Message, SummaryResult>` — the dependency stays with consumers. `asSummariser()` eliminates the bridge adapter and makes ContentSummariser a first-class pipeline citizen with state. Migration is mechanical: add second type parameter, IntelliJ refactoring handles all call sites.
+**Trade-offs:** Breaking change: `ContentSummariser<T>` → `ContentSummariser<T, R>` across ~10 consumer files. VerbatimContentSummariser moves to summarisation-api as `ContentSummariser<T, String>` (pure Java).
+**Sources:** SummaryResult javap (record: text + annotations — no qhorus-specific behavior), ContentSummariserToSummariser.java (bridge that loses `previous` state)
+**Exploration:** deep-analysis
+**Status:** captured
