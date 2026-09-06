@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-169-wavreader-chunk-ordering
-state: scaffolded
+state: active
 project-sha: 69e131210dae5dae8d56911f6cd155f7ffcf0032
 date: 2026-09-06
 issue-repo: casehubio/blocks
