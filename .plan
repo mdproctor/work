@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-169-wavreader-chunk-ordering
-state: active
+state: closing:promoted
 project-sha: 69e131210dae5dae8d56911f6cd155f7ffcf0032
 date: 2026-09-06
 issue-repo: casehubio/blocks
@@ -11,5 +11,6 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: unknown
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#169 — Issue #169 ← active
