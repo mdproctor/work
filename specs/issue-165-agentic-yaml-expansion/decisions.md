@@ -65,3 +65,41 @@
 **Exploration:** quick
 **Depends on:** D2 (spec records reference strategies by name)
 **Status:** captured
+
+## D6: Annotation-driven spec record generation
+
+**Choice:** Annotate SPI implementations with `@YamlSpec(name = "round-robin")`. A Quarkus deployment step (Jandex scan) generates spec records, sealed interface hierarchies with `@JsonTypeInfo`/`@JsonSubTypes`, and registry registrations. ~35 simple strategies are generated; ~5 complex shapes (HTN, Conditional, etc.) are hand-written.
+**Alternatives:**
+- Hand-write all ~40 spec records — busywork, drifts when implementations evolve
+- Annotation processing (standard Java AP) — doesn't have Jandex, misses CDI context
+**Rationale:** Blocks already has `annotations/deployment/PatternAnnotationStep` — the Quarkus deployment extension pattern is established. The deployment step reads constructor parameters via Jandex: primitives/strings/enums → direct fields, functional interfaces → `@Nullable String` MVEL expression fields, SPI references → nested spec references. Keeps generated specs in sync automatically as implementations are added or modified.
+**Trade-offs:** Complex YAML shapes (recursive task trees, branching) still need hand-written specs. Adds deployment-step complexity. Generated code must be inspectable for debugging.
+**Sources:** blocks annotations/deployment/PatternAnnotationStep, blocks summarisation-yaml-deployment/SummarisationYamlProcessor
+**Exploration:** quick
+**Depends on:** D1 (generated specs are what victools reflects on), D5 (generated registries)
+**Status:** captured
+
+## D7: Drift detection for hand-written specs
+
+**Choice:** Every implementation gets `@YamlSpec` — even complex ones. The deployment step generates a baseline field set from the constructor. A compile-time test verifies hand-written specs cover every baseline field. If someone adds a constructor parameter but forgets to update the spec, the test fails.
+**Alternatives:**
+- No drift detection — hand-written specs rot silently
+- Schema-only drift (victools output vs committed schema) — catches schema drift but not field omissions
+**Rationale:** Generated baseline fields ⊆ hand-written spec fields → pass. Missing field → fail. This catches the most common drift: a new parameter added to the implementation without updating the spec. Combined with the schema drift test (victools output vs committed schema), both structural and content drift are detected.
+**Trade-offs:** Requires all implementations to be annotated, even hand-written ones. Small test maintenance cost.
+**Sources:** engine/generator/SchemaDriftTest.java (schema drift precedent)
+**Exploration:** quick
+**Depends on:** D6 (annotation-driven generation provides the baseline)
+**Status:** captured
+
+## D8: ShorthandModule for YAML ergonomics
+
+**Choice:** Use platform's ShorthandModule (being promoted from neocortex) to enable scalar-or-object shorthand for zero-config strategies. `routing: round-robin` is equivalent to `routing: { type: round-robin }`.
+**Alternatives:**
+- No shorthand — always require object form with `type:` discriminator
+**Rationale:** Many strategies have zero config (RoundRobinRouting, PassThrough, CollectAll, OnExplicitDispatch, etc.). Requiring `{ type: round-robin }` for these is verbose. ShorthandModule generates oneOf(string, object) schema — scalar resolves to the zero-config variant. Better YAML ergonomics for the common case.
+**Trade-offs:** Slightly more complex schema (oneOf). Deserialization needs custom handling for scalar-or-object. ShorthandModule handles this.
+**Sources:** neocortex/schema-generator/ShorthandModule.java (being promoted to platform)
+**Exploration:** quick
+**Depends on:** D1 (ShorthandModule is a victools schema module)
+**Status:** captured
