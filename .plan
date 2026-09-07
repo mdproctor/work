@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-165-agentic-yaml-expansion
-state: scaffolded
+state: active
 project-sha: eecec0b1767b3272d09e371b6238caf7eb14d75f
 date: 2026-09-07
 issue-repo: casehubio/blocks
