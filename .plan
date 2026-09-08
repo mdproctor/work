@@ -24,3 +24,6 @@ flyway-next-v: none
     - [x] Task 6: Secondary specs (negotiation/conversation/normative)
     - [x] Task 7: Schema generation
     - [x] Task 8: Deployment module
+
+## Deferred
+- [ ] Registry extensibility tests (XS / Low) [] — Test that consumers can extend registries with CDI-registered custom strategies. May require rethinking sealed interface extensibility model.
