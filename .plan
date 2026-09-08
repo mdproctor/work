@@ -13,14 +13,14 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#165 — Issue #165 ← active
-  - [ ] Batch 1: Module+Specs
-    - [ ] Task 1: Maven module setup
-    - [ ] Task 2: Strategy+agent spec records
-    - [ ] Task 3: PatternSpec+JudgmentSpec
-  - [ ] Batch 2: Registries+Compiler
-    - [ ] Task 4: Strategy registries+SelectAllRouting
-    - [ ] Task 5: PatternCompiler+expression integration
-  - [ ] Batch 3: Schema+Deploy
-    - [ ] Task 6: Secondary specs (negotiation/conversation/normative)
-    - [ ] Task 7: Schema generation
-    - [ ] Task 8: Deployment module
+  - [x] Batch 1: Module+Specs
+    - [x] Task 1: Maven module setup
+    - [x] Task 2: Strategy+agent spec records
+    - [x] Task 3: PatternSpec+JudgmentSpec
+  - [x] Batch 2: Registries+Compiler
+    - [x] Task 4: Strategy registries+SelectAllRouting
+    - [x] Task 5: PatternCompiler+expression integration
+  - [x] Batch 3: Schema+Deploy
+    - [x] Task 6: Secondary specs (negotiation/conversation/normative)
+    - [x] Task 7: Schema generation
+    - [x] Task 8: Deployment module
