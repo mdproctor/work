@@ -1,0 +1,13 @@
+# Work Plan — blocks agentic-yaml follow-ups
+
+## State
+branch: main
+state: idle
+date: 2026-09-09
+issue-repo: casehubio/blocks
+
+## Queue
+- [ ] casehubio/blocks#242 — Type-safe expression compilation
+- [ ] casehubio/blocks#243 — Schema drift test
+- [ ] casehubio/blocks#244 — AgentDescriptor wiring
+- [ ] casehubio/blocks#245 — Registry extensibility tests
