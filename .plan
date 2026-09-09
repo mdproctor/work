@@ -1,24 +1,15 @@
-# Work Plan — Complete YAML Surface (#246)
+# Work Plan — issue-242-typed-expr-compilation
 
 ## State
-branch: main
-state: idle
-date: 2026-09-09
+branch: issue-242-typed-expr-compilation
+state: scaffolded
+project-sha: 2148b50e6c4baef3e6994efa135b888bab5b7671
+date: 2026-09-10
 issue-repo: casehubio/blocks
-covers: 246
+covers: 242
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/blocks#242 — Type-safe expression compilation
-- [ ] casehubio/blocks#247 — Social cognition configs
-- [ ] casehubio/blocks#248 — Affordance world model
-- [ ] casehubio/blocks#249 — Channel infrastructure
-- [ ] casehubio/blocks#250 — Prompt optimisation
-- [ ] casehubio/blocks#251 — Execution infrastructure
-- [ ] casehubio/blocks#252 — Trust routing oversight
-- [ ] casehubio/blocks#253 — Speech configs
-- [ ] casehubio/blocks#254 — Summarisation gaps
-- [ ] casehubio/blocks#255 — Engine adapter
-- [ ] casehubio/blocks#243 — Schema drift test
-- [ ] casehubio/blocks#244 — AgentDescriptor wiring
-- [ ] casehubio/blocks#245 — Registry extensibility
-- [ ] casehubio/blocks#256 — Comprehensive YAML examples
+- [ ] casehubio/blocks#242 — Issue #242 ← active
