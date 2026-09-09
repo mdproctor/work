@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-242-typed-expr-compilation
-state: scaffolded
+state: active
 project-sha: 2148b50e6c4baef3e6994efa135b888bab5b7671
 date: 2026-09-10
 issue-repo: casehubio/blocks
@@ -12,4 +12,4 @@ design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction a
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/blocks#242 — Issue #242 ← active
+- [x] casehubio/blocks#242 — Issue #242
