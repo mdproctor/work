@@ -1,24 +1,25 @@
-# Session Handover — 2026-09-09
+# Session Handover — 2026-09-10
 
 **Branch:** `main`
 **Epic:** #246 — Complete YAML Surface
-**State:** .plan queue with 14 issues, idle on main
+**State:** .plan queue with 13 issues, idle on main
 
 ## What happened
 
-Implemented #165 (agentic-yaml module) — 8 pattern topologies, 12 strategy registries, PatternCompiler, schema generator, deployment module. 90 tests. Landed on main via work-end with 3 squashed commits.
+Implemented #242 (type-safe expression compilation). Wired per-site `Class<?>` context types into three agentic-yaml registries (RoutingStrategyRegistry, TerminationConditionRegistry, JudgmentTriggerRegistry) so YAML-declared expressions compile and evaluate correctly. Design went through a review cycle that collapsed a 5-decision descriptor architecture into simple per-site compilation — Layer 2 descriptor model deferred to yaml-core when a consumer materialises.
 
-Then ran exhaustive YAML coverage audit across all 13 Maven modules. Found 165 total capabilities — 64 done (39%), 91 gaps. Created `docs/yaml-coverage.md` as the living tracking document. Filed epic #246 with 10 child issues (#242-#256) covering all gap areas.
+Garden entry GE-20260910-27296d captured: MVEL3 PojoAdapter fails for Java records with sealed interface components.
 
 ## Resume point
 
-Run `work` — the .plan queue starts at #242 (type-safe expression compilation). Each issue references `docs/yaml-coverage.md` with the section to update on close.
+Run `work` — the .plan queue starts at #247 (social cognition configs). Each issue references `docs/yaml-coverage.md` with the section to update on close.
 
 ## Key decisions
 
-- Expression compilation deferred from #165: MVEL's ExpressionEngine.compile() can't use Object.class as context type — needs per-site typed compilation
-- Social cognition orchestrators are code-only, but their 13 config records are 100% YAML — highest impact gap area (#247)
-- Examples (#256) deliberately last in queue — should demonstrate the complete surface
+- Per-site compilation (Layer 1): each expression site in the sealed spec hierarchy passes its known Class<?> to ExpressionEngine.compile(). No new types or modules.
+- Layer 2 deferred: yaml-core descriptor model (TypeDescriptor, PropertyDescriptor, ExpressionCompiler SPI) builds when Tier 2 summarisation or dynamic pipeline loading needs YAML-declared context schemas
+- Map projection for records: MVEL3 can't introspect Java records with sealed interface components — compile against Map<String, Object> and project fields explicitly
+- Design decisions in specs/issue-242-typed-expr-compilation/decisions.md (promoted to project docs/specs/)
 
 ## References
 
@@ -26,7 +27,7 @@ Run `work` — the .plan queue starts at #242 (type-safe expression compilation)
 |----------|------|
 | Coverage matrix | `docs/yaml-coverage.md` |
 | Epic | casehubio/blocks#246 |
-| .plan | 14 issues queued, #242 active |
-| Design spec | `specs/issue-165-agentic-yaml-expansion/` |
-| Diary entry | `blog/2026-09-09-mdp01-the-yaml-that-compiles-to-orchestration.md` |
-| Garden entries | GE-20260909-3488d5 (MVEL Object.class), GE-20260909-865486 (victools discriminator) |
+| .plan | 13 issues queued, #247 next |
+| Design spec | `docs/specs/issue-242-typed-expr-compilation/` |
+| Diary entry | `docs/blog/2026-09-10-mdp01-when-the-reviewer-kills-your-architecture.md` |
+| Garden entry | GE-20260910-27296d (MVEL3 record/sealed interface gotcha) |
