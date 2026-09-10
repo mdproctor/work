@@ -2,24 +2,26 @@
 
 **Branch:** `main`
 **Epic:** #246 — Complete YAML Surface
-**State:** .plan queue with 13 issues, idle on main
+**State:** .plan queue with 12 issues, idle on main
 
 ## What happened
 
-Implemented #242 (type-safe expression compilation). Wired per-site `Class<?>` context types into three agentic-yaml registries (RoutingStrategyRegistry, TerminationConditionRegistry, JudgmentTriggerRegistry) so YAML-declared expressions compile and evaluate correctly. Design went through a review cycle that collapsed a 5-decision descriptor architecture into simple per-site compilation — Layer 2 descriptor model deferred to yaml-core when a consumer materialises.
+Two issues landed this session:
 
-Garden entry GE-20260910-27296d captured: MVEL3 PojoAdapter fails for Java records with sealed interface components.
+**#242 — Type-safe expression compilation.** Per-site `Class<?>` compilation in 3 agentic-yaml registries (RoutingStrategyRegistry, TerminationConditionRegistry, JudgmentTriggerRegistry). Design went through a review that collapsed a 5-decision descriptor architecture into simple per-site compilation. Layer 2 descriptor model deferred to yaml-core.
+
+**#247 — Social cognition configs.** 13 spec records with `@Nullable` fields + `CognitionCompiler` that merges partial YAML with `defaults()`. `CognitionDefinition` root type for `cognition.yaml`. Deployment processor discovers config at build time. 104 tests passing.
 
 ## Resume point
 
-Run `work` — the .plan queue starts at #247 (social cognition configs). Each issue references `docs/yaml-coverage.md` with the section to update on close.
+Run `work` — the .plan queue starts at #248 (Affordance world model). Each issue references `docs/yaml-coverage.md` with the section to update on close.
 
 ## Key decisions
 
-- Per-site compilation (Layer 1): each expression site in the sealed spec hierarchy passes its known Class<?> to ExpressionEngine.compile(). No new types or modules.
-- Layer 2 deferred: yaml-core descriptor model (TypeDescriptor, PropertyDescriptor, ExpressionCompiler SPI) builds when Tier 2 summarisation or dynamic pipeline loading needs YAML-declared context schemas
-- Map projection for records: MVEL3 can't introspect Java records with sealed interface components — compile against Map<String, Object> and project fields explicitly
-- Design decisions in specs/issue-242-typed-expr-compilation/decisions.md (promoted to project docs/specs/)
+- Per-site expression compilation (Layer 1): each expression site passes its known Class<?> to ExpressionEngine.compile(). Layer 2 descriptor model deferred.
+- Spec records with @Nullable fields for partial YAML merge — established pattern for all config-shaped types
+- Standalone cognition.yaml (not nested in pattern spec) — configs are application-scoped
+- MVEL3 can't introspect Java records with sealed interface components — compile against Map<String, Object> instead (GE-20260910-27296d)
 
 ## References
 
@@ -27,7 +29,8 @@ Run `work` — the .plan queue starts at #247 (social cognition configs). Each i
 |----------|------|
 | Coverage matrix | `docs/yaml-coverage.md` |
 | Epic | casehubio/blocks#246 |
-| .plan | 13 issues queued, #247 next |
-| Design spec | `docs/specs/issue-242-typed-expr-compilation/` |
+| .plan | 12 issues queued, #248 next |
+| #242 spec | `docs/specs/issue-242-typed-expr-compilation/` |
+| #247 spec | `docs/specs/issue-247-social-cognition-configs/` |
 | Diary entry | `docs/blog/2026-09-10-mdp01-when-the-reviewer-kills-your-architecture.md` |
 | Garden entry | GE-20260910-27296d (MVEL3 record/sealed interface gotcha) |
