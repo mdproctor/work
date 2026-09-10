@@ -1,63 +1,64 @@
 # Decisions — #242 Type-safe Expression Compilation
 
-## D1: Descriptor model ownership — yaml-core
+## D1: Layered architecture — per-site compilation + optional descriptors
 
-**Choice:** yaml-core owns the type descriptor model. Expression engines (MVEL3, JEXL, JQ) adapt to it via bridge modules. yaml-core stays zero-dependency.
+**Choice:** Two layers. Layer 1: per-site compilation where each expression site in the sealed hierarchy passes its known `Class<?>` to `ExpressionEngine.compile()`. Uses existing platform-api types (`ExpressionEngine`, `CompiledExpression<C, R>`). Zero new infrastructure. Layer 2 (future): descriptor model in yaml-core for dynamic/YAML-declared schemas where the context type isn't statically known. Additive — augments Layer 1, doesn't replace it.
 **Alternatives:**
-- MVEL3 owns the model — couples yaml-core to a specific engine
-- Each module defines its own descriptors — duplicates the pattern
-**Rationale:** yaml-core is the shared YAML infrastructure layer. Expression compilation is a cross-cutting concern used by both agentic-yaml and summarisation-yaml. Owning the descriptor model in yaml-core gives both modules a shared contract without introducing engine dependencies.
-**Trade-offs:** Creates a descriptor hierarchy parallel to MVEL3's Type/Declaration. Bridge module handles the mapping.
-**Sources:** platform/yaml-core/pom.xml (zero deps, J2CL-transpilable), MVEL3 Type.java, CompilerParameters.java
+- Descriptor-only (original D1-D5) — over-engineered for the immediate problem; creates parallel type infrastructure when per-site compilation solves all current cases
+- Per-site only, no descriptor model — solves #242 but doesn't establish shared infrastructure for Tier 2 summarisation or dynamic pipeline loading
+**Rationale:** The reviewer (R1-07) correctly identified that all current expression sites have statically-known context types. Per-site compilation is the simplest correct solution. But Tier 2 summarisation pipelines and dynamic YAML loading will need YAML-declared context schemas — the descriptor model provides that when needed, without complicating Layer 1.
+**Trade-offs:** Layer 2 is deferred — no shared descriptor infrastructure in this issue. Consumers needing dynamic schemas will need to wait for Layer 2 or use ExpressionEngine directly with Class<?>.
+**Sources:** R1-07 reviewer challenge, issue #242 body ("per-site compilation strategy"), summarisation-yaml D7 ("Tier 1 uses Map, Tier 2 uses domain types")
+**Exploration:** quick → revised after light decision review
+**Status:** revised — replaces original D1-D5
+
+## D2: Per-site type mapping — sealed hierarchy determines context type
+
+**Choice:** Each expression site in the spec sealed hierarchy maps to a known context type. The compiler switch statement uses the concrete type. No dynamic resolution needed.
+**Alternatives:**
+- Map<String, Class<?>> lookup table — unnecessary indirection when the switch already knows the type
+- Annotation-based site declaration — over-engineered for <10 sites
+**Rationale:** The sealed hierarchy IS the type registry. `FirstMatch.guard` → `RoutingCandidate`, `GoalReached.when` → `Map<String, Object>` (MVEL duck-typing for generic T), `ConfidenceThreshold.extractor` → `JudgmentContext`. The compiler already walks the hierarchy — adding the Class<?> at each case is the natural location.
+**Trade-offs:** Adding a new expression site requires updating the compiler switch. This is appropriate — each new site is a deliberate design choice that should specify its context type.
+**Sources:** PatternCompiler.java (existing switch walk), TerminationConditionRegistry.java (GoalReached throws UnsupportedOperationException), JudgmentTriggerRegistry.java (ConfidenceThreshold throws)
 **Exploration:** quick
+**Depends on:** D1 (Layer 1 approach)
 **Status:** captured
 
-## D2: Type names — string-based
+## D3: Generic T sites — compile against Map<String, Object>
 
-**Choice:** Property types in descriptors are string-based (`"double"`, `"string"`, `"io.casehub.blocks.agentic.RoutingCandidate"`), not `Class<?>` tokens. A `Map<String, Class<?>>` type resolver in the bridge module maps strings to classes at compilation time.
+**Choice:** For expression sites where the context type is generic `T` (e.g., `GoalReached.when` evaluates against `T` which is only known at runtime), compile against `Map<String, Object>`. MVEL duck-types property access against maps transparently.
 **Alternatives:**
-- Class-token based (`Class<?>` directly) — simpler bridge but requires context type on classpath at descriptor construction time; can't describe types not yet available
-**Rationale:** String-based names are the only way to support YAML-declared schemas where the domain type might not be on the classpath (Tier 2 summarisation pipelines, dynamic loading). The type resolver provides built-in primitive mappings, consumer-registered domain types, and optional `Class.forName()` fallback for qualified names.
-**Trade-offs:** Requires string → Class resolution step. Type errors surface at compilation time rather than descriptor construction time.
-**Sources:** MVEL3 Type.java (uses Class<?>), ThresholdClassifySummariser.java (Map.class context), issue #242 body (per-site typed compilation)
+- Compile against `Object.class` — throws `IntrospectionException` in MvelExpressionEngine (the root problem in #242)
+- Require POJO type declaration in YAML — pushes complexity to YAML authors for Layer 1; appropriate for Layer 2
+**Rationale:** Map is MVEL's universal fallback — property access like `score > 0.8` works whether the context is a Map with a "score" key or a POJO with a `getScore()` method. This is exactly what summarisation-yaml already does successfully with ThresholdClassifySummariser.
+**Trade-offs:** Loses compile-time property validation for generic-T sites. Misspelled property names become runtime errors, not compile-time errors. Layer 2 descriptors would fix this.
+**Sources:** ThresholdClassifySummariser.java line 46 (Map.class cast), MVEL3 MapEvaluator.java, issue #242 body ("GoalReached.when → compile against Map<String, Object>")
 **Exploration:** quick
-**Depends on:** D1 (yaml-core ownership means no platform-api dependency, therefore no Class<?>)
+**Depends on:** D2 (per-site mapping)
 **Status:** captured
 
-## D3: Descriptor shape — mirrors MVEL3's ContextType with string types
+## D4: Reuse CompiledExpression<C, R> from platform-api
 
-**Choice:** `TypeDescriptor` sealed interface with `Pojo`, `MapType`, `ListType` variants. Each carries a `ContextKind` (POJO/MAP/LIST) mirroring MVEL3's `ContextType` enum. `PropertyDescriptor` supports nested structures for deep property access validation.
+**Choice:** Use `CompiledExpression<C, R>` from `casehub-platform-api` directly. No new handle type. The registries compile to `CompiledExpression` and wire it into the runtime SPIs.
 **Alternatives:**
-- Flat map of property names to type strings — no nested type support
-- JSON Schema subset — heavier, over-engineered for this use case
-**Rationale:** MVEL3 already distinguishes POJO/MAP/LIST contexts and generates different evaluator classes for each (PojoEvaluator, MapEvaluator, ArrayEvaluator). Mirroring this in yaml-core's model ensures a clean 1:1 mapping in the bridge. String type names keep it zero-dep while supporting the same structural information.
-**Trade-offs:** Slightly more complex than a flat property map, but accurately models the context shapes MVEL3 needs.
-**Sources:** MVEL3 ContextType.java (POJO/MAP/LIST/NONE), PojoEvaluator.java, MapEvaluator.java, ArrayEvaluator.java
+- New CompiledHandle<C, R> in yaml-core — duplicates CompiledExpression, violates platform capability ownership
+**Rationale:** `CompiledExpression<C, R>` already has `R eval(C context)` and is backed by MVEL3-generated typed bytecode. `ThresholdClassifySummariser` already uses it. Summarisation-yaml D9 explicitly established this as the precedent. No reason to create a parallel type.
+**Trade-offs:** Both blocks yaml modules already depend on platform-api (provided scope). No new dependency.
+**Sources:** CompiledExpression.java (platform-api), ThresholdClassifySummariser.java (existing usage), summarisation-yaml D9 ("typed compilation via CompiledExpression")
 **Exploration:** quick
-**Depends on:** D1 (yaml-core ownership), D2 (string-based type names)
+**Depends on:** D1 (Layer 1 uses existing types)
 **Status:** captured
 
-## D4: CompiledHandle — generic <C, R>
+## D5: Layer 2 descriptor model — yaml-core, deferred
 
-**Choice:** `CompiledHandle<C, R>` with `R eval(C context)`. Fully generic because MVEL3 code-generates to the actual generic types, not Object.
+**Choice:** Descriptor model (`TypeDescriptor`, `PropertyDescriptor`, `ExpressionCompiler` SPI) lives in yaml-core with zero deps. String-based type names. Bridge module resolves strings to `Class<?>` via `Map<String, Class<?>>` type resolver. Deferred to a future issue — not in scope for #242.
 **Alternatives:**
-- Erased handle `CompiledHandle<R>` with `R eval(Object context)` — simpler but incorrect; MVEL3 generates typed bytecode, not Object-based
-**Rationale:** MVEL3 generates evaluator classes with the actual type parameters in the bytecode. The generic C is meaningful — the generated code accesses properties on the typed context directly, not via reflection. Erasing to Object would lose this and force unnecessary casting.
-**Trade-offs:** The generic C can't be statically enforced at the yaml-core SPI level (descriptor uses strings, not Class<C>), but it is enforced at the bridge level when the class is resolved.
-**Sources:** MVEL3 CompilerParameters.java (Declaration<T> contextDeclaration, Type<R> outType), PojoEvaluator.java (generated typed bytecode)
+- Implement now — over-engineered for current needs; no consumer exists yet
+- Never implement — Tier 2 summarisation and dynamic loading will eventually need it
+**Rationale:** The descriptor model is the right long-term architecture for YAML-declared schemas, but no current consumer needs it. All current expression sites have statically-known types. Build it when the first consumer (likely Tier 2 summarisation or dynamic pipeline loading) materialises.
+**Trade-offs:** Tier 2 consumers must wait. Layer 1 per-site compilation covers all current use cases.
+**Sources:** summarisation-yaml D7 ("Tier 2 uses domain types"), yaml-core pom.xml (zero deps constraint), MVEL3 ContextType/Type/Declaration model
 **Exploration:** quick
-**Depends on:** D2 (string types resolved to Class<C> in bridge)
-**Status:** captured
-
-## D5: Bridge module — yaml-expression in platform
-
-**Choice:** New `yaml-expression` module in platform, depends on yaml-core + platform-api. Contains `TypeResolver` (Map<String, Class<?>> with built-in primitives, consumer registration, Class.forName fallback) and `ExpressionEngineCompiler` (adapts ExpressionCompiler SPI to platform ExpressionEngine). Both agentic-yaml and summarisation-yaml depend on yaml-core for the SPI and yaml-expression for the runtime wiring.
-**Alternatives:**
-- Add platform-api as dependency to yaml-core — breaks zero-dep/J2CL constraint
-- Each blocks module writes its own bridge — duplicates the type resolution logic
-**Rationale:** Centralises the string → Class → MVEL3 Type/Declaration pipeline in one place. TypeResolver is shared infrastructure — every YAML module that compiles expressions needs primitive mappings and domain type registration.
-**Trade-offs:** One more Maven module in platform. But it naturally parallels the existing platform-expression module (which provides ExpressionEngine implementations).
-**Sources:** platform/yaml-core/pom.xml (zero deps constraint), platform-expression (existing ExpressionEngine implementations), agentic-yaml PatternCompiler.java, summarisation-yaml ThresholdClassifySummariser.java
-**Exploration:** quick
-**Depends on:** D1 (yaml-core owns SPI), D2 (string types need resolver)
+**Depends on:** D1 (layered architecture)
 **Status:** captured
