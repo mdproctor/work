@@ -234,6 +234,12 @@ Only the threshold fields are YAML-expressible. The `eventRenderer`,
 `groupKeyExtractor`, and `summariser` are `Function`/`Summariser` instances — code-only.
 Coverage matrix stays "Partial" for TieredObservationRenderer.
 
+Semantics: `verbatimThreshold` is required when the renderer section is present.
+`groupedThreshold` is optional — when absent, the consumer gets 2-tier mode
+(verbatim up to threshold, grouped above). When both are present, 3-tier mode
+(verbatim → grouped → summarised). The compiler validates
+`groupedThreshold > verbatimThreshold` when both are specified.
+
 ### Compiler
 
 ```java
@@ -303,7 +309,7 @@ public record CompiledWorld(
 
     public record RendererThresholds(
         int verbatimThreshold,
-        int groupedThreshold) {}
+        @Nullable Integer groupedThreshold) {}
 }
 ```
 
