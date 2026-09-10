@@ -11,3 +11,15 @@
 **Sources:** PatternSpec.java (established pattern), DriveConfig.java (representative config), issue #247 body
 **Exploration:** quick
 **Status:** captured
+
+## D2: Standalone cognition.yaml file
+
+**Choice:** Configs live in a standalone `cognition.yaml` file discovered on the classpath by the deployment module. Top-level sections map to config types (`drive:`, `mood:`, `narrative:`, etc.). Each section is optional — omitted sections use `defaults()`. The deployment module deserializes and registers compiled configs as CDI beans.
+**Alternatives:**
+- Nested in PatternSpec under `cognition:` block — implies per-pattern config, but configs are application-scoped (shared across all patterns in the same app)
+**Rationale:** Configs are application-scoped, not pattern-scoped. A supervisor and a debate pattern in the same app share the same drive/mood/narrative configs. Standalone file follows the summarisation-yaml precedent (`pipeline.yaml` → `PipelineCompiler`). Deployment module discovery is the established Quarkus pattern.
+**Trade-offs:** Separate file from pattern YAML — YAML author manages two files. But the concerns are genuinely different (orchestration topology vs cognitive tuning).
+**Sources:** SummarisationYamlProcessor.java (YAML discovery precedent), DriveOrchestrator.java (@ApplicationScoped — application-wide config), issue #247 body
+**Exploration:** quick
+**Depends on:** D1 (spec records are what the YAML deserializes into)
+**Status:** captured
