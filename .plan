@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-247-social-cognition-configs
-state: active
+state: closing:promoted
 project-sha: e61b5e1
 date: 2026-09-10
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#246 — Issue #246 ← active
 - [ ] casehubio/blocks#247 — Social cognition configs
