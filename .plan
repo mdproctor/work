@@ -6,7 +6,7 @@ state: active
 project-sha: e61b5e1
 date: 2026-09-10
 issue-repo: casehubio/blocks
-covers: 246
+covers: 247
 design-repo: project
 design-section-hashes: 
 flyway-next-v: none
