@@ -13,18 +13,16 @@ flyway-next-v: none
 
 ## Queue
 - [x] casehubio/blocks#246 — Issue #246
-- [ ] casehubio/blocks#248 — Affordance world model ← active
-  - [x] Batch 1: Spec Records
-    - [x] Task 1: AffordanceSpec EntitySpec records
-    - [x] Task 2: ObservationSectionSpec sealed interface
-    - [x] Task 3: FilterSpec RendererSpec WorldDefinition
-  - [x] Batch 2: Compiler
-    - [x] Task 4: ObservationFilterRegistry and CompiledWorld
-    - [x] Task 5: WorldCompiler
-  - [x] Batch 3: Deployment
-    - [x] Task 6: Processor and recorder
-    - [x] Task 7: Coverage matrix update
-- [ ] casehubio/blocks#249 — Channel infrastructure
+- [x] casehubio/blocks#248 — Affordance world model
+- [ ] casehubio/blocks#249 — Channel infrastructure ← active
+  - [ ] Batch 1: Negotiation
+    - [ ] Task 1: Termination types in TerminationSpec
+    - [ ] Task 2: NegotiationCompiler + CompiledNegotiation
+  - [ ] Batch 2: Channel
+    - [ ] Task 3: Spec records (AgentParticipant ChannelBinding etc)
+    - [ ] Task 4: ConversationCompiler + CompiledConversation
+  - [ ] Batch 3: Docs
+    - [ ] Task 5: Coverage matrix update
 - [ ] casehubio/blocks#250 — Prompt optimisation
 - [ ] casehubio/blocks#251 — Execution infrastructure
 - [ ] casehubio/blocks#252 — Trust routing oversight
