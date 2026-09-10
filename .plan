@@ -1,8 +1,8 @@
 # Work Plan — main
 
 ## State
-branch: main
-state: scaffolded
+branch: issue-247-social-cognition-configs
+state: active
 project-sha: e61b5e1
 date: 2026-09-10
 issue-repo: casehubio/blocks
