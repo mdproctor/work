@@ -1,19 +1,19 @@
 # Work Plan — main
 
 ## State
-branch: main
-state: scaffolded
-project-sha: 5a3e5dd
+branch: issue-248-affordance-world-model
+state: active
+project-sha: 5a3e5dd3cccb3fc6ccb6940118ccdb06061c39ad
 date: 2026-09-10
 issue-repo: casehubio/blocks
-covers: 246
+covers: 248
 design-repo: project
-design-section-hashes: 
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/blocks#246 — Issue #246 ← active
-- [ ] casehubio/blocks#248 — Affordance world model
+- [x] casehubio/blocks#246 — Issue #246
+- [ ] casehubio/blocks#248 — Affordance world model ← active
 - [ ] casehubio/blocks#249 — Channel infrastructure
 - [ ] casehubio/blocks#250 — Prompt optimisation
 - [ ] casehubio/blocks#251 — Execution infrastructure
