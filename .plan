@@ -15,14 +15,14 @@ flyway-next-v: none
 - [x] casehubio/blocks#246 — Issue #246
 - [x] casehubio/blocks#248 — Affordance world model
 - [ ] casehubio/blocks#249 — Channel infrastructure ← active
-  - [ ] Batch 1: Negotiation
-    - [ ] Task 1: Termination types in TerminationSpec
-    - [ ] Task 2: NegotiationCompiler + CompiledNegotiation
-  - [ ] Batch 2: Channel
-    - [ ] Task 3: Spec records (AgentParticipant ChannelBinding etc)
-    - [ ] Task 4: ConversationCompiler + CompiledConversation
-  - [ ] Batch 3: Docs
-    - [ ] Task 5: Coverage matrix update
+  - [x] Batch 1: Negotiation
+    - [x] Task 1: Termination types in TerminationSpec
+    - [x] Task 2: NegotiationCompiler + CompiledNegotiation
+  - [x] Batch 2: Channel
+    - [x] Task 3: Spec records (AgentParticipant ChannelBinding etc)
+    - [x] Task 4: ConversationCompiler + CompiledConversation
+  - [x] Batch 3: Docs
+    - [x] Task 5: Coverage matrix update
 - [ ] casehubio/blocks#250 — Prompt optimisation
 - [ ] casehubio/blocks#251 — Execution infrastructure
 - [ ] casehubio/blocks#252 — Trust routing oversight
