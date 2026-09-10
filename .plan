@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-242-typed-expr-compilation
-state: active
+state: closing:promoted
 project-sha: 2148b50e6c4baef3e6994efa135b888bab5b7671
 date: 2026-09-10
 issue-repo: casehubio/blocks
@@ -11,5 +11,6 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [x] casehubio/blocks#242 — Issue #242
