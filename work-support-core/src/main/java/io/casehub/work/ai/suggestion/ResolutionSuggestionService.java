@@ -2,116 +2,67 @@ package io.casehub.work.ai.suggestion;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import io.casehub.work.api.WorkItem;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
-
-import org.jboss.logging.Logger;
-
 import dev.langchain4j.model.chat.ChatModel;
-import io.casehub.work.ai.config.WorkItemsAiConfig;
+import io.casehub.work.api.WorkItem;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.api.WorkItemQuery;
 import io.casehub.work.api.spi.WorkItemStore;
 
-/**
- * Finds similar completed WorkItems and calls a {@link ChatModel} to suggest
- * a resolution for the given WorkItem.
- *
- * <p>
- * When no {@code ChatModel} is configured, returns {@code null} as the suggestion
- * so the endpoint can report {@code modelAvailable: false} without failing.
- *
- * <p>
- * Example selection strategy: same category, most recently completed, up to
- * {@code casehub.work.ai.suggestion.history-limit} items (default 5).
- * Falls back to all completed items when category is null or yields no results.
- */
-@ApplicationScoped
 public class ResolutionSuggestionService {
 
-    private static final Logger LOG = Logger.getLogger(ResolutionSuggestionService.class);
+    private static final Logger LOG = Logger.getLogger(ResolutionSuggestionService.class.getName());
 
     private final WorkItemStore workItemStore;
     private final ChatModel chatModel;
     private final int historyLimit;
 
-    @Inject
     public ResolutionSuggestionService(
             final WorkItemStore workItemStore,
-            final Instance<ChatModel> chatModelInstance,
-            final WorkItemsAiConfig config) {
-        this.workItemStore = workItemStore;
-        this.chatModel = chatModelInstance.isResolvable() ? chatModelInstance.get() : null;
-        this.historyLimit = config.suggestion().historyLimit();
-    }
-
-    /** Package-private constructor for unit tests. */
-    ResolutionSuggestionService(final WorkItemStore workItemStore,
-            final ChatModel chatModel, final int historyLimit) {
+            final ChatModel chatModel,
+            final int historyLimit) {
         this.workItemStore = workItemStore;
         this.chatModel = chatModel;
         this.historyLimit = historyLimit;
     }
 
-    /**
-     * Returns {@code true} when a {@link ChatModel} bean is configured.
-     *
-     * @return true if a chat model is available
-     */
     public boolean isModelAvailable() {
         return chatModel != null;
     }
 
-    /**
-     * Suggest a resolution for {@code workItem} based on similar past completions.
-     *
-     * @param workItem the WorkItem to generate a suggestion for
-     * @return suggested resolution JSON string, or {@code null} if no suggestion could be produced
-     */
     public String suggest(final WorkItem workItem) {
         if (chatModel == null) {
             return null;
         }
         final List<WorkItem> examples = findExamples(workItem);
         if (examples.isEmpty()) {
-            LOG.debugf("No completed examples found for WorkItem %s — skipping suggestion", workItem.id());
+            LOG.fine("No completed examples found for WorkItem " + workItem.id() + " — skipping suggestion");
             return null;
         }
         try {
             final String prompt = buildPrompt(workItem, examples);
             return chatModel.chat(prompt);
         } catch (final Exception e) {
-            LOG.warnf("ChatModel call failed for WorkItem %s: %s", workItem.id(), e.getMessage());
+            LOG.warning("ChatModel call failed for WorkItem " + workItem.id() + ": " + e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Returns the number of past examples that would be used for a suggestion,
-     * without calling the model. Useful for the {@code basedOn} response field.
-     *
-     * @param workItem the WorkItem to find examples for
-     * @return number of examples found
-     */
     public int exampleCount(final WorkItem workItem) {
         return findExamples(workItem).size();
     }
 
     private List<WorkItem> findExamples(final WorkItem workItem) {
-        // First try: same type (most informative)
         if (!workItem.types().isEmpty()) {
-            final String               primaryType = workItem.types().iterator().next();
-            final List<WorkItem> byType      = completedWithResolution(primaryType);
+            final String primaryType = workItem.types().iterator().next();
+            final List<WorkItem> byType = completedWithResolution(primaryType);
             if (!byType.isEmpty()) {
                 return byType;
             }
         }
-        // Fallback: any completed item with a resolution
         return completedWithResolution(null);
     }
 

@@ -1,6 +1,5 @@
 package io.casehub.work.ai.skill;
 
-import io.casehub.work.ai.config.WorkItemsAiConfig;
 import io.casehub.work.api.AssignmentDecision;
 import io.casehub.work.api.Capability;
 import io.casehub.work.api.SelectionContext;
@@ -10,36 +9,19 @@ import io.casehub.work.api.WorkerCandidate;
 import io.casehub.work.api.spi.SkillMatcher;
 import io.casehub.work.api.spi.WorkerSelectionStrategy;
 import io.casehub.work.core.strategy.LeastLoadedStrategy;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-/**
- * Assigns work to the candidate whose skill profile best matches the work item's
- * semantic content.
- *
- * <p>
- * Auto-activates when {@code quarkus-work-ai} is on the classpath —
- * {@code @Alternative @Priority(1)} overrides the config-selected built-in strategy
- * without requiring a beans.xml entry.
- *
- * <p>
- * When disabled ({@code casehub.work.ai.semantic.enabled=false}) or when
- * all candidates score below the threshold, falls back to {@link LeastLoadedStrategy}
- * so workload-aware routing still fires even when AI is unavailable.
- */
-@ApplicationScoped
 public class SemanticWorkerSelectionStrategy implements WorkerSelectionStrategy {
 
     @Override
     public String id() { return "semantic"; }
 
-    private static final Logger LOG = Logger.getLogger(SemanticWorkerSelectionStrategy.class);
+    private static final Logger LOG = Logger.getLogger(SemanticWorkerSelectionStrategy.class.getName());
 
     private final SkillProfileProvider profileProvider;
     private final SkillMatcher matcher;
@@ -47,23 +29,12 @@ public class SemanticWorkerSelectionStrategy implements WorkerSelectionStrategy 
     private final boolean enabled;
     private final double scoreThreshold;
 
-    @Inject
     public SemanticWorkerSelectionStrategy(
             final SkillProfileProvider profileProvider,
             final SkillMatcher matcher,
             final LeastLoadedStrategy fallback,
-            final WorkItemsAiConfig config) {
-        this.profileProvider = profileProvider;
-        this.matcher = matcher;
-        this.fallback = fallback;
-        this.enabled = config.semantic().enabled();
-        this.scoreThreshold = config.semantic().scoreThreshold();
-    }
-
-    /** Package-private constructor for unit tests — bypasses CDI and config. */
-    SemanticWorkerSelectionStrategy(final SkillProfileProvider profileProvider,
-            final SkillMatcher matcher, final LeastLoadedStrategy fallback,
-            final boolean enabled, final double scoreThreshold) {
+            final boolean enabled,
+            final double scoreThreshold) {
         this.profileProvider = profileProvider;
         this.matcher = matcher;
         this.fallback = fallback;
@@ -91,14 +62,15 @@ public class SemanticWorkerSelectionStrategy implements WorkerSelectionStrategy 
                     .max(Comparator.comparingDouble(cs -> cs.score))
                     .map(cs -> AssignmentDecision.assignTo(cs.candidate.id()))
                     .orElseGet(() -> {
-                        LOG.warnf("SemanticWorkerSelectionStrategy: no candidate scored above "
+                        LOG.warning(String.format(
+                                "SemanticWorkerSelectionStrategy: no candidate scored above "
                                 + "threshold %.2f — falling back to LeastLoadedStrategy",
-                                scoreThreshold);
+                                scoreThreshold));
                         return fallback.select(context, candidates);
                     });
         } catch (final Exception e) {
-            LOG.warnf("SemanticWorkerSelectionStrategy failed: %s — falling back to "
-                    + "LeastLoadedStrategy", e.getMessage());
+            LOG.warning("SemanticWorkerSelectionStrategy failed: " + e.getMessage()
+                    + " — falling back to LeastLoadedStrategy");
             return fallback.select(context, candidates);
         }
     }

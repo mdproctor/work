@@ -5,10 +5,6 @@ import io.casehub.work.api.spi.SkillProfileProvider;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.api.WorkItemQuery;
 import io.casehub.work.api.spi.WorkItemStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -18,30 +14,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Builds a {@link SkillProfile} from a worker's completed WorkItem history.
- *
- * <p>
- * Aggregates category frequencies from the most recent N completed items.
- * Example narrative: {@code "Completed work: legal×23, nda×18, finance×4"}.
- * Activate by declaring {@code @Alternative @Priority(1)} on a producer or subclass.
- */
-@ApplicationScoped
-@Alternative
 public class ResolutionHistorySkillProfileProvider implements SkillProfileProvider {
 
     private final WorkItemStore workItemStore;
     private final int historyLimit;
 
-    /**
-     * CDI constructor — uses Panache-backed store and config-supplied limit.
-     * Also used directly in unit tests (bypassing CDI) by passing the store and limit
-     * as plain constructor arguments.
-     */
-    @Inject
-    public ResolutionHistorySkillProfileProvider(
-            final WorkItemStore workItemStore,
-            @ConfigProperty(name = "casehub.work.ai.semantic.history-limit", defaultValue = "50") final int historyLimit) {
+    public ResolutionHistorySkillProfileProvider(final WorkItemStore workItemStore, final int historyLimit) {
         this.workItemStore = workItemStore;
         this.historyLimit = historyLimit;
     }
@@ -61,8 +39,6 @@ public class ResolutionHistorySkillProfileProvider implements SkillProfileProvid
                         wi -> wi.completedAt() != null ? wi.completedAt() : Instant.EPOCH,
                         Comparator.reverseOrder()))
                 .limit(historyLimit)
-                // Primary type only: avoids double-counting multi-typed items in the frequency map.
-                // LinkedHashSet preserves insertion order, so iterator().next() is deterministic.
                 .collect(Collectors.groupingBy(wi -> wi.types().iterator().next(), Collectors.counting()));
 
         if (frequencies.isEmpty()) {
