@@ -20,7 +20,7 @@ flyway-next-v: unknown
     - [x] Task 3: L1 heuristic summariser
     - [x] Task 4: L2 LLM summariser with template fallback
     - [x] Task 5: NarrativeSignalStrategy SPI + pipeline factory
-  - [ ] Batch 3: Pipeline wiring
-    - [ ] Task 6: Pipeline integration test
-    - [ ] Task 7: YAML-style example test
+  - [x] Batch 3: Pipeline wiring
+    - [x] Task 6: Pipeline integration test
+    - [x] Task 7: YAML-style example test
 - [ ] casehubio/blocks#259 — retrofit identity narratives onto enhanced summarisation pipeline
