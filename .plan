@@ -16,7 +16,7 @@ flyway-next-v: unknown
   - [x] Batch 1: Pipeline enhancement
     - [x] Task 1: StatefulSummariser support for KeyedSummarisationRunner
   - [ ] Batch 2: Narrative types
-    - [ ] Task 2: DecisionSignal sealed hierarchy + output records
+    - [x] Task 2: DecisionSignal sealed hierarchy + output records
     - [ ] Task 3: L1 heuristic summariser
     - [ ] Task 4: L2 LLM summariser with template fallback
     - [ ] Task 5: NarrativeSignalStrategy SPI + pipeline factory
