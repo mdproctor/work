@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.networknt.schema.JsonSchema;
@@ -29,7 +27,6 @@ import com.networknt.schema.ValidationMessage;
  * @see <a href="https://github.com/mdproctor/quarkus-work/issues/108">Issue #108</a>
  * @see <a href="https://github.com/mdproctor/quarkus-work/issues/98">Epic #98</a>
  */
-@ApplicationScoped
 public class FormSchemaValidationService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

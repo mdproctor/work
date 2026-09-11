@@ -1,10 +1,7 @@
 package io.casehub.work.runtime.service;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
 import io.casehub.work.api.spi.ExclusionPolicy;
 import io.casehub.work.api.PolicyDecision;
-import io.quarkus.arc.DefaultBean;
 
 /**
  * Default {@link ExclusionPolicy} — checks whether {@code userId} appears in a
@@ -15,8 +12,6 @@ import io.quarkus.arc.DefaultBean;
  * <p>To replace this with custom logic, declare
  * {@code @Alternative @Priority(1) @ApplicationScoped} on your implementation.
  */
-@ApplicationScoped
-@DefaultBean
 public class CommaSeparatedExclusionPolicy implements ExclusionPolicy {
 
     @Override

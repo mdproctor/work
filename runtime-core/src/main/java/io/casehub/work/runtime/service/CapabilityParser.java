@@ -5,7 +5,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.jboss.logging.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import io.casehub.work.api.Capability;
 import io.casehub.work.api.MalformedCapabilityException;
@@ -18,7 +19,7 @@ import io.casehub.work.api.MalformedCapabilityException;
  */
 public final class CapabilityParser {
 
-    private static final Logger LOG = Logger.getLogger(CapabilityParser.class);
+    private static final Logger LOG = Logger.getLogger(CapabilityParser.class.getName());
 
     private CapabilityParser() {}
 
@@ -52,7 +53,7 @@ public final class CapabilityParser {
                     try {
                         return Stream.of(Capability.of(s));
                     } catch (MalformedCapabilityException e) {
-                        LOG.warnf("Skipping malformed capability string in DB row: '%s'", s);
+                        LOG.log(Level.WARNING, "Skipping malformed capability string in DB row: ''" + s + "''");
                         return Stream.empty();
                     }
                 })

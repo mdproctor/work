@@ -396,7 +396,7 @@ The YAML config is deployment-wide, not per-tenant. Per-tenant SLA overrides rem
 ## References
 
 - `runtime/src/main/java/io/casehub/work/runtime/service/ExpiryLifecycleService.java:183` — `resolveBreachDecision()` per-item → policy chain
-- `runtime/src/main/java/io/casehub/work/runtime/service/NoOpSlaBreachPolicy.java` — existing default policy
+- `../../../runtime-core/src/main/java/io/casehub/work/runtime/service/NoOpSlaBreachPolicy.java` — existing default policy
 - `runtime/src/main/java/io/casehub/work/runtime/service/WorkItemTemplateYamlLoader.java` — classpath YAML loading pattern
 - `runtime/src/main/java/io/casehub/work/runtime/config/WorkItemsConfig.java:153` — `SlaConfig` interface
 - `api/src/main/java/io/casehub/work/api/spi/SlaBreachPolicy.java` — SPI interface (unchanged)

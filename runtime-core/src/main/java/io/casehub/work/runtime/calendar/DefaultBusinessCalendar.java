@@ -12,12 +12,8 @@ import java.util.EnumSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
 import io.casehub.work.api.spi.BusinessCalendar;
 import io.casehub.work.api.spi.HolidayCalendar;
-import io.casehub.work.runtime.config.WorkItemsConfig;
 
 /**
  * Default {@link BusinessCalendar} implementation driven by
@@ -34,29 +30,24 @@ import io.casehub.work.runtime.config.WorkItemsConfig;
  * Override the entire calendar by providing a CDI {@code @ApplicationScoped}
  * bean that implements {@link BusinessCalendar} with {@code @Alternative @Priority(1)}.
  */
-@ApplicationScoped
 public class DefaultBusinessCalendar implements BusinessCalendar {
 
     private final ZoneId defaultZone;
     private final LocalTime dayStart;
     private final LocalTime dayEnd;
     private final Set<DayOfWeek> workDays;
+    private final HolidayCalendar holidayCalendar;
 
-    @Inject
-    HolidayCalendar holidayCalendar;
-
-    /** Test-only override — set directly in unit tests to avoid CDI. */
-    HolidayCalendar holidayCalendarForTest;
-
-    @Inject
-    public DefaultBusinessCalendar(final WorkItemsConfig config) {
-        this.defaultZone = ZoneId.of(config.businessHours().timezone());
-        this.dayStart = LocalTime.parse(config.businessHours().start());
-        this.dayEnd = LocalTime.parse(config.businessHours().end());
-        this.workDays = Arrays.stream(config.businessHours().workDays().split(","))
+    public DefaultBusinessCalendar(final String timezone, final String start, final String end,
+            final String workDaysConfig, final HolidayCalendar holidayCalendar) {
+        this.defaultZone = ZoneId.of(timezone);
+        this.dayStart = LocalTime.parse(start);
+        this.dayEnd = LocalTime.parse(end);
+        this.workDays = Arrays.stream(workDaysConfig.split(","))
                 .map(String::trim)
                 .map(DefaultBusinessCalendar::parseDayOfWeek)
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(DayOfWeek.class)));
+        this.holidayCalendar = holidayCalendar;
     }
 
     @Override
@@ -131,7 +122,7 @@ public class DefaultBusinessCalendar implements BusinessCalendar {
             return false;
         }
         final LocalDate date = zdt.toLocalDate();
-        final HolidayCalendar holidays = holidayCalendarForTest != null ? holidayCalendarForTest : holidayCalendar;
+        final HolidayCalendar holidays = holidayCalendar;
         if (holidays != null && holidays.isHoliday(date, zone)) {
             return false;
         }

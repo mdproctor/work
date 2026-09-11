@@ -6,8 +6,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import java.util.Optional;
+
 import io.casehub.work.api.spi.HolidayCalendar;
-import io.casehub.work.runtime.config.WorkItemsConfig;
 
 /**
  * {@link HolidayCalendar} backed by a static list of dates read from
@@ -15,7 +16,7 @@ import io.casehub.work.runtime.config.WorkItemsConfig;
  *
  * <p>
  * This class is a plain Java implementation — it is instantiated by
- * {@link HolidayCalendarProducer} and is not a CDI bean itself.
+ * a CDI producer and is not a CDI bean itself.
  *
  * <p>
  * To use a different holiday source, either:
@@ -30,8 +31,8 @@ public class ConfigHolidayCalendar implements HolidayCalendar {
 
     private final Set<LocalDate> holidays;
 
-    public ConfigHolidayCalendar(final WorkItemsConfig config) {
-        this.holidays = config.businessHours().holidays()
+    public ConfigHolidayCalendar(final Optional<String> holidaysConfig) {
+        this.holidays = holidaysConfig
                 .filter(s -> !s.isBlank())
                 .map(raw -> Stream.of(raw.split(","))
                         .map(String::trim)

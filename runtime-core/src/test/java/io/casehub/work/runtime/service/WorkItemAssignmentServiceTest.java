@@ -50,7 +50,7 @@ class WorkItemAssignmentServiceTest {
     private WorkItemAssignmentService serviceWith(final WorkerSelectionStrategy strategy) {
         final StrategyResolver resolver = mock(StrategyResolver.class);
         lenient().when(resolver.resolve(eq(WorkerSelectionStrategy.class), anyString())).thenReturn(strategy);
-        return new WorkItemAssignmentService(resolver, WorkItemServiceTest.testConfig(),
+        return new WorkItemAssignmentService(resolver, "least-loaded",
                 workerRegistry, workloadProvider,
                 (userId, excluded) -> PolicyDecision.ALLOW);
     }

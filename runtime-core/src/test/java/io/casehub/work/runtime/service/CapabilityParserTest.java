@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.work.api.Capability;
 import io.casehub.work.api.MalformedCapabilityException;
 import io.casehub.work.api.WorkCapabilities;
 

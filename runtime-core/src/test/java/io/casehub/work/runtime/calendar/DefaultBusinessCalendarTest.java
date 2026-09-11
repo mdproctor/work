@@ -12,14 +12,8 @@ import java.time.ZonedDateTime;
 
 import org.junit.jupiter.api.Test;
 
-import io.casehub.work.runtime.config.WorkItemsConfig;
-
 /**
  * Unit tests for DefaultBusinessCalendar — no Quarkus, no CDI.
- *
- * <p>
- * Injects HolidayCalendar directly via a package-visible field rather than
- * going through CDI Instance, keeping the test clean and fast.
  */
 class DefaultBusinessCalendarTest {
 
@@ -35,15 +29,13 @@ class DefaultBusinessCalendarTest {
     }
 
     static DefaultBusinessCalendar calendarWithHoliday(LocalDate holiday) {
-        final DefaultBusinessCalendar cal = new DefaultBusinessCalendar(new StubConfig());
-        cal.holidayCalendarForTest = (date, zone) -> date.equals(holiday);
-        return cal;
+        return new DefaultBusinessCalendar("Europe/London", "09:00", "17:00", "MON,TUE,WED,THU,FRI",
+                (date, zone) -> date.equals(holiday));
     }
 
     static DefaultBusinessCalendar calendarNoHolidays() {
-        final DefaultBusinessCalendar cal = new DefaultBusinessCalendar(new StubConfig());
-        cal.holidayCalendarForTest = (date, zone) -> false;
-        return cal;
+        return new DefaultBusinessCalendar("Europe/London", "09:00", "17:00", "MON,TUE,WED,THU,FRI",
+                (date, zone) -> false);
     }
 
     // ── addBusinessDuration ───────────────────────────────────────────────────
@@ -135,92 +127,4 @@ class DefaultBusinessCalendarTest {
                 .isBusinessHour(MON_10AM, LONDON)).isFalse();
     }
 
-    // ── stub ─────────────────────────────────────────────────────────────────
-
-    static class StubConfig implements WorkItemsConfig {
-        @Override
-        public int defaultExpiryHours() {
-            return 24;
-        }
-
-        @Override
-        public int defaultClaimHours() {
-            return 4;
-        }
-
-        @Override
-        public CleanupConfig cleanup() {
-            return () -> 60;
-        }
-
-        @Override
-        public io.casehub.work.api.ValidationMode capabilityValidation() {
-            return io.casehub.work.api.ValidationMode.PERMISSIVE;
-        }
-
-        @Override
-        public SlaConfig sla() {
-            return new SlaConfig() {
-                @Override public String claimPolicy() { return "continuation"; }
-                @Override public String breachPolicy() { return "no-op"; }
-                @Override public DeclarativeConfig declarative() { return new DeclarativeConfig() {
-                    @Override public String fallback() { return "no-op"; }
-                    @Override public DefaultsConfig defaults() { return new DefaultsConfig() {
-                        @Override public java.util.Optional<String> onCompletionExpiry() { return java.util.Optional.empty(); }
-                        @Override public java.util.Optional<String> onClaimExpiry() { return java.util.Optional.empty(); }
-                        @Override public java.util.OptionalInt extensionHours() { return java.util.OptionalInt.empty(); }
-                        @Override public java.util.OptionalInt claimExtensionHours() { return java.util.OptionalInt.empty(); }
-                    }; }
-                }; }
-            };
-        }
-
-        @Override
-        public RoutingConfig routing() {
-            return new RoutingConfig() {
-                @Override public String strategy() { return "least-loaded"; }
-                @Override public CursorConfig cursor() {
-                    return new CursorConfig() {
-                        @Override public int ttlDays() { return 30; }
-                        @Override public String cleanupCron() { return "disabled"; }
-                    };
-                }
-            };
-        }
-
-        @Override
-        public BusinessHoursConfig businessHours() {
-            return new BusinessHoursConfig() {
-                @Override
-                public String timezone() {
-                    return "Europe/London";
-                }
-
-                @Override
-                public String start() {
-                    return "09:00";
-                }
-
-                @Override
-                public String end() {
-                    return "17:00";
-                }
-
-                @Override
-                public String workDays() {
-                    return "MON,TUE,WED,THU,FRI";
-                }
-
-                @Override
-                public java.util.Optional<String> holidays() {
-                    return java.util.Optional.empty();
-                }
-
-                @Override
-                public java.util.Optional<String> holidayIcalUrl() {
-                    return java.util.Optional.empty();
-                }
-            };
-        }
-    }
 }

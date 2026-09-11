@@ -61,6 +61,6 @@ public class HolidayCalendarProducer {
                 .filter(url -> !url.isBlank())
                 .map(ICalHolidayCalendar::new)
                 .map(HolidayCalendar.class::cast)
-                .orElseGet(() -> new ConfigHolidayCalendar(config));
+                .orElseGet(() -> new ConfigHolidayCalendar(config.businessHours().holidays()));
     }
 }

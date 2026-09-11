@@ -24,7 +24,7 @@ import io.casehub.work.api.spi.HolidayCalendar;
  *
  * <p>
  * This class is a plain Java implementation — it is instantiated by
- * {@link HolidayCalendarProducer} when
+ * a CDI producer when
  * {@code casehub.work.business-hours.holiday-ical-url} is configured.
  * It is not a CDI bean itself.
  *

@@ -11,9 +11,7 @@ import io.casehub.work.api.spi.WorkerRegistry;
 import io.casehub.work.api.spi.WorkerSelectionStrategy;
 import io.casehub.work.api.spi.WorkloadProvider;
 import io.casehub.work.core.strategy.WorkBroker;
-import io.casehub.work.runtime.config.WorkItemsConfig;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,25 +35,23 @@ import java.util.List;
  * Mutates the WorkItem in memory only. The caller's {@code @Transactional} boundary
  * flushes the changes to the database.
  */
-@ApplicationScoped
 public class WorkItemAssignmentService {
 
     private final StrategyResolver strategyResolver;
-    private final WorkItemsConfig config;
+    private final String routingStrategy;
     private final WorkerRegistry workerRegistry;
     private final WorkloadProvider workloadProvider;
     private final WorkBroker workBroker = new WorkBroker();
     private final ExclusionPolicy exclusionPolicy;
 
-    @Inject
     public WorkItemAssignmentService(
             final StrategyResolver strategyResolver,
-            final WorkItemsConfig config,
+            final String routingStrategy,
             final WorkerRegistry workerRegistry,
             final WorkloadProvider workloadProvider,
             final ExclusionPolicy exclusionPolicy) {
         this.strategyResolver = strategyResolver;
-        this.config = config;
+        this.routingStrategy = routingStrategy;
         this.workerRegistry = workerRegistry;
         this.workloadProvider = workloadProvider;
         this.exclusionPolicy = exclusionPolicy;
@@ -81,7 +77,7 @@ public class WorkItemAssignmentService {
     }
 
     private WorkerSelectionStrategy activeStrategy() {
-        return strategyResolver.resolve(WorkerSelectionStrategy.class, config.routing().strategy());
+        return strategyResolver.resolve(WorkerSelectionStrategy.class, routingStrategy);
     }
 
     private List<WorkerCandidate> resolveCandidates(final io.casehub.work.api.WorkItem workItem) {
