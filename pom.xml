@@ -18,6 +18,7 @@ CaseHub platform module — human-scale WorkItem lifecycle management with optio
     <module>api</module>
     <module>core</module>
     <module>runtime-core</module>
+    <module>work-support-core</module>
     <module>runtime</module>
     <module>deployment</module>
     <module>flow</module>

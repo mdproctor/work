@@ -29,6 +29,11 @@ trackers and best practices for using them together.</description>
       <artifactId>casehub-work</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
+      <artifactId>casehub-work-support-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <!-- CDI, REST, ORM, Flyway -->
     <dependency>
