@@ -33,3 +33,16 @@
 **Sources:** CandidateSetStrategy.java (engine-api), RiskDecision.java (engine-api), GE-20260607-285229 (engine API breaking changes)
 **Exploration:** quick
 **Status:** captured
+
+## D4: Weight map key handling and spec independence
+
+**Choice:** Two independent spec records (CbrOutcomeWeightsSpec, CoordinationOutcomeWeightsSpec). CbrOutcomeWeightsSpec uses RoutingOutcome enum constant names as keys, validated at compile time. CoordinationOutcomeWeightsSpec uses free-form string keys.
+**Alternatives:**
+- Shared OutcomeWeightsSpec with key-type discriminator — adds complexity for no reuse benefit since key types and validation differ
+- Free-form string keys for both — loses compile-time validation for CbrOutcomeWeights where the enum is known
+**Rationale:** Different key types (enum vs string) mean different validation. Compile-time enum validation catches typos in YAML. Two small independent records are clearer than one parameterised type.
+**Trade-offs:** Two spec classes instead of one. Trivial cost — each is a one-field record.
+**Depends on:** D2 (weight map category)
+**Sources:** CbrOutcomeWeights.java (RoutingOutcome enum keys), CoordinationOutcomeWeights.java (String keys), DefaultCbrOutcomeWeights.java, DefaultCoordinationOutcomeWeights.java
+**Exploration:** quick
+**Status:** captured
