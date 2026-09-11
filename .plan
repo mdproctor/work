@@ -18,6 +18,12 @@ flyway-next-v: none
 - [x] casehubio/blocks#250 — Prompt optimisation
 - [x] casehubio/blocks#251 — Execution infrastructure
 - [ ] casehubio/blocks#252 — Trust routing oversight ← active
+  - [ ] Batch 1: Batch1
+    - [ ] Task 1: Weight map specs + registries
+    - [ ] Task 2: TrustRoutingPolicyKeysSpec + registry
+  - [ ] Batch 2: Batch2
+    - [ ] Task 3: RiskDecisionSpec + registry
+    - [ ] Task 4: Schema + DispositionProfile + coverage matrix
 - [ ] casehubio/blocks#253 — Speech configs
 - [ ] casehubio/blocks#254 — Summarisation gaps
 - [ ] casehubio/blocks#255 — Engine adapter
