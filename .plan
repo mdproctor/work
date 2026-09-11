@@ -23,9 +23,9 @@ flyway-next-v: none
   - [ ] Batch 1: Batch1
     - [ ] Task 1: Register field-extract + verbatim
   - [ ] Batch 2: Batch2
-    - [ ] Task 2: Config fields (SummaryMode + typePrefix + tickInterval)
+    - [ ] Task 2: SummaryMode + typePrefix + tickInterval fields
   - [ ] Batch 3: Batch3
-    - [ ] Task 3: Keyed grouping compiler + coverage matrix
+    - [ ] Task 3: Keyed grouping compiler
 - [ ] casehubio/blocks#255 — Engine adapter
 - [ ] casehubio/blocks#243 — Schema drift test
 - [ ] casehubio/blocks#244 — AgentDescriptor wiring
