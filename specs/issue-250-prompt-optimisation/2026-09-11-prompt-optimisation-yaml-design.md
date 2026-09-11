@@ -61,9 +61,11 @@ pipelines:
     confidenceScorer:
       type: composite
       scorers:
-        - type: arousal
+        - scorer:
+            type: arousal
           weight: 0.6
-        - type: surprise
+        - scorer:
+            type: surprise
           weight: 0.4
 
     examples:
@@ -163,8 +165,9 @@ public sealed interface ConfidenceScorerSpec {
         }
     }
 
-    record WeightedScorerEntry(ConfidenceScorerSpec type, double weight) {
+    record WeightedScorerEntry(ConfidenceScorerSpec scorer, double weight) {
         public WeightedScorerEntry {
+            Objects.requireNonNull(scorer, "scorer");
             if (weight <= 0) throw new IllegalArgumentException("weight must be positive");
         }
     }
@@ -316,7 +319,7 @@ public class ConfidenceScorerRegistry {
             case ConfidenceScorerSpec.Surprise ignored -> new SurpriseScorer();
             case ConfidenceScorerSpec.Composite c -> new CompositeConfidenceScorer(
                     c.scorers().stream()
-                            .map(ws -> new WeightedScorer(resolve(ws.type()), ws.weight()))
+                            .map(ws -> new WeightedScorer(resolve(ws.scorer()), ws.weight()))
                             .toList());
         };
     }
