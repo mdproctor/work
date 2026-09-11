@@ -2,10 +2,6 @@ package io.casehub.work.core.policy;
 
 import java.time.Instant;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
-import io.quarkus.arc.Unremovable;
-
 import io.casehub.work.api.ClaimSlaContext;
 import io.casehub.work.api.spi.ClaimSlaPolicy;
 
@@ -21,8 +17,6 @@ import io.casehub.work.api.spi.ClaimSlaPolicy;
  * This is Approach A. Use when each claim attempt should be treated as a fresh
  * opportunity, and accumulated history should not affect the next window.
  */
-@Unremovable
-@ApplicationScoped
 public class FreshClockPolicy implements ClaimSlaPolicy {
 
     @Override

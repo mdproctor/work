@@ -1,9 +1,5 @@
 package io.casehub.work.core.strategy;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
-import io.quarkus.arc.DefaultBean;
-
 /**
  * Default RoutingCursorStore — always returns index 0.
  *
@@ -12,8 +8,6 @@ import io.quarkus.arc.DefaultBean;
  * that depend on casehub-work-core but not the full runtime). JpaRoutingCursorStore in
  * the runtime module displaces this via CDI's @DefaultBean yielding semantics.
  */
-@DefaultBean
-@ApplicationScoped
 public class NoOpRoutingCursorStore implements RoutingCursorStore {
 
     @Override

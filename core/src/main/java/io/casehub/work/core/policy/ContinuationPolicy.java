@@ -3,9 +3,6 @@ package io.casehub.work.core.policy;
 import java.time.Duration;
 import java.time.Instant;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
-import io.quarkus.arc.Unremovable;
 import io.casehub.work.api.ClaimSlaContext;
 import io.casehub.work.api.spi.ClaimSlaPolicy;
 
@@ -28,8 +25,6 @@ import io.casehub.work.api.spi.ClaimSlaPolicy;
  * This is Approach D — the clock pauses while the item is held by a claimant and
  * resumes where it left off when the item is returned to the pool.
  */
-@Unremovable
-@ApplicationScoped
 public class ContinuationPolicy implements ClaimSlaPolicy {
 
     @Override

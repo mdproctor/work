@@ -7,11 +7,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
-import io.quarkus.arc.Unremovable;
-import jakarta.inject.Inject;
-
 import io.casehub.work.api.AssignmentDecision;
 import io.casehub.work.api.SelectionContext;
 import io.casehub.work.api.WorkerCandidate;
@@ -27,8 +22,6 @@ import io.casehub.work.api.spi.WorkerSelectionStrategy;
  * <p>
  * Activated by: {@code casehub.work.routing.strategy=round-robin}.
  */
-@Unremovable
-@ApplicationScoped
 public class RoundRobinStrategy implements WorkerSelectionStrategy {
 
     @Override
@@ -36,7 +29,6 @@ public class RoundRobinStrategy implements WorkerSelectionStrategy {
 
     private final RoutingCursorStore cursorStore;
 
-    @Inject
     public RoundRobinStrategy(final RoutingCursorStore cursorStore) {
         this.cursorStore = cursorStore;
     }
