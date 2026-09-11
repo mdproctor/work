@@ -2,38 +2,41 @@
 
 ## D1: Persistent state for SummarisationRunner
 
-**Choice:** `StateStore<S>` SPI injected into `SummarisationRunner` as optional constructor parameter
+**Choice:** Deferred to #259 (identity narrative retrofit). Decision narrative pipeline uses in-memory per-key state via enhanced `KeyedSummarisationRunner` (see D7).
 **Alternatives:**
 - Externalize state entirely (no cache) — adds latency on hot path for consumers who don't need persistence
 - Post-tick callback — doesn't help with load-on-startup, state lost on restart
-**Rationale:** Opt-in via constructor. When absent, falls back to existing in-memory `ConcurrentHashMap` — zero cost for current consumers. When present, in-memory map becomes a write-through cache (read from cache first, fall back to store on miss, write to both on update). Consumers provide `CbrStateStore`, `JpaStateStore`, or whatever fits their persistence layer.
-**Trade-offs:** Adds a new SPI to `summarisation-api`. Consumers who need persistence must implement `StateStore` — but this is the work they'd do anyway.
-**Sources:** `SummarisationRunner.java:20` (partitionState ConcurrentHashMap), `CbrNarrativeStore.java` (existing CBR persistence pattern), GE-20260825-ba18b3 (sealed hierarchy CBR serialization)
+- `StateStore<S>` SPI injected into `SummarisationRunner` as optional constructor parameter (original choice — deferred because no #241 consumer needs persistence)
+**Rationale:** The decision narrative pipeline uses `KeyedSummarisationRunner` with in-memory per-key state management. `SummarisationRunner` already manages state in-memory via `partitionState` ConcurrentHashMap. StateStore's primary use case (persistence for identity narratives via `CbrNarrativeStore`) belongs in #259 when the actual consumer is being built and the SPI contract can be validated against real persistence needs.
+**Trade-offs:** Decision narrative state is volatile — lost on restart. Acceptable because decision narratives are re-derivable from platform signals.
+**Sources:** `SummarisationRunner.java:20` (partitionState ConcurrentHashMap), `CbrNarrativeStore.java` (existing CBR persistence pattern)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-02: deferred to #259)
 
 ## D2: Richer gating via EmissionPolicy
 
-**Choice:** `EmissionPolicy<IN, S>` SPI replacing `WindowPolicy` as the gating mechanism in `SummarisationRunner`
+**Choice:** Deferred to #259 (identity narrative retrofit). Decision narrative pipeline uses `completionTest` on `KeyedSummarisationRunner` (L1) and `WindowPolicy` on `SummarisationRunner` (L2) — existing gating mechanisms are sufficient.
 **Alternatives:**
-- Layered policies (WindowPolicy base + GatePolicy overlay) — two objects to configure, can't express quiet-period bypass
-- Extend WindowPolicy with optional predicates — outgrows its name, increasing complexity
-**Rationale:** Single `@FunctionalInterface`: `boolean shouldEmit(List<LevelEvent<IN>> buffered, @Nullable S currentState, long now)`. Has access to both buffered events AND current state — enabling novelty scoring, state-aware gating, and composite triggers. `WindowPolicy` becomes a concrete `EmissionPolicy` implementation (backward compatible). Composite factory: `EmissionPolicy.anyOf(...)` for OR composition.
-**Trade-offs:** `EventAccumulator` becomes a pure buffer (loses its policy role). Existing code using `WindowPolicy` needs no change — it implements the new interface.
-**Sources:** `WindowPolicy.java`, `EventAccumulator.java`, `NarrativeSynthesisGate.java` (count + novelty + quiet period — the use case that motivates richer gating)
+- `EmissionPolicy<IN, S>` SPI replacing `WindowPolicy` (original choice — deferred because decision narrative pipeline doesn't need it)
+- Layered policies (WindowPolicy base + GatePolicy overlay)
+- Extend WindowPolicy with optional predicates
+**Rationale:** L1 uses `KeyedSummarisationRunner` with `completionTest` predicate, which is already richer than WindowPolicy — it gates on per-group completion semantics. L2 uses `SummarisationRunner` with `WindowPolicy` for time/count batching. The motivating use case for EmissionPolicy (`NarrativeSynthesisGate` — count + novelty + quiet period) is an identity narrative concern in `NarrativeSynthesiser`. Introduce EmissionPolicy in #259 when it can be validated against the real consumer.
+**Trade-offs:** YAML pipeline surface compatibility preserved — `PipelineCompiler` continues producing `WindowPolicy` directly.
+**Sources:** `WindowPolicy.java`, `KeyedSummarisationRunner` (completionTest predicate), `NarrativeSynthesisGate.java` (#259 use case)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-02: deferred to #259)
 
 ## D3: Post-summarisation output processing
 
-**Choice:** `OutputProcessor<OUT, S>` SPI on `SummarisationRunner` for post-summarisation output processing
+**Choice:** Deferred to #259 (identity narrative retrofit). Decision narrative pipeline does not need post-summarisation pruning.
 **Alternatives:**
-- Let Summariser implementations handle pruning internally — simpler but tangles pruning with synthesis logic, not reusable
-**Rationale:** `@FunctionalInterface`: `List<OUT> process(List<OUT> outputs, @Nullable S currentState)`. Called after `summarise()` returns, before publishing to output bus and state update. Has access to current state for capacity enforcement against accumulated total. Optional constructor parameter — when absent, outputs pass through. Symmetric with `Compactor<IN>` (input-side).
-**Trade-offs:** Adds another optional SPI to SummarisationRunner constructor. For simple cases where the summariser naturally produces bounded output, this is unnecessary — but it keeps the pipeline composable.
-**Sources:** `NarrativeSynthesiser.java:191-192` (pruneEpisodes, pruneThemes — the use case), `Compactor.java` (input-side analog)
+- `OutputProcessor<OUT, S>` SPI on `SummarisationRunner` (original choice — deferred because no #241 consumer needs it)
+- Let Summariser implementations handle pruning internally
+**Rationale:** `DecisionNarrative` records are bounded by their source signals (finite per step/case), not by accumulated count. The motivating use case is `NarrativeSynthesiser.pruneEpisodes`/`pruneThemes` (lines 421-438) — identity narrative capacity enforcement. Introduce OutputProcessor in #259 alongside the identity narrative retrofit when the SPI contract can be validated against the actual pruning consumer.
+**Trade-offs:** None for #241. Decision narratives are naturally bounded.
+**Sources:** `NarrativeSynthesiser.java:191-192` (pruneEpisodes, pruneThemes — #259 use case)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-02: deferred to #259)
 
 ## D4: Defer identity narrative retrofit
 
@@ -75,19 +78,44 @@
 **Alternatives:**
 - Three levels (add L3 per-case arc summary) — premature, can be added later if needed
 - Single level (flat LLM) — sends every raw signal to LLM, high cost, noisy input
-**Rationale:** L1: raw `DecisionSignal` events grouped by `caseId + stepName` via `KeyedSummarisationRunner`. Heuristic summariser — no LLM, microsecond latency. Produces `StepDecisionSummary` (structured record). L2: `StepDecisionSummary` accumulated per case, `ContentSummariser<StepDecisionSummary, DecisionNarrative>` — LLM-backed with `@Nullable` previous state. L1→L2 split keeps LLM calls batched and infrequent. Mirrors clinical example pattern.
+**Rationale:** L1: raw `DecisionSignal` events grouped by `caseId + stepName` via `KeyedSummarisationRunner`. Heuristic summariser — no LLM, microsecond latency. Produces `StepDecisionSummary` (see D9). L2: `StepDecisionSummary` accumulated per case via `KeyedSummarisationRunner` keyed by `caseId`, `ContentSummariser<StepDecisionSummary, DecisionNarrative>` — LLM-backed with `@Nullable` previous state. L1→L2 split keeps LLM calls batched and infrequent.
+**Prerequisite:** `KeyedSummarisationRunner` must be enhanced to support `StatefulSummariser` with per-key state management. Currently it always calls `summariser.summarise(batch)` (stateless), ignoring `StatefulSummariser`. The fix mirrors `SummarisationRunner.invokeSummariser()` (line 114) — add `instanceof StatefulSummariser` check with per-key state in a `ConcurrentHashMap<K, Object>`. Without this, L2's `ContentSummariser.asSummariser()` always receives null previous state.
 **Trade-offs:** L1 heuristic summariser must be written per domain (or generically). Two-level adds wiring complexity vs. single level. But cost savings from not sending raw signals to LLM outweigh this.
-**Sources:** `ClinicalPipelineTest.java` (L1→L2→L3→L4 precedent), `KeyedSummarisationRunner.java` (grouping by key)
+**Sources:** `ClinicalPipelineTest.java` (multi-level pipeline precedent), `KeyedSummarisationRunner.java` (grouping by key), `SummarisationRunner.invokeSummariser()` (StatefulSummariser pattern to replicate)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-03: added StatefulSummariser prerequisite, clarified L2 uses KeyedSummarisationRunner keyed by caseId)
 
 ## D8: YAML example scope
 
 **Choice:** Self-contained test example in blocks test sources, fsitrading-inspired domain signals
 **Alternatives:**
 - Separate examples/ module with runnable mini-app — heavier, breaks existing convention of test-class examples
-**Rationale:** Like existing `ClinicalPipelineTest` and `LogisticsPipelineTest` in `src/test/java/.../summarisation/examples/`. Uses fsitrading-inspired signal types (trading decisions, analyst routing, trade outcomes) defined locally in the test — no dependency on fsitrading. YAML pipeline definition lives alongside the test. Proves pipeline end-to-end. When fsitrading wires up for real (Batch 4), it follows this pattern with actual types.
+**Rationale:** Like existing `ClinicalPipelineTest` and `LogisticsPipelineTest` in `src/test/java/.../summarisation/examples/`. Uses fsitrading-inspired signal types (trading decisions, analyst routing, trade outcomes) defined locally in the test — no dependency on fsitrading. Test defines its own sealed hierarchy (`TradingSignal`) exercising the same pattern (sealed → exhaustive switch → structured output) without coupling to production `DecisionSignal`. Pipeline primitives are generic — `KeyedSummarisationRunner<K, IN, OUT>` works identically regardless of payload type. YAML pipeline definition lives alongside the test. Proves pipeline end-to-end. When fsitrading wires up for real (Batch 4), it follows this pattern with actual types.
 **Trade-offs:** Example is a test, not a standalone app — less visible to newcomers. But matches existing convention.
 **Sources:** `ClinicalPipelineTest.java`, `LogisticsPipelineTest.java` (existing example convention)
 **Exploration:** quick
+**Status:** captured
+
+## D9: StepDecisionSummary intermediate type
+
+**Choice:** Structured `StepDecisionSummary` record as L1→L2 intermediate representation
+**Alternatives:**
+- Unstructured prose string — loses structure, makes L2 prompt fragile and domain-specific
+- Pass raw `DecisionSignal` events to L2 — defeats the purpose of L1 heuristic summarisation
+**Rationale:** `StepDecisionSummary(String caseId, String stepName, List<SignalDigest> signals, Instant from, Instant to)` where `SignalDigest(String signalType, String summary, Map<String, String> keyFacts, double confidence)`. The L1 heuristic summariser flattens sealed `DecisionSignal` variants into `SignalDigest` — extracting key facts (routing scores, CBR similarity, trust levels, deliberation outcomes) as structured strings. This makes the L2 LLM prompt domain-agnostic: it receives structured signal digests, not raw platform types. The `keyFacts` map is intentionally stringly-typed — it's LLM input, not programmatic API.
+**Trade-offs:** L1 heuristic summariser must know how to extract key facts from each `DecisionSignal` variant. New signal types require updating the summariser (but sealed switch enforcement guarantees this).
+**Sources:** D7 (pipeline topology), D5 (DecisionSignal hierarchy)
+**Exploration:** surfaced by review (R1-05)
+**Status:** captured
+
+## D10: Signal integration model
+
+**Choice:** Observer-driven — `NarrativeSignalStrategy` implements `StepOutcomeObserver` and `CaseOutcomeObserver` platform SPIs
+**Alternatives:**
+- Push model via `EventStreamBus<DecisionSignal>` pub/sub — requires platform systems to know about `DecisionSignal` types, creates coupling in the wrong direction
+- Pull model with tick-cycle polling — adds latency, wastes cycles when no new signals exist
+**Rationale:** `StepOutcomeObserver` (`io.casehub.api.spi`) and `CaseOutcomeObserver` (`io.casehub.api.spi`) are existing platform SPI interfaces with implementations (`NoOpStepOutcomeObserver`, `NoOpCaseOutcomeObserver`) and test infrastructure. The observer model is event-driven — no polling. When the engine completes a step or case, the observer receives the outcome, converts it to `DecisionSignal` variants, and publishes `LevelEvent<DecisionSignal>` events to the pipeline's input `EventStreamBus`. Other signal sources (routing decisions, CBR retrievals, trust assessments) are captured within step execution callbacks and converted to `DecisionSignal` in the same observer invocation. Domain repos (fsitrading) implement `NarrativeSignalStrategy` with domain-specific observer wiring.
+**Trade-offs:** Observer receives all step/case outcomes, not just those producing narrative-relevant signals — must filter. But filtering is cheap (predicate on step type or case state).
+**Sources:** `StepOutcomeObserver.java` (platform SPI), `CaseOutcomeObserver.java` (platform SPI), issue #241 body (references both interfaces)
+**Exploration:** surfaced by review (R1-06)
 **Status:** captured
