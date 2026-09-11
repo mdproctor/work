@@ -6,19 +6,14 @@ import io.casehub.work.api.WorkItem;
 import io.casehub.work.api.WorkItemQuery;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.api.spi.WorkItemStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.UUID;
 
-@ApplicationScoped
 public class WorkActorStateContributor implements ActorStateContributor {
 
-  @Inject WorkItemStore workItemStore;
+  private final WorkItemStore workItemStore;
 
-  WorkActorStateContributor() {}
-
-  WorkActorStateContributor(final WorkItemStore workItemStore) {
+  public WorkActorStateContributor(final WorkItemStore workItemStore) {
     this.workItemStore = workItemStore;
   }
 

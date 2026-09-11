@@ -6,18 +6,12 @@ import io.casehub.work.api.WorkItemCreateRequest;
 import io.casehub.work.api.WorkItemPriority;
 import io.casehub.work.runtime.service.TenantContextRunner;
 import io.casehub.work.api.spi.WorkItemCreator;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
-@ApplicationScoped
 public class InboundWorkItemSchedulerImpl implements InboundWorkItemScheduler {
 
-  @Inject WorkItemCreator workItemCreator;
-  @Inject TenantContextRunner tenantContextRunner;
+  private final WorkItemCreator workItemCreator;
+  private final TenantContextRunner tenantContextRunner;
 
-  InboundWorkItemSchedulerImpl() {}
-
-  InboundWorkItemSchedulerImpl(
+  public InboundWorkItemSchedulerImpl(
       final WorkItemCreator workItemCreator,
       final TenantContextRunner tenantContextRunner) {
     this.workItemCreator = workItemCreator;

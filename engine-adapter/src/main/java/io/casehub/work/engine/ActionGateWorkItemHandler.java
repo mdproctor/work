@@ -24,10 +24,7 @@ import io.casehub.work.api.MultiInstanceConfig;
 import io.casehub.work.api.ParentRole;
 import io.casehub.work.api.WorkItemCreateRequest;
 import io.casehub.work.api.spi.WorkItemCreator;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-import org.jboss.logging.Logger;
+import java.util.logging.Logger;
 
 import java.time.Instant;
 import java.util.Set;
@@ -51,14 +48,16 @@ import java.util.Set;
  * <p>No PlanItem, no BlackboardRegistry — gate WorkItems are not backed by CMMN plan items. Refs
  * engine#402.
  */
-@ApplicationScoped
 public class ActionGateWorkItemHandler implements ActionGateScheduler {
 
-    private static final Logger       LOG    = Logger.getLogger(ActionGateWorkItemHandler.class);
+    private static final Logger       LOG    = Logger.getLogger(ActionGateWorkItemHandler.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    @Inject
-    WorkItemCreator workItemCreator;
+    private final WorkItemCreator workItemCreator;
+
+    public ActionGateWorkItemHandler(final WorkItemCreator workItemCreator) {
+        this.workItemCreator = workItemCreator;
+    }
 
     private static String buildPayload(final ActionGateScheduleRequest event) {
         final ObjectNode root = MAPPER.createObjectNode();
@@ -69,13 +68,12 @@ public class ActionGateWorkItemHandler implements ActionGateScheduler {
         try {
             return MAPPER.writeValueAsString(root);
         } catch (final JsonProcessingException e) {
-            LOG.warnf(e, "Failed to serialize gate payload for gateId=%d — using null", event.gateId());
+            LOG.warning("Failed to serialize gate payload for gateId=" + event.gateId() + " — using null: " + e.getMessage());
             return null;
         }
     }
 
     @Override
-    @Transactional
     public void schedule(final ActionGateScheduleRequest event) {
         final String callerRef = GateRef.encode(event.caseId(), event.gateId());
         final Instant expiresAt =
@@ -115,14 +113,14 @@ public class ActionGateWorkItemHandler implements ActionGateScheduler {
                     q.allowSameAssignee(),
                     null);
             workItemCreator.createMultiInstance(request, config);
-            LOG.infof(
-                    "Gate multi-instance group created: caseId=%s gateId=%d instances=%d required=%d",
-                    event.caseId(), event.gateId(), q.instances(), q.required());
+            LOG.info("Gate multi-instance group created: caseId=" + event.caseId()
+                    + " gateId=" + event.gateId() + " instances=" + q.instances()
+                    + " required=" + q.required());
         } else {
             workItemCreator.create(request);
-            LOG.infof(
-                    "Gate WorkItem created: caseId=%s gateId=%d callerRef=%s expiresAt=%s",
-                    event.caseId(), event.gateId(), callerRef, expiresAt);
+            LOG.info("Gate WorkItem created: caseId=" + event.caseId()
+                    + " gateId=" + event.gateId() + " callerRef=" + callerRef
+                    + " expiresAt=" + expiresAt);
         }
     }
 }
