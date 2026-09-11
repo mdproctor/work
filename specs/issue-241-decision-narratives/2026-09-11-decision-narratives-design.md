@@ -691,8 +691,7 @@ public class DecisionNarrativePipeline {
 
     @PostConstruct
     void start() {
-        scheduler = new PipelineTickScheduler(
-                List.of(l1::tick, l2::tick), 5_000L);
+        scheduler = new PipelineTickScheduler(List.of(l1, l2), 5_000L);
         scheduler.start();
     }
 
