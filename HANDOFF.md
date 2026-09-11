@@ -1,27 +1,18 @@
-# Session Handover — 2026-09-10
+# HANDOFF — casehub-blocks
 
-**Branch:** `main`
-**Epic:** #246 — Complete YAML Surface
-**State:** .plan queue with 12 issues, idle on main
+## Last Session
 
-## What happened
+Completed 2 YAML surface issues from the #246 epic queue.
 
-Two issues landed this session:
+**#254 (Summarisation gaps):** Closed all 6 gaps. Registered field-extract and verbatim summariser types in SummarisationRecorder. Added mode (String) to SummariserDefinition, typePrefix to SourceDefinition, tickInterval (Long ms) to PipelineDefinition. Implemented keyed grouping compiler — refactored CompiledPipeline to use LevelRunner lambda wrappers, wired KeyedSummarisationRunner via PipelineCompiler with ExpressionEngine support. Coverage matrix §9-13 updated.
 
-**#242 — Type-safe expression compilation.** Per-site `Class<?>` compilation in 3 agentic-yaml registries (RoutingStrategyRegistry, TerminationConditionRegistry, JudgmentTriggerRegistry). Design went through a review that collapsed a 5-decision descriptor architecture into simple per-site compilation. Layer 2 descriptor model deferred to yaml-core.
+**#255 (Engine adapter):** Delivered all 5 engine adapter types. Extended ExecutionBackendSpec with EngineHosted and ExecutionListenerSpec with Checkpointing (both throw UnsupportedOperationException — engine resolves at runtime). Created VerifierStrategySpec sealed interface (LlmEvaluation + SchemaValidation) with VerifierStrategyRegistry. Created CallerConfigSpec (full 12-field Human mirror with expression strings as MvelExpressionEvaluator, Class<?> as String, CandidateSetSpec as CandidateSetStrategySpec) + QuorumConfigSpec + CallerConfigRegistry. Created PatternJudgmentConfigSpec composing CallerConfigSpec + VerifierStrategySpec with EvidenceRequirement direct reuse — mode stored as String since JudgmentMode enum lives in engine-adapter (not on agentic-yaml classpath). PatternJudgmentConfigRegistry deferred to engine-adapter consumer. Schema generation updated. Coverage matrix §21 updated.
 
-**#247 — Social cognition configs.** 13 spec records with `@Nullable` fields + `CognitionCompiler` that merges partial YAML with `defaults()`. `CognitionDefinition` root type for `cognition.yaml`. Deployment processor discovers config at build time. 104 tests passing.
+Coverage moved from ~63% to ~66%. Remaining queue: 5 issues (#243, #244, #245, #256, and the #246 epic itself).
 
-## Resume point
+## Immediate Next Step
 
-Run `work` — the .plan queue starts at #248 (Affordance world model). Each issue references `docs/yaml-coverage.md` with the section to update on close.
-
-## Key decisions
-
-- Per-site expression compilation (Layer 1): each expression site passes its known Class<?> to ExpressionEngine.compile(). Layer 2 descriptor model deferred.
-- Spec records with @Nullable fields for partial YAML merge — established pattern for all config-shaped types
-- Standalone cognition.yaml (not nested in pattern spec) — configs are application-scoped
-- MVEL3 can't introspect Java records with sealed interface components — compile against Map<String, Object> instead (GE-20260910-27296d)
+Run `work continue` — the .plan queue is at position 8/13 with #243 (Schema drift test) active. No spec or plan exists yet — start with brainstorming.
 
 ## References
 
@@ -29,8 +20,8 @@ Run `work` — the .plan queue starts at #248 (Affordance world model). Each iss
 |----------|------|
 | Coverage matrix | `docs/yaml-coverage.md` |
 | Epic | casehubio/blocks#246 |
-| .plan | 12 issues queued, #248 next |
-| #242 spec | `docs/specs/issue-242-typed-expr-compilation/` |
-| #247 spec | `docs/specs/issue-247-social-cognition-configs/` |
-| Diary entry | `docs/blog/2026-09-10-mdp01-when-the-reviewer-kills-your-architecture.md` |
-| Garden entry | GE-20260910-27296d (MVEL3 record/sealed interface gotcha) |
+| .plan | 5 issues remaining, #243 next |
+| #254 spec | `specs/issue-254-summarisation-gaps/` |
+| #254 plan | `plans/2026-09-11-summarisation-gaps.md` |
+| #255 spec | `specs/issue-255-engine-adapter/` |
+| #255 plan | `plans/2026-09-11-engine-adapter.md` |
