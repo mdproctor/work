@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-248-affordance-world-model
-state: transitioning
+state: closing:promoted
 project-sha: 5a3e5dd3cccb3fc6ccb6940118ccdb06061c39ad
 date: 2026-09-10
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#246 — epic: Complete YAML surface
 - [x] casehubio/blocks#248 — Affordance world model
