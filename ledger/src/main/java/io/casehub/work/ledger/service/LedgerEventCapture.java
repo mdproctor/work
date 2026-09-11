@@ -26,7 +26,7 @@ import io.casehub.work.ledger.model.WorkItemLedgerEntry;
 import io.casehub.work.ledger.repository.WorkItemLedgerEntryRepository;
 import io.casehub.work.api.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItemRelation;
-import io.casehub.work.runtime.model.WorkItemRelationType;
+import io.casehub.work.api.WorkItemRelationType;
 import io.casehub.work.api.spi.WorkItemStore;
 import io.quarkus.logging.Log;
 

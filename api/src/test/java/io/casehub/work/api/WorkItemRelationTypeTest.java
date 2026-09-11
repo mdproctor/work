@@ -1,4 +1,4 @@
-package io.casehub.work.runtime.model;
+package io.casehub.work.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

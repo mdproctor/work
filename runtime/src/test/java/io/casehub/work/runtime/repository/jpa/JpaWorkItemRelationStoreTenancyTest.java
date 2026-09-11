@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.casehub.work.runtime.model.WorkItemRelation;
-import io.casehub.work.runtime.model.WorkItemRelationType;
+import io.casehub.work.api.WorkItemRelationType;
 import io.casehub.work.api.WorkItemPriority;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.runtime.repository.WorkItemRelationStore;

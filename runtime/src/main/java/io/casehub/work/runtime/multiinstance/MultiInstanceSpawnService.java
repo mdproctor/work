@@ -9,7 +9,7 @@ import io.casehub.work.api.WorkItemCreateRequest;
 import io.casehub.work.api.spi.InstanceAssignmentStrategy;
 import io.casehub.work.runtime.model.OutcomeCodecs;
 import io.casehub.work.runtime.model.WorkItemRelation;
-import io.casehub.work.runtime.model.WorkItemRelationType;
+import io.casehub.work.api.WorkItemRelationType;
 import io.casehub.work.runtime.model.WorkItemSpawnGroup;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemService;

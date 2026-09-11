@@ -14,7 +14,7 @@ import io.casehub.work.api.WorkItemPriority;
 import io.casehub.work.ledger.model.WorkItemLedgerEntry;
 import io.casehub.work.ledger.repository.WorkItemLedgerEntryRepository;
 import io.casehub.work.runtime.model.WorkItemRelation;
-import io.casehub.work.runtime.model.WorkItemRelationType;
+import io.casehub.work.api.WorkItemRelationType;
 import io.casehub.work.runtime.service.WorkItemService;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;

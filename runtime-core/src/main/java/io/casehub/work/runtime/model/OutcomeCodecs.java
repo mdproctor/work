@@ -3,7 +3,8 @@ package io.casehub.work.runtime.model;
 import java.util.List;
 import java.util.stream.StreamSupport;
 
-import org.jboss.logging.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,30 +13,19 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.casehub.work.api.Outcome;
 
 /**
- * JSON encoding and decoding utilities for outcome fields on {@link WorkItemEntity} and
- * {@link WorkItemTemplate}.
- *
- * <p>
- * Pure static utilities — no CDI, no JPA. Safe to use from any layer (mapping,
- * service, event) without introducing layering violations.
- *
- * <p>
- * Both {@link WorkItemTemplate#outcomes} and {@link WorkItemEntity#permittedOutcomes} are stored
- * as JSON arrays of {@link Outcome} objects. {@code encodeOutcomes()} and
- * {@code decodeOutcomes()} serve both columns. {@code decodePermittedOutcomes()} handles
- * a legacy string-array format for WorkItems created before this encoding was introduced.
+ * JSON encoding and decoding utilities for {@link Outcome} fields stored as JSON arrays.
+ * Handles both current (object array) and legacy (string array) formats.
  */
 public final class OutcomeCodecs {
 
-    private static final Logger LOG = Logger.getLogger(OutcomeCodecs.class);
+    private static final Logger LOG = Logger.getLogger(OutcomeCodecs.class.getName());
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private OutcomeCodecs() {
     }
 
     /**
-     * Encodes a list of {@link Outcome} objects to JSON for storage on either
-     * {@link WorkItemTemplate#outcomes} or {@link WorkItemEntity#permittedOutcomes}.
+     * Encodes a list of {@link Outcome} objects to JSON.
      *
      * @param outcomes list to encode; null or empty returns null
      * @return JSON string, or null
@@ -47,13 +37,13 @@ public final class OutcomeCodecs {
         try {
             return MAPPER.writeValueAsString(outcomes);
         } catch (final Exception e) {
-            LOG.warnf("Failed to encode outcomes: %s", e.getMessage());
+            LOG.log(Level.WARNING, "Failed to encode outcomes: " + e.getMessage());
             return null;
         }
     }
 
     /**
-     * Decodes {@link WorkItemTemplate#outcomes} JSON to a list of {@link Outcome} objects.
+     * Decodes an outcomes JSON array to a list of {@link Outcome} objects.
      *
      * @param outcomesJson JSON string; null or blank returns empty list
      * @return list of outcomes, or empty list if unconstrained or unparseable
@@ -65,13 +55,13 @@ public final class OutcomeCodecs {
         try {
             return MAPPER.readValue(outcomesJson, new TypeReference<>() {});
         } catch (final Exception e) {
-            LOG.warnf("Failed to decode outcomes JSON: %s", e.getMessage());
+            LOG.log(Level.WARNING, "Failed to decode outcomes JSON: " + e.getMessage());
             return List.of();
         }
     }
 
     /**
-     * Decodes {@link WorkItemEntity#permittedOutcomes} JSON to a list of {@link Outcome} objects.
+     * Decodes a permitted-outcomes JSON string to a list of {@link Outcome} objects.
      *
      * <p>
      * Handles two storage formats:
@@ -95,7 +85,7 @@ public final class OutcomeCodecs {
         try {
             final var node = MAPPER.readTree(permittedOutcomesJson);
             if (!node.isArray()) {
-                LOG.warnf("permittedOutcomes JSON is not an array (type: %s) — data integrity error", node.getNodeType());
+                LOG.log(Level.WARNING, "permittedOutcomes JSON is not an array (type: " + node.getNodeType() + ") — data integrity error");
                 return null;
             }
             final ArrayNode arr = (ArrayNode) node;
@@ -109,7 +99,7 @@ public final class OutcomeCodecs {
                         .toList();
             }
         } catch (final Exception e) {
-            LOG.warnf("Failed to decode permittedOutcomes JSON: %s", e.getMessage());
+            LOG.log(Level.WARNING, "Failed to decode permittedOutcomes JSON: " + e.getMessage());
             return null;
         }
     }

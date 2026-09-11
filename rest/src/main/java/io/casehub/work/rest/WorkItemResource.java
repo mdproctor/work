@@ -14,7 +14,7 @@ import io.casehub.work.runtime.event.WorkItemEventBroadcaster;
 import io.casehub.work.runtime.model.AuditEntry;
 import io.casehub.work.runtime.model.WorkItemLink;
 import io.casehub.work.runtime.model.WorkItemNote;
-import io.casehub.work.runtime.model.WorkItemRelationType;
+import io.casehub.work.api.WorkItemRelationType;
 import io.casehub.work.runtime.repository.AuditEntryStore;
 import io.casehub.work.runtime.repository.WorkItemLinkStore;
 import io.casehub.work.runtime.repository.WorkItemNoteStore;
