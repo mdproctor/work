@@ -13,15 +13,14 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/blocks#241 — Issue #241 ← active
-  - [ ] Batch 1: Fragment types
-    - [ ] Task 1: Decision fragment records
-    - [ ] Task 2: Signal strategy SPI
-    - [ ] Task 3: Decision synthesiser
-  - [ ] Batch 2: Orchestration
-    - [ ] Task 4: Orchestrator extension + storage
-  - [ ] Batch 3: UI
-    - [ ] Task 5: narrative-timeline component
-  - [ ] Batch 4: Consumer
-    - [ ] Task 6: REST endpoint + signal strategy
-    - [ ] Task 7: Ops Centre wiring
+  - [ ] Batch 1: Pipeline enhancement
+    - [ ] Task 1: StatefulSummariser support for KeyedSummarisationRunner
+  - [ ] Batch 2: Narrative types
+    - [ ] Task 2: DecisionSignal sealed hierarchy + output records
+    - [ ] Task 3: L1 heuristic summariser
+    - [ ] Task 4: L2 LLM summariser with template fallback
+    - [ ] Task 5: NarrativeSignalStrategy SPI + pipeline factory
+  - [ ] Batch 3: Pipeline wiring
+    - [ ] Task 6: Pipeline integration test
+    - [ ] Task 7: YAML-style example test
 - [ ] casehubio/blocks#259 — retrofit identity narratives onto enhanced summarisation pipeline
