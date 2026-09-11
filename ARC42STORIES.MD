@@ -1224,7 +1224,7 @@ Not closed here: REST surface (L2), lifecycle scheduling (L3), label routing (L4
 
 `runtime/src/main/java/io/casehub/work/runtime/service/WorkItemService.java` — `@ApplicationScoped` application service that owns all status transition logic and calls `WorkItemStore` and audit services; no transition logic lives in the entity or REST layer.
 
-`runtime/src/main/java/io/casehub/work/runtime/service/OutcomeValidator.java` — `@ApplicationScoped` bean that encapsulates named-outcome validation and JEXL condition evaluation at completion/rejection time; injected by `WorkItemService`, keeping lifecycle transition logic separate from constraint evaluation.
+`runtime-core/src/main/java/io/casehub/work/runtime/service/OutcomeValidator.java` — `@ApplicationScoped` bean that encapsulates named-outcome validation and JEXL condition evaluation at completion/rejection time; injected by `WorkItemService`, keeping lifecycle transition logic separate from constraint evaluation.
 
 `api/src/main/java/io/casehub/work/api/Outcome.java` — 3-field record `(name, displayName, condition)` where `condition` is a nullable JEXL expression; snapshotted onto `WorkItem.permittedOutcomes` at instantiation as full objects, not just name strings.
 

@@ -4,19 +4,19 @@ import io.casehub.platform.api.expression.ExpressionEngineRegistry;
 import io.casehub.work.api.Outcome;
 import io.casehub.work.runtime.event.WorkItemContextBuilder;
 import io.casehub.work.runtime.model.OutcomeCodecs;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@ApplicationScoped
 public class OutcomeValidator {
 
-    @Inject
-    ExpressionEngineRegistry expressionRegistry;
+    private final ExpressionEngineRegistry expressionRegistry;
+
+    public OutcomeValidator(final ExpressionEngineRegistry expressionRegistry) {
+        this.expressionRegistry = expressionRegistry;
+    }
 
     @SuppressWarnings("unchecked")
     public void validate(final io.casehub.work.api.WorkItem item, final String outcome,

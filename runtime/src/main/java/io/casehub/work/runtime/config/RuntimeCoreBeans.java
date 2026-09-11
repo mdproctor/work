@@ -1,5 +1,6 @@
 package io.casehub.work.runtime.config;
 
+import io.casehub.platform.api.expression.ExpressionEngineRegistry;
 import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.work.api.spi.ExclusionPolicy;
 import io.casehub.work.api.spi.HolidayCalendar;
@@ -10,6 +11,7 @@ import io.casehub.work.runtime.calendar.DefaultBusinessCalendar;
 import io.casehub.work.runtime.service.CommaSeparatedExclusionPolicy;
 import io.casehub.work.runtime.service.FormSchemaValidationService;
 import io.casehub.work.runtime.service.NoOpSlaBreachPolicy;
+import io.casehub.work.runtime.service.OutcomeValidator;
 import io.casehub.work.runtime.service.WorkItemAssignmentService;
 
 import io.quarkus.arc.DefaultBean;
@@ -66,5 +68,12 @@ public class RuntimeCoreBeans {
     @ApplicationScoped
     public FormSchemaValidationService formSchemaValidationService() {
         return new FormSchemaValidationService();
+    }
+
+    @Produces
+    @ApplicationScoped
+    public OutcomeValidator outcomeValidator(
+            final ExpressionEngineRegistry expressionRegistry) {
+        return new OutcomeValidator(expressionRegistry);
     }
 }
