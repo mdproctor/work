@@ -13,3 +13,14 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#257 — Issue #257 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: ExampleTestBase shared infra
+    - [ ] Task 2: Fleet logistics YAML + test
+  - [ ] Batch 2: Scenarios
+    - [ ] Task 3: Hub monitoring YAML + test
+    - [ ] Task 4: Research analysis YAML + test
+  - [ ] Batch 3: Extensions
+    - [ ] Task 5: Contract review YAML + test
+    - [ ] Task 6: Market intelligence YAML + test
+  - [ ] Batch 4: EscapeHatch
+    - [ ] Task 7: Incident response YAML + Java + test
