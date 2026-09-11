@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-257-e2e-yaml-examples
-state: active
+state: closing:promoted
 project-sha: 6f3e5a9fc91d01aacb0cb925da901bc6137420b3
 date: 2026-09-11
 issue-repo: casehubio/blocks
@@ -11,16 +11,6 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
-- [ ] casehubio/blocks#257 — Issue #257 ← active
-  - [ ] Batch 1: Foundation
-    - [ ] Task 1: ExampleTestBase shared infra
-    - [ ] Task 2: Fleet logistics YAML + test
-  - [ ] Batch 2: Scenarios
-    - [ ] Task 3: Hub monitoring YAML + test
-    - [ ] Task 4: Research analysis YAML + test
-  - [ ] Batch 3: Extensions
-    - [ ] Task 5: Contract review YAML + test
-    - [ ] Task 6: Market intelligence YAML + test
-  - [ ] Batch 4: EscapeHatch
-    - [ ] Task 7: Incident response YAML + Java + test
+- [x] casehubio/blocks#257 — Issue #257
