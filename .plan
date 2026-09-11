@@ -13,8 +13,8 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/blocks#241 — Issue #241 ← active
-  - [ ] Batch 1: Pipeline enhancement
-    - [ ] Task 1: StatefulSummariser support for KeyedSummarisationRunner
+  - [x] Batch 1: Pipeline enhancement
+    - [x] Task 1: StatefulSummariser support for KeyedSummarisationRunner
   - [ ] Batch 2: Narrative types
     - [ ] Task 2: DecisionSignal sealed hierarchy + output records
     - [ ] Task 3: L1 heuristic summariser
