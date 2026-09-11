@@ -15,11 +15,11 @@ flyway-next-v: unknown
 - [ ] casehubio/blocks#241 — Issue #241 ← active
   - [x] Batch 1: Pipeline enhancement
     - [x] Task 1: StatefulSummariser support for KeyedSummarisationRunner
-  - [ ] Batch 2: Narrative types
+  - [x] Batch 2: Narrative types
     - [x] Task 2: DecisionSignal sealed hierarchy + output records
-    - [ ] Task 3: L1 heuristic summariser
-    - [ ] Task 4: L2 LLM summariser with template fallback
-    - [ ] Task 5: NarrativeSignalStrategy SPI + pipeline factory
+    - [x] Task 3: L1 heuristic summariser
+    - [x] Task 4: L2 LLM summariser with template fallback
+    - [x] Task 5: NarrativeSignalStrategy SPI + pipeline factory
   - [ ] Batch 3: Pipeline wiring
     - [ ] Task 6: Pipeline integration test
     - [ ] Task 7: YAML-style example test
