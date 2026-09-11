@@ -2,26 +2,22 @@
 
 ## Last Session
 
-Completed 2 YAML surface issues from the #246 epic queue.
+Closed epic #246 (Complete YAML surface) — 4 issues this session (#243 schema drift test, #244 AgentDescriptor wiring, #245 registry fallback extensibility, #256 comprehensive examples). Branch squashed (36→13 commits), merged to main, pushed.
 
-**#254 (Summarisation gaps):** Closed all 6 gaps. Registered field-extract and verbatim summariser types in SummarisationRecorder. Added mode (String) to SummariserDefinition, typePrefix to SourceDefinition, tickInterval (Long ms) to PipelineDefinition. Implemented keyed grouping compiler — refactored CompiledPipeline to use LevelRunner lambda wrappers, wired KeyedSummarisationRunner via PipelineCompiler with ExpressionEngine support. Coverage matrix §9-13 updated.
+Audited coverage matrix — summary table was stale at 66%, actual coverage is 95% (141/149 countable). Fixed and committed.
 
-**#255 (Engine adapter):** Delivered all 5 engine adapter types. Extended ExecutionBackendSpec with EngineHosted and ExecutionListenerSpec with Checkpointing (both throw UnsupportedOperationException — engine resolves at runtime). Created VerifierStrategySpec sealed interface (LlmEvaluation + SchemaValidation) with VerifierStrategyRegistry. Created CallerConfigSpec (full 12-field Human mirror with expression strings as MvelExpressionEvaluator, Class<?> as String, CandidateSetSpec as CandidateSetStrategySpec) + QuorumConfigSpec + CallerConfigRegistry. Created PatternJudgmentConfigSpec composing CallerConfigSpec + VerifierStrategySpec with EvidenceRequirement direct reuse — mode stored as String since JudgmentMode enum lives in engine-adapter (not on agentic-yaml classpath). PatternJudgmentConfigRegistry deferred to engine-adapter consumer. Schema generation updated. Coverage matrix §21 updated.
-
-Coverage moved from ~63% to ~66%. Remaining queue: 5 issues (#243, #244, #245, #256, and the #246 epic itself).
+Started #257 (end-to-end YAML examples). Spec written for 6 scenarios: fleet-logistics, hub-monitoring, research-analysis, contract-review, market-intelligence, incident-response. Batch 1 complete: `ExampleTestBase` shared infrastructure + fleet-logistics example (4-level summarisation pipeline + supervisor pattern + cognition).
 
 ## Immediate Next Step
 
-Run `work continue` — the .plan queue is at position 8/13 with #243 (Schema drift test) active. No spec or plan exists yet — start with brainstorming.
+Run `work continue` — branch `issue-257-e2e-yaml-examples` at Batch 2 of the implementation plan. Next tasks: hub-monitoring (Task 3) and research-analysis (Task 4).
 
 ## References
 
 | Artifact | Path |
 |----------|------|
+| Spec | `specs/issue-257-e2e-yaml-examples/2026-09-11-e2e-yaml-examples-design.md` |
+| Plan | `plans/2026-09-11-e2e-yaml-examples.md` |
 | Coverage matrix | `docs/yaml-coverage.md` |
-| Epic | casehubio/blocks#246 |
-| .plan | 5 issues remaining, #243 next |
-| #254 spec | `specs/issue-254-summarisation-gaps/` |
-| #254 plan | `plans/2026-09-11-summarisation-gaps.md` |
-| #255 spec | `specs/issue-255-engine-adapter/` |
-| #255 plan | `plans/2026-09-11-engine-adapter.md` |
+| Diary | `blog/2026-09-11-mdp01-the-last-four-gaps.md` |
+| .plan | Batch 2 of 4, Tasks 3-4 next |
