@@ -110,8 +110,11 @@ coordination-outcome-weights:
 The compact constructor handles null weights → empty map. No spec wrapper needed.
 
 Note: `DispositionAxis` enum constants (SOCIAL_ORIENTATION, RULE_FOLLOWING,
-RISK_APPETITE, AUTONOMY, CONFLICT_MODE) are used as YAML map keys. This is
-the blocks routing type — distinct from eidos `AgentDisposition`
+RISK_APPETITE, AUTONOMY, CONFLICT_MODE) are used as YAML map keys — Jackson
+uses `Enum.name()` for map keys by default. If `DispositionAxis` has
+`@JsonValue` on `jsonKey()`, the camelCase forms (socialOrient, ruleFollowing,
+etc.) would be used instead — verify during implementation. This is the blocks
+routing type — distinct from eidos `AgentDisposition`
 (see GE-20260811-e941cc).
 
 YAML example:

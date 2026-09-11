@@ -12,7 +12,7 @@
 
 ## D2: Spec categories for the 5 types
 
-**Choice:** Three categories: (A) weight map specs for CbrOutcomeWeights/CoordinationOutcomeWeights — flat map declarations, no sealed interface; (B) adapted record specs for TrustRoutingPolicyKeys/DispositionProfile — YAML-friendly records, compiler maps to runtime types; (C) sealed interface spec for RiskDecision — Autonomous/GateRequired variants.
+**Choice:** Three categories: (A) weight map specs for CbrOutcomeWeights/CoordinationOutcomeWeights — flat map declarations, no sealed interface; (B) adapted record spec for TrustRoutingPolicyKeys — YAML-friendly record, compiler maps to builder; (C) sealed interface spec for RiskDecision — Autonomous/GateRequired variants. DispositionProfile refined to direct reuse during spec writing — record is already Jackson-compatible.
 **Alternatives:**
 - Uniform sealed interface for all 5 — unnecessarily complex for flat maps and simple records
 - Direct reuse for all — CbrOutcomeWeights/CoordinationOutcomeWeights SPIs aren't Jackson-annotated, TrustRoutingPolicyKeys is a builder not a record
