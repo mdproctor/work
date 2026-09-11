@@ -12,7 +12,7 @@ design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction a
 flyway-next-v: none
 
 ## Queue
-- [x] casehubio/blocks#246 — Issue #246
+- [ ] casehubio/blocks#246 — epic: Complete YAML surface
 - [x] casehubio/blocks#248 — Affordance world model
 - [x] casehubio/blocks#249 — Channel infrastructure
 - [x] casehubio/blocks#250 — Prompt optimisation
