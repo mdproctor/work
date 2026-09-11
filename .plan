@@ -17,14 +17,13 @@ flyway-next-v: none
 - [x] casehubio/blocks#249 — Channel infrastructure
 - [x] casehubio/blocks#250 — Prompt optimisation
 - [x] casehubio/blocks#251 — Execution infrastructure
-- [ ] casehubio/blocks#252 — Trust routing oversight ← active
+- [x] casehubio/blocks#252 — Trust routing oversight
+- [ ] casehubio/blocks#253 — Speech configs ← active
   - [ ] Batch 1: Batch1
-    - [ ] Task 1: Weight map specs + registries
-    - [ ] Task 2: TrustRoutingPolicyKeysSpec + registry
+    - [ ] Task 1: Deps + direct reuse tests
+    - [ ] Task 2: Sherpa adapted specs + registries
   - [ ] Batch 2: Batch2
-    - [ ] Task 3: RiskDecisionSpec + registry
-    - [ ] Task 4: Schema + DispositionProfile + coverage matrix
-- [ ] casehubio/blocks#253 — Speech configs
+    - [ ] Task 3: Schema + coverage matrix
 - [ ] casehubio/blocks#254 — Summarisation gaps
 - [ ] casehubio/blocks#255 — Engine adapter
 - [ ] casehubio/blocks#243 — Schema drift test
