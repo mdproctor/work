@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-257-e2e-yaml-examples
-state: scaffolded
+state: active
 project-sha: 6f3e5a9fc91d01aacb0cb925da901bc6137420b3
 date: 2026-09-11
 issue-repo: casehubio/blocks
