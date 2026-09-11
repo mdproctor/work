@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-241-decision-narratives
-state: scaffolded
+state: active
 project-sha: slot-creation
 date: 2026-09-07
 issue-repo: casehubio/blocks
@@ -24,3 +24,4 @@ flyway-next-v: unknown
   - [ ] Batch 4: Consumer
     - [ ] Task 6: REST endpoint + signal strategy
     - [ ] Task 7: Ops Centre wiring
+- [ ] casehubio/blocks#259 — retrofit identity narratives onto enhanced summarisation pipeline
