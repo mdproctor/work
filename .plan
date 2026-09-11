@@ -1,0 +1,15 @@
+# Work Plan — issue-258-historical-encounter-showcase
+
+## State
+branch: issue-258-historical-encounter-showcase
+state: scaffolded
+project-sha: 045ee14ad25ae1d992c6a3a73f9abf435b8c805c
+date: 2026-09-11
+issue-repo: casehubio/blocks
+covers: 258
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/blocks#258 — Issue #258 ← active
