@@ -15,16 +15,16 @@
 
 ## D2: Richer gating via EmissionPolicy
 
-**Choice:** Deferred to #259 (identity narrative retrofit). Decision narrative pipeline uses `completionTest` on `KeyedSummarisationRunner` (L1) and `WindowPolicy` on `SummarisationRunner` (L2) — existing gating mechanisms are sufficient.
+**Choice:** Deferred to #259 (identity narrative retrofit). Decision narrative pipeline uses `completionTest` on `KeyedSummarisationRunner` (L1) and `completionTest` + `staleTimeout` on `KeyedSummarisationRunner` (L2) — existing gating mechanisms are sufficient.
 **Alternatives:**
 - `EmissionPolicy<IN, S>` SPI replacing `WindowPolicy` (original choice — deferred because decision narrative pipeline doesn't need it)
 - Layered policies (WindowPolicy base + GatePolicy overlay)
 - Extend WindowPolicy with optional predicates
-**Rationale:** L1 uses `KeyedSummarisationRunner` with `completionTest` predicate, which is already richer than WindowPolicy — it gates on per-group completion semantics. L2 uses `SummarisationRunner` with `WindowPolicy` for time/count batching. The motivating use case for EmissionPolicy (`NarrativeSynthesisGate` — count + novelty + quiet period) is an identity narrative concern in `NarrativeSynthesiser`. Introduce EmissionPolicy in #259 when it can be validated against the real consumer.
+**Rationale:** L1 uses `KeyedSummarisationRunner` with `completionTest` predicate, which is already richer than WindowPolicy — it gates on per-group completion semantics. L2 uses `KeyedSummarisationRunner` keyed by `caseId` with `completionTest` + `staleTimeout` for per-case grouping (see D7). The motivating use case for EmissionPolicy (`NarrativeSynthesisGate` — count + novelty + quiet period) is an identity narrative concern in `NarrativeSynthesiser`. Introduce EmissionPolicy in #259 when it can be validated against the real consumer.
 **Trade-offs:** YAML pipeline surface compatibility preserved — `PipelineCompiler` continues producing `WindowPolicy` directly.
 **Sources:** `WindowPolicy.java`, `KeyedSummarisationRunner` (completionTest predicate), `NarrativeSynthesisGate.java` (#259 use case)
 **Exploration:** quick
-**Status:** revised (R1-02: deferred to #259)
+**Status:** revised (R1-02: deferred to #259; R2-01: updated L2 description to match D7 — KeyedSummarisationRunner, not SummarisationRunner)
 
 ## D3: Post-summarisation output processing
 
