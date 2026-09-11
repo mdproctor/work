@@ -15,16 +15,9 @@ flyway-next-v: none
 - [x] casehubio/blocks#246 — Issue #246
 - [x] casehubio/blocks#248 — Affordance world model
 - [x] casehubio/blocks#249 — Channel infrastructure
-- [ ] casehubio/blocks#250 — Prompt optimisation ← active
-  - [x] Batch 1: Spec records
-    - [x] Task 1: Sealed interfaces + pipeline + definition specs
-  - [x] Batch 2: Registries + Compiler
-    - [x] Task 2: DiversityStrategy + PromptOptimiser + ConfidenceScorer registries
-    - [x] Task 3: PromptOptimisationCompiler + CompiledPromptOptimisation
-  - [x] Batch 3: Deployment + Schema
-    - [x] Task 4: BuildItem + BuildStep + Recorder + SchemaGenerator + coverage matrix
-- [ ] casehubio/blocks#251 — Execution infrastructure
-- [ ] casehubio/blocks#252 — Trust routing oversight
+- [x] casehubio/blocks#250 — Prompt optimisation
+- [x] casehubio/blocks#251 — Execution infrastructure
+- [ ] casehubio/blocks#252 — Trust routing oversight ← active
 - [ ] casehubio/blocks#253 — Speech configs
 - [ ] casehubio/blocks#254 — Summarisation gaps
 - [ ] casehubio/blocks#255 — Engine adapter
