@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-241-decision-narratives
-state: active
+state: closing:promoted
 project-sha: slot-creation
 date: 2026-09-07
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#241 — Issue #241 ← active
   - [x] Batch 1: Pipeline enhancement
