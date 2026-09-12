@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-259-narrative-summ-retrofit
-state: active
+state: closing:promoted
 project-sha: ee72de8fdd1807ed7ebbff1eb23a482192986cc3
 date: 2026-09-12
 issue-repo: casehubio/blocks
@@ -11,14 +11,6 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
-- [ ] casehubio/blocks#259 — Issue #259 ← active
-  - [x] Batch 1: SPI-Foundation
-    - [x] Task 1: SPI-interfaces+WindowPolicyEmission+peekBuffer
-    - [x] Task 2: SummarisationRunner-builder+integration
-    - [x] Task 3: KeyedSummarisationRunner-builder
-  - [x] Batch 2: Narrative-Components
-    - [x] Task 4: Adapter+EmissionPolicy+OutputProcessor+StateStore
-    - [x] Task 5: NarrativeContentSummariser
-  - [x] Batch 3: Pipeline-Wiring
-    - [x] Task 6: NarrativePipeline+delete-NarrativeSynthesiser
+- [x] casehubio/blocks#259 — Issue #259
