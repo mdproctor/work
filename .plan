@@ -13,3 +13,12 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#259 — Issue #259 ← active
+  - [ ] Batch 1: SPI-Foundation
+    - [ ] Task 1: SPI-interfaces+WindowPolicyEmission+peekBuffer
+    - [ ] Task 2: SummarisationRunner-builder+integration
+    - [ ] Task 3: KeyedSummarisationRunner-builder
+  - [ ] Batch 2: Narrative-Components
+    - [ ] Task 4: Adapter+EmissionPolicy+OutputProcessor+StateStore
+    - [ ] Task 5: NarrativeContentSummariser
+  - [ ] Batch 3: Pipeline-Wiring
+    - [ ] Task 6: NarrativePipeline+delete-NarrativeSynthesiser
