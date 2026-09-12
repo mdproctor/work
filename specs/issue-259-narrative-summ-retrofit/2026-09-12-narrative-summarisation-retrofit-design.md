@@ -224,6 +224,7 @@ public class SummarisationRunner<IN, OUT> implements Tickable {
         private WindowPolicy windowPolicy;
         private EmissionPolicy<IN, ?> emissionPolicy;
         private StateStore<?> stateStore;
+        private Function<List<LevelEvent<IN>>, String> stateKeyResolver;
         private OutputProcessor<OUT, ?> outputProcessor;
         private Compactor<IN> compactor;
         private Consumer<List<LevelEvent<IN>>> onFailure;
@@ -249,6 +250,12 @@ public class SummarisationRunner<IN, OUT> implements Tickable {
 
         public <S> Builder<IN, OUT> stateStore(StateStore<S> store) {
             this.stateStore = store;
+            return this;
+        }
+
+        public Builder<IN, OUT> stateKeyResolver(
+                Function<List<LevelEvent<IN>>, String> resolver) {
+            this.stateKeyResolver = resolver;
             return this;
         }
 
@@ -466,7 +473,12 @@ public class NarrativeContentSummariser
 
 **Error handling:** LLM failure and parse failure return a completed
 future with the previous state unchanged (or null for first synthesis).
-The runner sees no output change and does not publish to the bus.
+The `asSummariser()` bridge wraps this as
+`SummariseResult(List.of(previous), previous)` — the runner publishes
+`previous` to the output bus and stores the same state. This is a
+benign no-op: the state write is idempotent, and `NarrativeOrchestrator`
+already deduplicates by comparing `synthesisedAt` timestamps (returns
+`NoChange` when unchanged). No special handling needed.
 
 ### NarrativeOutputProcessor
 

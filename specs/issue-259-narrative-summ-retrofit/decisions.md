@@ -81,7 +81,7 @@
 - Wire components directly in InnerLifeOrchestrator — InnerLifeOrchestrator already has too many responsibilities
 - Standalone runner without factory — loses CDI lifecycle management (start/stop tick scheduler)
 **Rationale:** Mirrors the proven DecisionNarrativePipeline pattern from #241. Centralizes pipeline wiring. CDI lifecycle handles start/stop.
-**Trade-offs:** NarrativeOrchestrator now reads from StateStore cache (via the runner) rather than NarrativeStore directly. InnerLifeOrchestrator changes from calling synthesiser.synthesiseIfNeeded() to pipeline.tick().
+**Trade-offs:** NarrativeOrchestrator unchanged — reads from NarrativeStore (CbrNarrativeStore) independently of the pipeline's write-through cache. InnerLifeOrchestrator changes from calling synthesiser.synthesiseIfNeeded() to pipeline.tick().
 **Depends on:** D1, D2, D3, D4, D5
 **Sources:** DecisionNarrativePipeline.java (factory pattern reference), InnerLifeOrchestrator.java (current synthesiser integration)
 **Exploration:** quick
