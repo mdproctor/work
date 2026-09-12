@@ -13,3 +13,11 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#258 — Issue #258 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: Maven profile + TestAgentProvider
+  - [ ] Batch 2: CognitionStack
+    - [ ] Task 2: Orchestrator builder
+    - [ ] Task 3: Eidos descriptor loading
+  - [ ] Batch 3: ConversationRunner
+    - [ ] Task 4: ConversationRunner + InMemoryMessageStore
+    - [ ] Task 5: LLM integration test
