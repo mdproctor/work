@@ -1,0 +1,15 @@
+# Work Plan — issue-259-narrative-summ-retrofit
+
+## State
+branch: issue-259-narrative-summ-retrofit
+state: scaffolded
+project-sha: ee72de8fdd1807ed7ebbff1eb23a482192986cc3
+date: 2026-09-12
+issue-repo: casehubio/blocks
+covers: 259
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/blocks#259 — Issue #259 ← active
