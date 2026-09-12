@@ -22,3 +22,16 @@
 **Sources:** SummarisationRunner.java (tick/invokeSummariser), EventAccumulator.java (shouldEmit/drainIfReady)
 **Exploration:** quick
 **Status:** captured
+
+## D3: SummarisationRunner API shape for new SPIs
+
+**Choice:** Builder pattern — SummarisationRunner.builder(summariser, outputBus, outputLevel) with fluent .emissionPolicy(), .stateStore(), .outputProcessor(), .compactor(), .onFailure(). Existing WindowPolicy constructors unchanged. Apply same pattern to KeyedSummarisationRunner.
+**Alternatives:**
+- Overloaded constructors — combinatorial explosion with 3 optional params × with/without compactor × with/without onFailure
+- Config record — pushes complexity into a separate SummarisationRunnerConfig type without adding clarity
+**Rationale:** Builders handle optional parameters cleanly, existing code is untouched, extensible for future SPIs. Idiomatic Java.
+**Trade-offs:** Builder adds inner class boilerplate. Existing constructors coexist (minor API surface duplication during migration).
+**Depends on:** D2 (EmissionPolicy integration at runner level)
+**Sources:** SummarisationRunner.java (4 existing constructors), KeyedSummarisationRunner.java (4 existing constructors)
+**Exploration:** quick
+**Status:** captured
