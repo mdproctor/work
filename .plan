@@ -15,11 +15,11 @@ flyway-next-v: none
 - [x] casehubio/blocks#261 — Issue #261
 - [x] casehubio/blocks#262 — Mood sentiment analysis
 - [x] casehubio/blocks#263 — Directive prompt sections
-- [ ] casehubio/blocks#264 — Fix section contribution count ← active
-- [ ] casehubio/blocks#265 — Extend to 8 turns
-- [ ] casehubio/blocks#266 — Stage 4 FULL validation
-- [ ] casehubio/blocks#267 — Fix results output path
-- [ ] casehubio/blocks#268 — LLM-backed narrative synthesis
-- [ ] casehubio/blocks#269 — Refactor SocialAvatarCognition to CognitionCore
-- [ ] casehubio/blocks#271 — Configurable subsystem toggles
-- [ ] casehubio/blocks#272 — Production directive prompt sections
+- [x] casehubio/blocks#264 — Fix section contribution count
+- [x] casehubio/blocks#265 — Extend to 8 turns
+- [x] casehubio/blocks#266 — Stage 4 FULL validation
+- [x] casehubio/blocks#267 — Fix results output path
+- [x] casehubio/blocks#268 — LLM-backed narrative synthesis
+- [x] casehubio/blocks#269 — Refactor SocialAvatarCognition to CognitionCore
+- [x] casehubio/blocks#271 — Configurable subsystem toggles
+- [x] casehubio/blocks#272 — Production directive prompt sections
