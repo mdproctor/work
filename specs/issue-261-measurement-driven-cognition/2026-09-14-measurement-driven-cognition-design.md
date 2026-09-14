@@ -222,28 +222,22 @@ var metrics = new CognitionMetrics(turn, agentId,
 in the system prompt never update. The LLM sees the same cognition
 state every turn.
 
-**Fix:** Move cognition sections to the user prompt, which changes each
-turn.
+**Fix:** Switch from multi-turn `AgentSession` to single-turn
+`AgentProvider.invoke()` queries. Each turn builds a fresh system prompt
+(briefing + cognition sections + world) and user prompt (conversation
+history + instruction). This matches production's `SocialPromptAssembler`
+pattern where cognition goes in the system prompt.
 
 ```java
-// System prompt: static context only (briefing + world)
+// System prompt: rebuilt each turn with fresh cognition state
 private String buildSystemPrompt(AgentDescriptor speaker,
-                                  AffordanceRenderer renderer) {
+                                  AffordanceRenderer renderer,
+                                  String otherAgent) {
     var sb = new StringBuilder();
     sb.append(speaker.briefing()).append("\n\n");
-    // World context (static — the world doesn't change during conversation)
-    if (world != null) { ... }
-    sb.append("\n\nRespond in character. Keep responses to 2-3 paragraphs.");
-    return sb.toString();
-}
 
-// User prompt: dynamic context (cognition + conversation)
-private String buildUserPrompt(List<Turn> history, String currentAgent,
-                                String otherAgent) {
-    var sb = new StringBuilder();
-
-    // Cognition sections (dynamic per turn)
-    var context = new PromptContext(currentAgent, tenantId, otherAgent);
+    // Cognition sections (dynamic per turn — matches SocialPromptAssembler)
+    var context = new PromptContext(speaker.name(), tenantId, otherAgent);
     for (var section : cognitionCore.promptSections()) {
         var contribution = section.contribute(context);
         if (contribution != null && !contribution.isBlank()) {
@@ -251,16 +245,24 @@ private String buildUserPrompt(List<Turn> history, String currentAgent,
         }
     }
 
-    // Conversation content
-    if (history.isEmpty()) {
-        sb.append("The conversation begins. Introduce yourself...");
-    } else {
-        var lastTurn = history.getLast();
-        sb.append(lastTurn.speakerName()).append(" said:\n\n");
-        sb.append(lastTurn.dialogue());
-    }
+    // World context
+    if (world != null) { ... }
+    sb.append("\n\nRespond in character. Keep responses to 2-3 paragraphs.");
+    return sb.toString();
+}
 
-    sb.append("\n\nRespond in character.");
+// User prompt: conversation history + instruction
+private String buildUserPrompt(List<Turn> history, String currentAgent) {
+    if (history.isEmpty()) {
+        return "The conversation begins. Introduce yourself...";
+    }
+    var sb = new StringBuilder();
+    // Include full conversation history (single-turn query, no session memory)
+    for (var turn : history) {
+        sb.append(turn.speakerName()).append(": ");
+        sb.append(turn.dialogue()).append("\n\n");
+    }
+    sb.append("Respond in character.");
     return sb.toString();
 }
 ```
@@ -268,12 +270,13 @@ private String buildUserPrompt(List<Turn> history, String currentAgent,
 **Turn lifecycle (each turn):**
 1. Snapshot before
 2. Tick all orchestrators (processes accumulated signals → updated state)
-3. Build user prompt with fresh cognition sections
-4. Query LLM via AgentSession
-5. Record interaction signals (userMessage, response → orchestrators)
-6. Snapshot after
-7. Compute delta, capture metrics
-8. Print turn output with metrics
+3. Build system prompt with fresh cognition sections (matches production)
+4. Build user prompt with conversation history
+5. Single-turn query via `AgentProvider.invoke()`
+6. Record interaction signals (userMessage, response → orchestrators)
+7. Snapshot after
+8. Compute delta, capture metrics
+9. Print turn output with metrics
 
 ### Stage-gated CognitionStack
 

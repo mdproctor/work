@@ -70,21 +70,44 @@
 **Exploration:** quick
 **Status:** captured
 
-## D5: Structured user prompt injection
+## D5: Single-turn queries with system-prompt cognition injection
 
-**Choice:** User prompt = [cognition context sections] + [last turn's dialogue] + [conversation instruction]. Cognition sections appear as labeled blocks (## Emotional State, ## What You Believe About Them, etc.) before the conversation content.
+**Choice:** Switch ConversationRunner from multi-turn `AgentSession` to
+single-turn `AgentProvider.invoke()` queries. Each turn builds a fresh
+system prompt (briefing + cognition sections + world) and user prompt
+(conversation history + instruction). Cognition sections go in the
+system prompt — matching production's `SocialPromptAssembler` pattern.
 
 **Alternatives:**
-- Close and reopen AgentSession each turn with updated system prompt — loses session continuity and prompt caching
-- Insert cognition as synthetic system message in conversation history — pollutes history with meta-information
+- User-prompt injection with multi-turn AgentSession — diverges from
+  production's system-prompt pattern; LLMs treat user-prompt cognition
+  as conversational input rather than behavioral framing, confounding
+  the measurement
+- Close and reopen AgentSession each turn — works but adds session
+  lifecycle overhead for no benefit over single-turn queries
+- Insert cognition as synthetic system message in conversation history —
+  pollutes history with meta-information
 
-**Rationale:** Sessions fix system prompt at open. Injecting into user prompt makes cognition state dynamic per turn while preserving session continuity. Clear section labels make it easy to measure which sections influenced the response.
+**Rationale:** Production `SocialPromptAssembler` injects cognition into
+the system prompt. The research should measure cognition through the same
+injection pattern. Single-turn queries are simpler than session management
+and match how `SpeechSession.handleStop()` works in production. For 4-8
+turn conversations, the prompt caching benefit of multi-turn sessions is
+negligible.
 
-**Trade-offs:** User prompt grows each turn with cognition context. Manageable for 4-8 turn conversations.
+**Trade-offs:** Loses session-level conversation memory — the full
+conversation history must be included in each turn's user prompt. For
+short conversations (4-8 turns) this is manageable and actually makes
+the prompt contents more inspectable for measurement.
 
 **Depends on:** D1 (CognitionCore's promptSections() provides the section content)
 
-**Sources:** ConversationRunner.java (current system prompt injection), issue #261 ("sessions fix system prompt at open"), #198 spec (SocialPromptAssembler composition pattern)
+**Sources:** SocialPromptAssembler.java (production pattern — appends to systemPrompt),
+SpeechSession.java (single-turn query model), ConversationRunner.java (current implementation),
+decision review R1-15/R1-16 (production divergence finding)
+
+**Exploration:** quick
+**Status:** revised (was: user-prompt injection; revised per decision review R1-15)
 
 **Exploration:** quick
 **Status:** captured
