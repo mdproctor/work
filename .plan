@@ -13,10 +13,10 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#282 — Issue #282 ← active
-  - [ ] Batch 1: SPIs+Record
-    - [ ] Task 1: Create SubjectResolver InteractionMapper NormFilter CognitiveImpact
-  - [ ] Batch 2: CognitionCore
-    - [ ] Task 2: Change tick() to accept SubjectResolver
-    - [ ] Task 3: Add CognitiveImpact to recordInteraction()
-  - [ ] Batch 3: DefaultBeans
-    - [ ] Task 4: Add producers + update CLAUDE.md
+  - [x] Batch 1: SPIs+Record
+    - [x] Task 1: Create SubjectResolver InteractionMapper NormFilter CognitiveImpact
+  - [x] Batch 2: CognitionCore
+    - [x] Task 2: Change tick() to accept SubjectResolver
+    - [x] Task 3: Add CognitiveImpact to recordInteraction()
+  - [x] Batch 3: DefaultBeans
+    - [x] Task 4: Add producers + update CLAUDE.md
