@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-282-cognition-context-strategy
-state: scaffolded
+state: active
 project-sha: cd575d2fd0bb083babd34cc34ffe5d7217931e98
 date: 2026-09-14
 issue-repo: casehubio/blocks
@@ -13,3 +13,10 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#282 — Issue #282 ← active
+  - [ ] Batch 1: SPIs+Record
+    - [ ] Task 1: Create SubjectResolver InteractionMapper NormFilter CognitiveImpact
+  - [ ] Batch 2: CognitionCore
+    - [ ] Task 2: Change tick() to accept SubjectResolver
+    - [ ] Task 3: Add CognitiveImpact to recordInteraction()
+  - [ ] Batch 3: DefaultBeans
+    - [ ] Task 4: Add producers + update CLAUDE.md
