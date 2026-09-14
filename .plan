@@ -13,3 +13,17 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#261 — Issue #261 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: CognitionCore
+    - [ ] Task 2: CognitionSnapshot+Delta+Metrics
+  - [ ] Batch 2: ConversationRunner+Stage0
+    - [ ] Task 3: Rewrite ConversationRunner+ResultsWriter
+    - [ ] Task 4: Stage 0 baseline capture
+  - [ ] Batch 3: Stages1-2
+    - [ ] Task 5: Stage 1 signal extraction
+    - [ ] Task 6: Stage 2 real drives
+  - [ ] Batch 4: Stages3-4
+    - [ ] Task 7: Stage 3 narrative synthesis
+    - [ ] Task 8: Stage 4 full orchestration
+  - [ ] Batch 5: Stages5-6
+    - [ ] Task 9: Mermaid+Evaluator+A/B comparison
