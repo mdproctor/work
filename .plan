@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-260-cognitive-obs-renderers
-state: active
+state: closing:promoted
 project-sha: 0cbf6aec946e01b37fcdb2c48bb9d066ebc196bd
 date: 2026-09-14
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#260 — Issue #260 ← active
   - [x] Batch 1: Renderers
