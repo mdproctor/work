@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-260-cognitive-obs-renderers
-state: scaffolded
+state: active
 project-sha: 0cbf6aec946e01b37fcdb2c48bb9d066ebc196bd
 date: 2026-09-14
 issue-repo: casehubio/blocks
@@ -13,3 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#260 — Issue #260 ← active
+  - [ ] Batch 1: Renderers
+    - [ ] Task 1: beliefsSection renderer
+    - [ ] Task 2: principlesSection renderer
+    - [ ] Task 3: trustSection renderer
+    - [ ] Task 4: normsSection renderer
