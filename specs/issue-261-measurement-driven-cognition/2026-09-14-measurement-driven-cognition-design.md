@@ -502,10 +502,10 @@ Test scope additions (under `-Pllm` profile in agentic-yaml):
 
 ## What this does NOT cover
 
-- **Production CDI wiring refactor** — SocialAvatarCognition delegation
-  to CognitionCore is a separate follow-up. This spec adds CognitionCore
-  and uses it from CognitionStack only. SocialAvatarCognition refactoring
-  is tracked but not gated.
+- **SocialAvatarCognition refactor** — CognitionCore is built this branch
+  and CognitionStack delegates to it. Refactoring SocialAvatarCognition
+  to also delegate to CognitionCore is a separate follow-up — it requires
+  adapting CDI `Instance<>` patterns and is not gated by this work.
 - **neocortex #333 MCP tool integration** — CognitionSnapshot is designed
   for compatibility but does not implement the MCP tool surface. That
   belongs in the #333 epic.
