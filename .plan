@@ -1,0 +1,15 @@
+# Work Plan — issue-280-defaultbean-config-producers
+
+## State
+branch: issue-280-defaultbean-config-producers
+state: scaffolded
+project-sha: 5390c0dfa879c8f842e2855c9de296b8416cc155
+date: 2026-09-14
+issue-repo: casehubio/blocks
+covers: 280
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/blocks#280 — Issue #280 ← active
