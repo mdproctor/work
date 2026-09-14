@@ -2,43 +2,46 @@
 
 ## Last Session
 
-Built measurement-driven cognition integration infrastructure (#261). CognitionCore (shared orchestrator composition in blocks main scope), CognitionSnapshot/Delta/Metrics (observability designed for neocortex #333 compatibility), ConversationRunner rewrite (single-turn queries matching production SocialPromptAssembler pattern), stage-gated CognitionStack.
+Completed the measurement-driven cognition integration epic (#261). Key achievement: validated that cognitive state presented as structured profile data measurably improves conversation quality over a pure-LLM baseline.
 
-Three follow-on fixes: LLM-backed BDI extraction, mood sentiment analysis (#262), directive prompt section wrappers (#263). Config thresholds tuned for showcase conversations.
+### Issues completed this session
+- #264: Fixed map key collision in section contribution metrics (DirectivePromptSection wrapper)
+- #265: Extended showcase from 4 to 8 turns
+- #266: Stage 6 A/B comparison — cognition wins on depth (+1) and memory utilisation (+1)
+- #267: Fixed results output path (doubled agentic-yaml prefix)
+- #268: LLM-backed narrative episode synthesis
+- #269: Refactored SocialAvatarCognition to delegate to CognitionCore
+- #271: Configurable per-subsystem toggles (CognitionConfig)
+- #272: Production directive prompt sections (DirectiveSection, opt-in)
 
-Live test results: neurocortex IS populating (mood shifts P+0.20, mental model 4B+1D formed), but NOT yet visibly altering dialogue. Root cause: only 1 of 7 prompt sections contributes per turn (#264).
+### Key finding
+Prose directives ("steer toward goals", "seek connection") made cognition WORSE — baseline won 9/8 on 3 dimensions. Removing directives and presenting cognitive state as labeled profile data flipped the result: cognition won on depth and memory utilisation. The LLM integrates character briefing + profile data emergently.
 
-## Immediate Next Step
+### Additional fixes
+- Orchestrator LLM inference hang: MentalModel/UserModel orchestrators hung when their own invokeLlmInference() fired during tick(). Fixed by passing null agentProvider — CognitionCore.recordInteraction() handles all LLM extraction.
+- DescriptorLoader rewritten to construct AgentDescriptor directly (eidos upstream API change).
 
-`work continue` on branch `issue-261-measurement-driven-cognition`. Active issue: #264 (fix section contribution count). This is the blocker — until multiple sections contribute, the LLM never sees enough cognitive context. After: extend to 8 turns (#265), run Stage 4 FULL A/B comparison (#266).
+## What's Next
 
-## Queue — position 3/11
+Follow-on epic #274 — deepen cognitive advantage from 2/5 to 5/5 dimension wins:
 
-| # | Title | Status |
-|---|-------|--------|
-| #261 | Measurement-driven cognition infrastructure | Done |
-| #262 | Mood sentiment analysis | Done (on branch) |
-| #263 | Directive prompt sections (test-scope) | Done (on branch) |
-| **#264** | **Fix section contribution count (1 of 7)** | **Next** |
-| #265 | Extend showcase to 8 turns | Queued |
-| #266 | Stage 4 FULL validation + A/B comparison | Queued |
-| #267 | Fix results output path | Queued |
-| #268 | LLM-backed narrative synthesis | Queued |
-| #269 | Refactor SocialAvatarCognition → CognitionCore | Queued |
-| #271 | Configurable subsystem toggles | Queued |
-| #272 | Production directive prompt sections | Queued |
-
-Deferred: Research paper evidence package (writing task, depends on #266).
+| # | Title | Target dimension | Scale |
+|---|-------|-----------------|-------|
+| #275 | Goals as active cognitive objectives | Adaptiveness, Depth | M/Med |
+| #276 | Personality profile as cognitive section | Character consistency | S/Med |
+| #277 | Character constraints as cognitive context | Consistency, Groundedness | S/Low |
+| #278 | Extended conversation length (12-16 turns) | Memory utilisation | S/Low |
+| #279 | Strategy learning contribution | Adaptiveness | S/Med |
 
 ## References
 
 | Artifact | Path |
 |----------|------|
+| Research findings | workspace `specs/issue-261-measurement-driven-cognition/2026-09-14-measurement-driven-cognition-findings.md` |
+| Blog post | `blog/2026-09-14-mdp01-when-telling-ais-how-to-think-makes-them-worse.md` |
 | Design spec | workspace `specs/issue-261-measurement-driven-cognition/2026-09-14-measurement-driven-cognition-design.md` |
-| Decisions | workspace `specs/issue-261-measurement-driven-cognition/decisions.md` |
-| Implementation plan | workspace `plans/2026-09-14-measurement-driven-cognition.md` |
-| LLM test infra | `agentic-yaml/src/test/java/.../llm/` |
+| Stage results | `agentic-yaml/src/test/resources/results/` |
 | CognitionCore | `blocks/src/main/java/.../social/CognitionCore.java` |
-| Observability types | `blocks/src/main/java/.../social/CognitionSnapshot.java`, `CognitionDelta.java`, `CognitionMetrics.java` |
-| Stage results | `agentic-yaml/agentic-yaml/src/test/resources/results/` (path bug — #267) |
-| Journal | workspace `JOURNAL.md` |
+| CognitionConfig | `blocks/src/main/java/.../social/CognitionConfig.java` |
+| DirectiveSection | `blocks/src/main/java/.../social/prompt/DirectiveSection.java` |
+| Garden entries | `jvm/GE-20260914-6fc5ce.md` (map key collision), `tools/GE-20260914-e3cb03.md` (profile data technique) |
