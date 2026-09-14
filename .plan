@@ -13,8 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#260 — Issue #260 ← active
-  - [ ] Batch 1: Renderers
-    - [ ] Task 1: beliefsSection renderer
-    - [ ] Task 2: principlesSection renderer
-    - [ ] Task 3: trustSection renderer
-    - [ ] Task 4: normsSection renderer
+  - [x] Batch 1: Renderers
+    - [x] Task 1: beliefsSection renderer
+    - [x] Task 2: principlesSection renderer
+    - [x] Task 3: trustSection renderer
+    - [x] Task 4: normsSection renderer
