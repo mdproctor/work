@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-280-defaultbean-config-producers
-state: scaffolded
+state: active
 project-sha: 5390c0dfa879c8f842e2855c9de296b8416cc155
 date: 2026-09-14
 issue-repo: casehubio/blocks
