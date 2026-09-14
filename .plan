@@ -21,6 +21,5 @@ flyway-next-v: none
 - [ ] casehubio/blocks#267 — Fix results output path
 - [ ] casehubio/blocks#268 — LLM-backed narrative synthesis
 - [ ] casehubio/blocks#269 — Refactor SocialAvatarCognition to CognitionCore
-
-## Deferred
-- [ ] Research paper evidence package (M / Low) [] — Writing task, not code. Depends on #266 producing comparison data. Can be done after Stage 4 validation.
+- [ ] casehubio/blocks#271 — Configurable subsystem toggles
+- [ ] casehubio/blocks#272 — Production directive prompt sections
