@@ -14,7 +14,13 @@ flyway-next-v: none
 ## Queue
 - [x] casehubio/blocks#261 — Issue #261
 - [x] casehubio/blocks#262 — Mood sentiment analysis
-- [ ] casehubio/blocks#263 — Directive prompt sections ← active
-- [ ] casehubio/blocks#264 — Fix section contribution count
+- [x] casehubio/blocks#263 — Directive prompt sections
+- [ ] casehubio/blocks#264 — Fix section contribution count ← active
 - [ ] casehubio/blocks#265 — Extend to 8 turns
 - [ ] casehubio/blocks#266 — Stage 4 FULL validation
+- [ ] casehubio/blocks#267 — Fix results output path
+- [ ] casehubio/blocks#268 — LLM-backed narrative synthesis
+- [ ] casehubio/blocks#269 — Refactor SocialAvatarCognition to CognitionCore
+
+## Deferred
+- [ ] Research paper evidence package (M / Low) [] — Writing task, not code. Depends on #266 producing comparison data. Can be done after Stage 4 validation.
