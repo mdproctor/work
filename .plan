@@ -15,3 +15,6 @@ flyway-next-v: none
 - [x] casehubio/blocks#261 — Issue #261
 - [x] casehubio/blocks#262 — Mood sentiment analysis
 - [ ] casehubio/blocks#263 — Directive prompt sections ← active
+- [ ] casehubio/blocks#264 — Fix section contribution count
+- [ ] casehubio/blocks#265 — Extend to 8 turns
+- [ ] casehubio/blocks#266 — Stage 4 FULL validation
