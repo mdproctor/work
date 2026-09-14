@@ -12,18 +12,6 @@ design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction a
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/blocks#261 — Issue #261 ← active
-  - [x] Batch 1: Foundation
-    - [x] Task 1: CognitionCore
-    - [x] Task 2: CognitionSnapshot+Delta+Metrics
-  - [x] Batch 2: ConversationRunner+Stage0
-    - [x] Task 3: Rewrite ConversationRunner+ResultsWriter
-    - [x] Task 4: Stage 0 baseline capture
-  - [x] Batch 3: Stages1-2
-    - [x] Task 5: Stage 1 signal extraction
-    - [x] Task 6: Stage 2 real drives
-  - [x] Batch 4: Stages3-4
-    - [x] Task 7: Stage 3 narrative synthesis
-    - [x] Task 8: Stage 4 full orchestration
-  - [x] Batch 5: Stages5-6
-    - [x] Task 9: Mermaid+Evaluator+A/B comparison
+- [x] casehubio/blocks#261 — Issue #261
+- [ ] casehubio/blocks#262 — Mood sentiment analysis ← active
+- [ ] casehubio/blocks#263 — Directive prompt sections
