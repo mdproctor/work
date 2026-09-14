@@ -1,7 +1,7 @@
 format_version: 1
-state: DECISION_CAPTURE
-entered: 2026-09-14T14:35:00+01:00
-decision_count: 4
+state: POST_SPEC_REVIEW
+entered: 2026-09-14T14:50:00+01:00
+decision_count: 5
 dimensions_completed: 0
 dimensions_total: 0
 ordered: false
