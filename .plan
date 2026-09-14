@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-261-measurement-driven-cognition
-state: active
+state: closing:promoted
 project-sha: 32691427e38162ef496c73ba8d83798c8df464db
 date: 2026-09-13
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [x] casehubio/blocks#261 — Issue #261
 - [x] casehubio/blocks#262 — Mood sentiment analysis
