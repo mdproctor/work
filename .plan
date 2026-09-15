@@ -23,5 +23,5 @@ flyway-next-v: none
     - [x] Task 5: Neurocortex priming
     - [x] Task 6: MemoryHygiene + CuriosityDrive + goals wiring
     - [x] Task 7: UserModel quality from mood
-  - [ ] Batch 4: LLM-tests
-    - [ ] Task 8: Per-orchestrator proof tests
+  - [x] Batch 4: LLM-tests
+    - [x] Task 8: Per-orchestrator proof tests
