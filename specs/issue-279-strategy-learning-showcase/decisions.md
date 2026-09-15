@@ -48,3 +48,27 @@
 **Sources:** CognitionCore.java:143-157 (hardcoded NEUTRAL), MoodOrchestrator (pleasure delta already computed), #282 CognitiveImpact (explicit override path), blocks prompt optimisation framework (VariantSelector pattern for A/B)
 **Exploration:** quick
 **Status:** captured
+
+## D5: Goals — cooldown, missing sources, and priming scope
+
+**Choice:** Fix mechanical issues (cooldown config, wire CuriosityGoalMapper) in this branch. Goal priming follows D3 pattern — implement as part of neurocortex priming, same mechanism for strategy and goals.
+**Alternatives:**
+- Goals-only priming (separate from strategy priming) — duplicates the priming mechanism
+- Defer all goal fixes to #283 — leaves goals broken in the showcase
+**Rationale:** The cooldown (60 min default) and missing CuriosityGoalMapper are config/wiring bugs, not design questions. Fix them. Goal priming is architecturally identical to strategy priming (D3): load descriptor goal data into neurocortex stores with metadata (priority, emotional valence, time, links), let GoalProposalOrchestrator process them through its normal tick. Building one priming mechanism that handles both strategy cases and goal records keeps the code unified.
+**Trade-offs:** Goal records need richer metadata than strategy CBR cases (priority, valence, temporal metadata, links to other goals/entities). The priming mechanism must be extensible to different store types, not just CBR.
+**Sources:** GoalProposalConfig.java (60min cooldown default), CognitionStack.java:118-133 (FULL stage — no CuriosityGoalMapper), #283 (directive-minimal architecture)
+**Exploration:** quick
+**Depends on:** D3 (priming mechanism)
+**Status:** captured
+
+## D6: LLM proof tests structure
+
+**Choice:** Per-orchestrator assertion tests in HistoricalEncounterLlmTest
+**Alternatives:**
+- Single full-conversation test with post-hoc assertions — coarser, harder to diagnose failures
+**Rationale:** Each test isolates one pipeline and runs N turns to assert non-null prompt section contribution by a specific turn. Test name tells you what broke. E.g.: strategyContributesByTurn4(), goalsProposedByTurn6(), userModelDifferentiatesSubjects(). Run under -Pllm with real LLM. Can add full-conversation integration test later (approach B) for end-to-end confidence.
+**Trade-offs:** More test methods means more LLM calls in the test suite. Each test may run a short conversation (4-8 turns) rather than the full 12. Acceptable — focused proofs are more valuable than one long test.
+**Sources:** HistoricalEncounterLlmTest.java (existing test class), ConversationRunner.java (drives the conversation loop)
+**Exploration:** quick
+**Status:** captured
