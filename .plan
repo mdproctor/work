@@ -15,10 +15,10 @@ flyway-next-v: none
 - [ ] casehubio/blocks#279 — Issue #279 ← active
   - [x] Batch 1: Foundation
     - [x] Task 1: CognitiveImpact + compile breaks
-  - [ ] Batch 2: Strategy-pipeline
-    - [ ] Task 2: Persistent turn accumulation
-    - [ ] Task 3: Async auto-reflect
-    - [ ] Task 4: ConversationRunner signal correlation
+  - [x] Batch 2: Strategy-pipeline
+    - [x] Task 2: Persistent turn accumulation
+    - [x] Task 3: Async auto-reflect
+    - [x] Task 4: ConversationRunner signal correlation
   - [ ] Batch 3: Priming-goals-quality
     - [ ] Task 5: Neurocortex priming
     - [ ] Task 6: MemoryHygiene + CuriosityDrive + goals wiring
