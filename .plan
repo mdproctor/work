@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-273-mixed-improvements
-state: scaffolded
+state: active
 project-sha: 32f76766cf9e6944371660ce9f931fef5a5150c2
 date: 2026-09-15
 issue-repo: casehubio/blocks
@@ -12,9 +12,9 @@ design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction a
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/blocks#273 — Issue #273 ← active
-- [ ] casehubio/blocks#275 — Goals as active cognitive objectives
-- [ ] casehubio/blocks#276 — Personality profile as cognitive section
-- [ ] casehubio/blocks#277 — Character constraints as cognitive context
-- [ ] casehubio/blocks#278 — Extended conversation length 12-16 turns
-- [ ] casehubio/blocks#281 — Add ModelSelection permit to DecisionSignal
+- [x] casehubio/blocks#273 — Issue #273
+- [x] casehubio/blocks#275 — Goals as active cognitive objectives
+- [x] casehubio/blocks#276 — Personality profile as cognitive section
+- [x] casehubio/blocks#277 — Character constraints as cognitive context
+- [x] casehubio/blocks#278 — Extended conversation length 12-16 turns
+- [x] casehubio/blocks#281 — Add ModelSelection permit to DecisionSignal
