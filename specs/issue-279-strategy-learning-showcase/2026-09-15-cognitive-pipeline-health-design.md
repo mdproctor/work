@@ -32,8 +32,8 @@ The cognitive pipeline (CognitionCore → orchestrators → PromptSections) has 
 **Problem:** `CognitionCore.recordInteraction()` creates each `EngagementEvent` with a random UUID as `caseId`. `StrategyLearningOrchestrator.tick()` matches `TurnOutcome` signals to `ConversationOutcome` signals by `conversationId == caseId`. Random UUIDs mean turns can never be correlated with a conversation.
 
 **Fix in CognitionCore:**
-- Add a `@Nullable String conversationId` parameter to `recordInteraction()` (or carry it via `CognitiveImpact`). When non-null, use it as the `caseId` on the `EngagementEvent` instead of a random UUID.
-- Backward compatible: null conversationId preserves current behavior (random UUID).
+- Carry conversationId via `CognitiveImpact.strategySignal()`. When the caller provides a `CognitiveImpact` with a pre-built `EngagementSignal.TurnOutcome` (containing the shared caseId on its `EngagementEvent`), CognitionCore uses that signal directly instead of constructing one with a random UUID. This is the existing override path from #282 — no new parameters needed.
+- When `impact` is null or `impact.strategySignal()` is null, CognitionCore falls back to constructing a TurnOutcome with a random UUID (current behavior, backward compatible).
 
 **Fix in ConversationRunner:**
 - Generate a stable conversation ID at the start of `run()` (e.g., `tenantId + "-conv-" + UUID`).
