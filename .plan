@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-279-strategy-learning-showcase
-state: scaffolded
+state: active
 project-sha: b04e2affac7b6ba84dbd6470211baf4e5eaabaf9
 date: 2026-09-15
 issue-repo: casehubio/blocks
@@ -13,8 +13,8 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#279 — Issue #279 ← active
-  - [ ] Batch 1: Foundation
-    - [ ] Task 1: CognitiveImpact + compile breaks
+  - [x] Batch 1: Foundation
+    - [x] Task 1: CognitiveImpact + compile breaks
   - [ ] Batch 2: Strategy-pipeline
     - [ ] Task 2: Persistent turn accumulation
     - [ ] Task 3: Async auto-reflect
