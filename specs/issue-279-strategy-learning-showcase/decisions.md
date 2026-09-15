@@ -36,3 +36,15 @@
 **Exploration:** deep-analysis
 **Depends on:** D1 (case storage), D2 (auto-reflect)
 **Status:** captured
+
+## D4: UserModel quality signal derivation
+
+**Choice:** Pluggable quality strategy with mood-derived default + adaptive fallback
+**Alternatives:**
+- Hardcoded mood-to-quality mapping — no adaptability; if mood appraisal is noisy, quality degrades silently
+- Always require explicit InteractionMapper — pushes complexity to every consumer
+**Rationale:** Make quality derivation a strategy (SPI). Default implementation derives quality from the mood appraisal pleasure delta already computed per turn (positive pleasure → POSITIVE, negative → NEGATIVE, near-zero → NEUTRAL). Zero additional LLM cost. If the strategy detects it's not differentiating well — all subjects converge to same familiarity, quality doesn't correlate with engagement — it falls back to the InteractionMapper path (CognitiveImpact.userModelSignal from #282). This is adaptive meta-cognition: the brain evaluates its own signal quality and switches strategies when one isn't working.
+**Trade-offs:** The effectiveness detection adds complexity. For this branch: implement the pluggable SPI + mood-derived default. Effectiveness detection and adaptive switching is a follow-on — the SPI makes it possible without requiring it now.
+**Sources:** CognitionCore.java:143-157 (hardcoded NEUTRAL), MoodOrchestrator (pleasure delta already computed), #282 CognitiveImpact (explicit override path), blocks prompt optimisation framework (VariantSelector pattern for A/B)
+**Exploration:** quick
+**Status:** captured
