@@ -22,3 +22,17 @@
 **Exploration:** deep-analysis
 **Depends on:** D1 (signal correlation must work so cases get stored before reflect can fire)
 **Status:** captured
+
+## D3: Cold-start strategy via neurocortex priming
+
+**Choice:** Prime CBR stores with synthetic interaction cases from descriptor data, let the pipeline synthesise
+**Alternatives:**
+- Construct StrategyProfile directly from descriptor heuristics — bypasses the pipeline; special-case seeding that doesn't demonstrate emergence
+- One-shot LLM bootstrap call at construction — adds async startup cost and doesn't exercise the normal reflect pathway
+- No seeding, wait for organic evidence — strategy contributes too late (turn 6-8 at best)
+**Rationale:** The brain should wake up with memories and think about them through its normal cognitive loop. Priming the CBR store with synthetic cases (derived from descriptor constraints and disposition) means the auto-reflect in tick (D2) fires on the first tick, synthesising guidelines through the same LLM reflection path used for ongoing learning. No special-case code — primed data and lived experience flow through the same pipeline. This pattern generalises to all orchestrators (#283): goals, beliefs, strategies all emerge from primed neurocortex data rather than directive text.
+**Trade-offs:** Synthetic cases are approximations — they model "what effective interaction looks like" based on the agent's constraints, not actual experience. Early guidelines may be generic until real evidence refines them. Priming enough cases to cross minCasesForReflection requires thoughtful case construction.
+**Sources:** StrategyLearningOrchestrator.java:307-358 (doReflect — processes CBR cases into guidelines), AgentDescriptor constraints + disposition (source data for synthetic cases), #283 (directive-minimal architecture — broader context)
+**Exploration:** deep-analysis
+**Depends on:** D1 (case storage), D2 (auto-reflect)
+**Status:** captured
