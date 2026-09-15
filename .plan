@@ -19,9 +19,9 @@ flyway-next-v: none
     - [x] Task 2: Persistent turn accumulation
     - [x] Task 3: Async auto-reflect
     - [x] Task 4: ConversationRunner signal correlation
-  - [ ] Batch 3: Priming-goals-quality
-    - [ ] Task 5: Neurocortex priming
-    - [ ] Task 6: MemoryHygiene + CuriosityDrive + goals wiring
-    - [ ] Task 7: UserModel quality from mood
+  - [x] Batch 3: Priming-goals-quality
+    - [x] Task 5: Neurocortex priming
+    - [x] Task 6: MemoryHygiene + CuriosityDrive + goals wiring
+    - [x] Task 7: UserModel quality from mood
   - [ ] Batch 4: LLM-tests
     - [ ] Task 8: Per-orchestrator proof tests
