@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-270-model-aware-cbr-routing
-state: scaffolded
+state: active
 project-sha: 03367e09976e71a02c8c6a65e5e4200ac047f224
 date: 2026-09-15
 issue-repo: casehubio/blocks
