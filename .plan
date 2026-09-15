@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-273-mixed-improvements
-state: active
+state: closing:promoted
 project-sha: 32f76766cf9e6944371660ce9f931fef5a5150c2
 date: 2026-09-15
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [x] casehubio/blocks#273 — Issue #273
 - [x] casehubio/blocks#275 — Goals as active cognitive objectives
