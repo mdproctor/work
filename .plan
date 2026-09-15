@@ -1,0 +1,15 @@
+# Work Plan — issue-279-strategy-learning-showcase
+
+## State
+branch: issue-279-strategy-learning-showcase
+state: scaffolded
+project-sha: b04e2affac7b6ba84dbd6470211baf4e5eaabaf9
+date: 2026-09-15
+issue-repo: casehubio/blocks
+covers: 279
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/blocks#279 — Issue #279 ← active
