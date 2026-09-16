@@ -91,8 +91,11 @@ public class CognitionCore {
 }
 ```
 
-Registration is additive — custom participants run after built-in
-orchestrators within their phase. `SOURCE_PER_SUBJECT` does not accept
+Registration is at construction time or early lifecycle (before the
+first `tick()` call). Not thread-safe for concurrent registration —
+consumers add participants during wiring, not mid-tick. Registration
+is additive — custom participants run after built-in orchestrators
+within their phase. `SOURCE_PER_SUBJECT` does not accept
 custom participants (throws `IllegalArgumentException`). Consumers
 needing per-subject custom ticking register a global participant at
 another phase and iterate subjects internally — they can capture the
