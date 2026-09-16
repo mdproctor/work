@@ -13,3 +13,11 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#161 — Issue #161 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: CognitionPhase enum and SPI types
+    - [ ] Task 2: Add innerLifeEnabled to CognitionConfig
+  - [ ] Batch 2: Phase model
+    - [ ] Task 3: Refactor CognitionCore with phase ordering and custom participants
+  - [ ] Batch 3: InnerLife cleanup
+    - [ ] Task 4: Remove drive re-tick and add precondition
+    - [ ] Task 5: Reorganise SocialAvatarCognition
