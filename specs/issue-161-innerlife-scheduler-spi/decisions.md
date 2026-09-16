@@ -43,16 +43,16 @@
 **Exploration:** quick
 **Status:** captured
 
-## D5: Ordering-only integration for InnerLife
+## D5: InnerLife joins TERMINAL phase (revised)
 
-**Choice:** InnerLife does not join the automatic tick cycle. The scheduler guarantees that when InnerLife is ticked on-demand, the DERIVED phase has already completed. The redundant `driveOrchestrator.tick()` call inside InnerLife.doTick() is removed.
+**Choice:** InnerLife registers at the TERMINAL phase alongside GoalProposalOrchestrator. It runs every tick cycle, with its existing content quality gate filtering most ticks to Silent at microsecond cost. The redundant `driveOrchestrator.tick()` call inside InnerLife.doTick() is removed — structural ordering guarantees DERIVED has completed.
 **Alternatives:**
-- Full integration — InnerLife registers at TERMINAL and runs every tick cycle. Wasteful because its LLM-backed evaluation is gated by content quality checks that filter most ticks to Silent.
-**Rationale:** InnerLife's tick involves an LLM call — expensive and latency-heavy. The real problem is the redundant drive tick, not the invocation pattern.
-**Trade-offs:** InnerLife remains a special case with an implicit ordering contract rather than a first-class phase participant
-**Sources:** InnerLifeOrchestrator.java (doTick line 97), ProactiveSpeechSupport.java, SocialAvatarCognition.java (evaluateProactive)
-**Exploration:** quick
-**Status:** captured
+- Ordering-only integration — InnerLife stays outside the tick cycle but with a documented ordering contract. Creates unenforced protocol: nothing prevents `evaluateProactive()` from being called without a prior `tick()`, leading to stale/empty drive data.
+**Rationale:** InnerLife's content quality gate (empty buffer check, observation count, novelty threshold) short-circuits most ticks before the LLM call. The per-tick cost is a null check and integer comparison — microseconds, not wasteful. Full integration eliminates: (a) the defensive re-tick of drives, (b) the unenforced ordering protocol, (c) InnerLife as a special case outside the phase model.
+**Trade-offs:** InnerLife runs on every tick cycle (negligible cost when gated). `evaluateProactive()` on SocialAvatarCognition reads InnerLife's cached result from the last tick instead of triggering evaluation. InnerLife's tick signature needs adapting to match the participant interface (currently takes `AgentDescriptor` + `channelContext`; channelContext can be null during scheduled ticks, with on-demand proactive evaluation passing it separately).
+**Sources:** InnerLifeOrchestrator.java (doTick line 97, content quality gate lines 130-143), ProactiveSpeechSupport.java, SocialAvatarCognition.java (evaluateProactive), decision review R1-01/R1-02/R1-03
+**Exploration:** quick → surfaced-by-review
+**Status:** revised
 
 ## D6: Fix drive ordering — move after source orchestrators
 
