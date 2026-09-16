@@ -43,15 +43,16 @@
 **Exploration:** quick
 **Status:** captured
 
-## D5: InnerLife joins TERMINAL phase (revised)
+## D5: Ordering-only integration with runtime enforcement (revised twice)
 
-**Choice:** InnerLife registers at the TERMINAL phase alongside GoalProposalOrchestrator. It runs every tick cycle, with its existing content quality gate filtering most ticks to Silent at microsecond cost. The redundant `driveOrchestrator.tick()` call inside InnerLife.doTick() is removed — structural ordering guarantees DERIVED has completed.
+**Choice:** InnerLife does NOT join the automatic tick cycle. The redundant `driveOrchestrator.tick()` call inside InnerLife.doTick() is removed. A precondition check is added to `InnerLife.tick()` — asserts that `drives.currentDrives(agentId, tenantId)` is present, providing runtime enforcement that CognitionCore has ticked through DERIVED. InnerLife remains on-demand via `evaluateProactive()` with channel context.
 **Alternatives:**
-- Ordering-only integration — InnerLife stays outside the tick cycle but with a documented ordering contract. Creates unenforced protocol: nothing prevents `evaluateProactive()` from being called without a prior `tick()`, leading to stale/empty drive data.
-**Rationale:** InnerLife's content quality gate (empty buffer check, observation count, novelty threshold) short-circuits most ticks before the LLM call. The per-tick cost is a null check and integer comparison — microseconds, not wasteful. Full integration eliminates: (a) the defensive re-tick of drives, (b) the unenforced ordering protocol, (c) InnerLife as a special case outside the phase model.
-**Trade-offs:** InnerLife runs on every tick cycle (negligible cost when gated). `evaluateProactive()` on SocialAvatarCognition reads InnerLife's cached result from the last tick instead of triggering evaluation. InnerLife's tick signature needs adapting to match the participant interface (currently takes `AgentDescriptor` + `channelContext`; channelContext can be null during scheduled ticks, with on-demand proactive evaluation passing it separately).
-**Sources:** InnerLifeOrchestrator.java (doTick line 97, content quality gate lines 130-143), ProactiveSpeechSupport.java, SocialAvatarCognition.java (evaluateProactive), decision review R1-01/R1-02/R1-03
-**Exploration:** quick → surfaced-by-review
+- Full TERMINAL integration — InnerLife registers at TERMINAL and runs every tick cycle. Resolves the unenforced protocol concern (decision review R1-02) but introduces a worse regression: InnerLife's tick consumes the event buffer and evaluates with `channelContext=null`, so a later `evaluateProactive(channelContext)` finds an empty buffer and returns Silent. Channel-aware motivation assessment is lost (spec review R1-02).
+- Ordering-only without enforcement (original D5) — creates unenforced protocol with no API-level guarantee. Rejected by decision review R1-02.
+**Rationale:** InnerLife needs channel context to evaluate properly — "should I speak in Slack?" is a different question from "should I speak in email?". Channel context isn't available during a scheduled tick cycle. The precondition check provides runtime enforcement without forcing InnerLife into a periodic tick that loses semantic information.
+**Trade-offs:** InnerLife remains a special case outside the phase model. The precondition check is runtime enforcement, not structural — a consumer bypassing CognitionCore could still trigger InnerLife with stale drives, but would get a clear error.
+**Sources:** InnerLifeOrchestrator.java (doTick line 97, buffer consumption lines 104-111, assemblePrompt channelContext usage line 191), ProactiveSpeechSupport.java, SocialAvatarCognition.java, decision review R1-01/R1-02/R1-03, spec review R1-02
+**Exploration:** quick → surfaced-by-review → surfaced-by-review
 **Status:** revised
 
 ## D6: Fix drive ordering — move after source orchestrators
