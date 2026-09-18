@@ -1,0 +1,15 @@
+# Work Plan — issue-287-structured-agent-invoker
+
+## State
+branch: issue-287-structured-agent-invoker
+state: scaffolded
+project-sha: ada47ecf68c6f55c6e2ac53809f8799e8c595253
+date: 2026-09-18
+issue-repo: casehubio/blocks
+covers: 287
+design-repo: project
+design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
+flyway-next-v: unknown
+
+## Queue
+- [ ] casehubio/blocks#287 — Issue #287 ← active
