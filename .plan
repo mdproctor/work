@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-293-rag-retrieval-worker-factory
-state: active
+state: closing:promoted
 project-sha: ded6984f2738f8a0f3f2904c26b322d41374e96e
 date: 2026-09-21
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#293 — Issue #293 ← active
   - [x] Batch 1: RagRetrievalWorkerFactory
