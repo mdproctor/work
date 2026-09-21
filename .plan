@@ -13,3 +13,5 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#293 — Issue #293 ← active
+  - [ ] Batch 1: RagRetrievalWorkerFactory
+    - [ ] Task 1: Add rag-api dep and implement factory with tests
