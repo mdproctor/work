@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-290-yaml-surface-final-gaps
-state: scaffolded
+state: closing:promoted
 project-sha: 9186d51ca1e964e41b4327a6bd3ccf84e0b6cfa0
 date: 2026-09-20
 issue-repo: casehubio/blocks
@@ -11,5 +11,6 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: none
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#290 — Issue #290 ← active
