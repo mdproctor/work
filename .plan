@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-293-rag-retrieval-worker-factory
-state: scaffolded
+state: active
 project-sha: ded6984f2738f8a0f3f2904c26b322d41374e96e
 date: 2026-09-21
 issue-repo: casehubio/blocks
@@ -13,5 +13,5 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/blocks#293 — Issue #293 ← active
-  - [ ] Batch 1: RagRetrievalWorkerFactory
-    - [ ] Task 1: Add rag-api dep and implement factory with tests
+  - [x] Batch 1: RagRetrievalWorkerFactory
+    - [x] Task 1: Add rag-api dep and implement factory with tests
