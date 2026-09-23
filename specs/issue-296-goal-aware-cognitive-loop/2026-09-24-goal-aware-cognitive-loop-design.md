@@ -104,20 +104,27 @@ NEOCORTEX (consolidation, periodic)
 BLOCKS (tick, per interaction)
 │
 ├── CognitiveGoalOrchestrator (CognitionTickParticipant @ TERMINAL)
-│   ├── queries MindMapStore for GOAL nodes
-│   ├── runs GoalAppraisal → CognitiveEmotion per goal
-│   ├── records surfacing via ExperienceEvent
+│   │  constructed by composition root (SocialAvatarCognition)
+│   │  registered via core.addParticipant(TERMINAL, ...)
+│   │  typed reference held by composition root for prompt + revision wiring
+│   ├── selects goals (cooldown filter, priority threshold)
+│   ├── runs GoalAppraisal → CognitiveEmotion per selected goal
+│   ├── records surfacing via ExperienceEvent (selected goals only)
 │   ├── records agent emotions as domain="agent-experience"
 │   ├── checks case creation threshold → GoalFormationService.propose()
-│   └── checks decay-signal → GoalRevision recommendations
+│   ├── checks decay-signal → GoalRevision recommendations
+│   └── caches CognitiveGoalState for prompt rendering
 │
-├── GoalPromptSection (extended)
+├── GoalPromptSection (extended) — wired by composition root
+│   │  SocialAvatarCognition.buildSections() replaces basic GoalPromptSection
+│   │  with extended version carrying both orchestrators
 │   ├── merges drive goals + cognitive goals
 │   ├── ranks by composite priority
 │   └── renders with OCC emotional tone + surfacing context
 │
-└── GoalRevisionConsumer (new)
-    └── reads decay-signal → proposes lifecycle transitions via AgentRegistry
+└── GoalRevision consumption — at composition root
+    └── composition root reads CognitiveGoalOrchestrator.pendingRevisions()
+        → proposes lifecycle transitions via AgentRegistry
          │
          ▼
 ENGINE
@@ -208,7 +215,7 @@ public interface GoalAppraisal {
 public record AppraisalContext(
     String tenantId,
     String agentId,
-    PadProjection moodBaseline,
+    PadProjection moodBaseline,     // from MoodBaseline via moodBaselineProvider
     int surfacingCount,
     @Nullable Instant lastProgressAt,
     @Nullable Instant lastSurfacedAt,
@@ -216,8 +223,10 @@ public record AppraisalContext(
 ) {}
 ```
 
-Lives in neocortex (mindmap-api or cognitive-api). Blocks never implements
-appraisal logic — it calls the SPI.
+Lives in neocortex cognitive-api. This introduces a cognitive-api → mindmap-api
+dependency (for MindMapNode), which follows the natural direction: cognitive
+operations read knowledge graph types. Blocks never implements appraisal
+logic — it calls the SPI.
 
 ### HeuristicGoalAppraisal
 
@@ -284,19 +293,27 @@ scenario calibration and interaction refinement (see research doc §6.3).
 ### Recording surfacing events
 
 When CognitiveGoalOrchestrator selects goals for the LLM prompt, it records
-each surfacing as an ExperienceEvent:
+each surfacing as an ExperienceEvent. Surfacing is recorded only for goals
+that pass selection (cooldown check, priority threshold) — not for all queried
+goals. This ensures surfaced-count accurately reflects what the LLM saw.
 
 ```java
-ExperienceEvent.action(agentId, tenantId, caseId, turnId, now,
+new Action(agentId, tenantId, caseId, turnId, now,
     "Goal surfaced to LLM: " + goal.name(),
     null, // confidence
     Map.of(
-        ExperienceAttributeKeys.EVENT_TYPE, "goal-surfaced",
-        ExperienceAttributeKeys.SUBJECT, goalNodeId
+        "cognitive-event", "goal-surfaced",
+        "goal-node-id", goalNodeId
     ),
     "cognitive-goal-surfacing"  // capability
 );
 ```
+
+**Metadata key choice:** `ExperienceAttributeKeys.EVENT_TYPE` and `SUBJECT` are
+reserved by `ExperienceEvents.toMemoryInput()` — using them in metadata throws
+`IllegalArgumentException`. Custom keys `"cognitive-event"` and `"goal-node-id"`
+avoid the collision. SurfacingAggregationPhase filters by
+`cognitive-event="goal-surfaced"`.
 
 This is a NEW cross-module integration point: blocks consuming ExperienceRecorder
 from neocortex-memory-api. The dependency direction is correct (blocks → neocortex-api,
@@ -329,14 +346,14 @@ memoryStore.store(tenantId, MemoryInput.builder()
 
 SurfacingAggregationPhase (@Priority(12) — runs before GoalAffectPhase):
 
-1. Scans domain="experience" memories with event-type="goal-surfaced"
-2. Groups by goal node subject
+1. Scans domain="experience" memories with cognitive-event="goal-surfaced"
+2. Groups by goal-node-id
 3. Updates goal node properties:
    - `surfaced-count` (total surfacings since first)
    - `first-surfaced-at` (set once)
    - `last-surfaced-at` (updated each time)
-4. Checks for progress: any ExperienceEvent with matching subject AND
-   event-type != "goal-surfaced" since last-surfaced-at → `last-progress-at`
+4. Checks for progress: any ExperienceEvent with matching goal-node-id AND
+   cognitive-event != "goal-surfaced" since last-surfaced-at → `last-progress-at`
 5. Computes `surfacing-progress-gap`: surfacings since last-progress-at
 6. Cursor-based to avoid reprocessing
 
@@ -368,6 +385,7 @@ public class CognitiveGoalOrchestrator implements CognitionTickParticipant {
     private final Instance<ExperienceRecorder> experienceRecorder;
     private final Instance<CaseMemoryStore> memoryStore;
     private final Instance<GoalFormationService> goalFormation;
+    private final BiFunction<String, String, PadProjection> moodBaselineProvider;
     private final CognitiveGoalConfig config;
     private final Clock clock;
 
@@ -377,6 +395,14 @@ public class CognitiveGoalOrchestrator implements CognitionTickParticipant {
 ```
 
 ### Tick behaviour
+
+This is the per-interaction appraisal — producing CognitiveEmotions for the
+current prompt. It is distinct from GoalAffectPhase (consolidation-time),
+which updates PAD properties on goal nodes for downstream consolidation
+consumers (GoalPrioritizationPhase, AffectTrajectoryDecorator). Both use
+GoalAppraisal but at different temporal granularities: tick-time uses
+real-time context (current surfacing count, time since last interaction),
+consolidation uses aggregated node properties. They converge over time.
 
 ```java
 @Override
@@ -389,35 +415,52 @@ public void tick(CognitionTickContext context) {
         // 1. Query GOAL nodes for this agent
         var goals = queryGoals(agentId, tenantId);
 
-        // 2. Build appraisal context (surfacing counts, progress, relationships)
-        var appraisalCtx = buildContext(agentId, tenantId, goals);
+        // 2. Select goals for surfacing (cooldown + priority filter)
+        var selected = selectForSurfacing(agentId, tenantId, goals);
 
-        // 3. Run OCC appraisal per goal
+        // 3. Build appraisal context (surfacing counts, progress, relationships)
+        var moodBaseline = moodBaselineProvider.apply(agentId, tenantId);
+        var appraisalCtx = buildContext(agentId, tenantId, moodBaseline, selected);
+
+        // 4. Run OCC appraisal per selected goal
         var emotions = new ArrayList<GoalEmotion>();
-        for (var goal : goals) {
+        for (var goal : selected) {
             var goalEmotions = appraisal.appraise(goal, appraisalCtx);
             emotions.add(new GoalEmotion(goal, goalEmotions));
         }
 
-        // 4. Record surfacing events
-        recordSurfacing(agentId, tenantId, goals);
+        // 5. Record surfacing events (selected goals only — not all queried)
+        recordSurfacing(agentId, tenantId, selected);
 
-        // 5. Record agent emotional experiences
+        // 6. Record agent emotional experiences
         recordEmotions(agentId, tenantId, emotions);
 
-        // 6. Check case creation threshold
+        // 7. Check case creation threshold
         for (var ge : emotions) {
             if (shouldPropose(ge)) {
                 proposeCaseCreation(agentId, tenantId, ge);
             }
         }
 
-        // 7. Check decay signals
+        // 8. Check decay signals (on ALL goals, not just selected)
         var revisions = checkDecaySignals(goals);
 
-        // 8. Cache state for prompt rendering
+        // 9. Cache state for prompt rendering
         states.put(key, new CognitiveGoalState(emotions, revisions));
     });
+}
+
+private List<MindMapNode> selectForSurfacing(String agentId, String tenantId,
+                                               List<MindMapNode> goals) {
+    Instant now = clock.instant();
+    return goals.stream()
+        .filter(g -> {
+            var lastSurfaced = instantProperty(g, "last-surfaced-at");
+            return lastSurfaced == null
+                || Duration.between(lastSurfaced, now).compareTo(config.surfacingCooldown()) >= 0;
+        })
+        .filter(g -> doubleProperty(g, "priority", 0) > config.minimumSurfacingPriority())
+        .toList();
 }
 ```
 
@@ -466,24 +509,55 @@ public record GoalRevision(
 ) {}
 ```
 
-GoalRevision recommendations are consumed by the composition root
-(SocialAvatarCognition or CognitionCompiler wiring) which calls
-AgentRegistry to propose the lifecycle transition.
+GoalRevision recommendations are cached in CognitiveGoalState. The composition
+root (SocialAvatarCognition) holds a typed reference to CognitiveGoalOrchestrator
+and calls `pendingRevisions()` after each tick cycle, routing them to
+`AgentRegistry.proposeLifecycleTransition()`. See §8 (Wiring) and §10
+(blocks-core — GoalRevision consumption) for details.
 
 ## 8. GoalPromptSection (Extended)
+
+### Wiring
+
+GoalPromptSection is currently constructed inside CognitionCore.promptSections()
+with only GoalProposalOrchestrator. CognitionCore has no reference to
+CognitiveGoalOrchestrator (it's an untyped custom tick participant).
+
+**Solution:** The composition root (SocialAvatarCognition) holds a typed reference
+to CognitiveGoalOrchestrator. Its `buildSections()` method replaces the basic
+GoalPromptSection from `core.promptSections()` with the extended version:
+
+```java
+// In SocialAvatarCognition
+List<PromptSection> buildSections(String agentId, String tenantId) {
+    var sections = new ArrayList<>(core.promptSections());
+    if (cognitiveGoals != null) {
+        sections.removeIf(s -> s instanceof GoalPromptSection);
+        sections.add(new GoalPromptSection(
+            goals.orElse(null), cognitiveGoals));
+    }
+    return sections;
+}
+```
+
+For the YAML-driven path (CognitionCompiler): CognitionDefinition gains a
+`@Nullable CognitiveGoalConfigSpec cognitiveGoal` field. CognitionCompiler
+compiles it to CognitiveGoalConfig. The runtime wiring code constructs
+CognitiveGoalOrchestrator and applies the same section-replacement pattern.
 
 ### Merging two goal sources
 
 ```java
 public class GoalPromptSection implements PromptSection {
 
-    private final GoalProposalOrchestrator driveGoals;
+    private final @Nullable GoalProposalOrchestrator driveGoals;
     private final @Nullable CognitiveGoalOrchestrator cognitiveGoals;
 
     @Override
     public @Nullable String contribute(PromptContext context) {
-        var driveProposals = driveGoals.currentProposals(
-            context.agentId(), context.tenantId());
+        var driveProposals = driveGoals != null
+            ? driveGoals.currentProposals(context.agentId(), context.tenantId())
+            : Optional.empty();
         var cogState = cognitiveGoals != null
             ? cognitiveGoals.currentState(context.agentId(), context.tenantId())
             : Optional.empty();
@@ -578,8 +652,9 @@ cognition:
   cognitiveGoal:
     enabled: true
     caseCreationThreshold: 0.7
-    surfacingCooldown: PT1H
-    driveWeight: 0.5          # α in normalization (0 = MindMap only, 1 = drives only)
+    surfacingCooldown: PT1H           # minimum interval between re-surfacing same goal
+    minimumSurfacingPriority: 0.1     # goals below this priority are not surfaced
+    driveWeight: 0.5                  # α in normalization (0 = MindMap only, 1 = drives only)
 ```
 
 ```java
@@ -588,11 +663,18 @@ public record CognitiveGoalConfigSpec(
     @Nullable Boolean enabled,
     @Nullable Double caseCreationThreshold,
     @Nullable Duration surfacingCooldown,
+    @Nullable Double minimumSurfacingPriority,
     @Nullable Double driveWeight
 ) {}
 ```
 
-Added to CognitionDefinition as a new nullable field.
+`surfacingCooldown` is applied in CognitiveGoalOrchestrator.selectForSurfacing()
+(§7): goals where `last-surfaced-at + surfacingCooldown > now` are skipped.
+This prevents redundant surfacing events and controls the pacing of goal
+reminders within a session.
+
+Added to CognitionDefinition as a new nullable `@Nullable CognitiveGoalConfigSpec
+cognitiveGoal` field. CognitionCompiler gains a `compileCognitiveGoal()` method.
 
 ## 10. Changes by Repo
 
@@ -606,12 +688,14 @@ Added to CognitionDefinition as a new nullable field.
 | PadProjection | Continuous PAD coordinates |
 | AlmaPadTable | Constant OCC→PAD mapping from Gebhard 2005 |
 
-### neocortex (mindmap-api) — new SPI
+### neocortex (cognitive-api) — new SPI
 
 | Type | Purpose |
 |---|---|
 | GoalAppraisal | @FunctionalInterface: MindMapNode × AppraisalContext → List<CognitiveEmotion> |
 | AppraisalContext | Tenancy, personality baseline, surfacing state, relationships |
+
+cognitive-api gains a new dependency on mindmap-api for MindMapNode.
 
 ### neocortex (mindmap-intelligence) — new/modified phases
 
@@ -626,9 +710,23 @@ Added to CognitionDefinition as a new nullable field.
 | Type | Purpose |
 |---|---|
 | CognitiveGoalOrchestrator | CognitionTickParticipant — queries goals, runs appraisal, records surfacing |
-| CognitiveGoalConfig | Thresholds and tuning parameters |
+| CognitiveGoalConfig | Thresholds and tuning parameters (including surfacingCooldown, minimumSurfacingPriority) |
 | GoalPromptSection (extended) | Merges drive + cognitive goals, emotional rendering |
 | GoalRevision | Record: decay-signal recommendation |
+
+**MoodBaseline access:** CognitiveGoalOrchestrator receives a
+`BiFunction<String, String, PadProjection> moodBaselineProvider` — a function
+from (agentId, tenantId) to MoodBaseline's PAD projection. The composition root
+provides this by wiring `CognitiveDefaultsRegistry.forAgentOrDefaults(agentId)
+.moodBaseline().toPadProjection()`. This keeps blocks-core independent of
+cognitive-index (the registry module) — the dependency is at the composition
+root only.
+
+**GoalRevision consumption:** The composition root (SocialAvatarCognition) holds
+a typed reference to CognitiveGoalOrchestrator and calls
+`pendingRevisions()` after each tick cycle. Pending revisions are routed to
+`AgentRegistry.proposeLifecycleTransition()`. GoalRevisionConsumer is not a
+separate class — it is a wiring pattern at the composition root.
 
 ### blocks (agentic-yaml) — DSL extension
 
@@ -735,20 +833,41 @@ void progressResets_worry() {
 
 ## 12. Out of Scope
 
+### Known interim limitation: mood/emotion incoherence
+
+Without the Emotion→Mood bridge (deferred below), CognitiveGoalOrchestrator
+may produce Fear(0.8) while MoodOrchestrator independently maintains a calm
+mood state. The LLM prompt will contain both:
+- GoalPromptSection: "[CONCERNED] Buy daughter's birthday gift"
+- MoodPromptSection: "Your current mood: calm and pleasant"
+
+This is a known limitation, not a design flaw. Goal-specific emotions are
+situation-specific annotations (the agent is concerned ABOUT THIS GOAL), not
+overall mood assertions. Humans routinely feel concerned about a specific
+situation while having a generally calm disposition. At high fear intensities
+(Day 6-7 scenario), the incoherence becomes more noticeable. The Emotion→Mood
+bridge will resolve this by allowing intense goal emotions to influence the
+overall mood state.
+
+### Deferred items
+
+All items below will be filed as GitHub issues before #296 implementation
+begins. The "Tracked as" column will be updated with issue numbers.
+
 | Topic | Why deferred | Tracked as |
 |---|---|---|
-| Agent-based emotions (Pride, Shame, Reproach) | Requires action attribution | Future OCC extension |
-| Compound emotions (Anger, Gratitude, Remorse) | Requires event+agent attribution | Future OCC extension |
-| Emotion → Mood bridge | Goal emotions influencing overall MoodOrchestrator | Follow-up issue |
-| Mood congruence | Mood biasing subsequent appraisals | Follow-up issue |
-| Personality-prior calibration | JPAF→appraisal weight derivation | Follow-up issue |
-| Scenario calibration | Interactive questionnaire per agent | Follow-up issue |
-| Interaction refinement | Bounded drift from feedback | Follow-up issue |
-| CognitiveGoalDecomposer SPI impl | LLM-backed goal decomposition | Separate issue |
-| CognitiveGoalRecognizer SPI impl | LLM-backed goal recognition | Separate issue |
-| GoalLifecycleProvider SPI impl | AgentRegistry lifecycle bridge | Separate issue |
+| Agent-based emotions (Pride, Shame, Reproach) | Requires action attribution | To be filed |
+| Compound emotions (Anger, Gratitude, Remorse) | Requires event+agent attribution | To be filed |
+| Emotion → Mood bridge | Goal emotions influencing overall MoodOrchestrator | To be filed |
+| Mood congruence | Mood biasing subsequent appraisals | To be filed |
+| Personality-prior calibration | JPAF→appraisal weight derivation | To be filed |
+| Scenario calibration | Interactive questionnaire per agent | To be filed |
+| Interaction refinement | Bounded drift from feedback | To be filed |
+| CognitiveGoalDecomposer SPI impl | LLM-backed goal decomposition | To be filed |
+| CognitiveGoalRecognizer SPI impl | LLM-backed goal recognition | To be filed |
+| GoalLifecycleProvider SPI impl | AgentRegistry lifecycle bridge | To be filed |
 | Push-based LLM invocation | CognitiveAttentionAccumulator | neocortex#381 |
-| Migration of mood/drives to neocortex | Architectural realignment | Broader initiative |
+| Migration of mood/drives to neocortex | Architectural realignment | To be filed |
 
 ## References
 
