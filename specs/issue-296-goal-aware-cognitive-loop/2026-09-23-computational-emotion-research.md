@@ -572,27 +572,38 @@ Wire goal-level emotions into the agent's overall mood:
 - Feed strongest/accumulated emotions to MoodOrchestrator via MoodSignal
 - This creates the "I've been feeling anxious" whole-agent mood shift
 
-### 6.3 Phase 3: ONNX Appraisal Model (follow-up)
+### 6.3 Phase 3: Personality-Prior + Scenario Calibration (follow-up)
 
-Replace HeuristicGoalAppraisal with a trained ONNX model:
+Refine HeuristicGoalAppraisal weights per agent via two layers:
 
-**Training pipeline:**
-1. ISEAR (7,666 situations with appraisal data) → feature extraction
-2. GoEmotions (58k labels) → emotion type classification
-3. EmoBank (10k VAD ratings) → intensity regression
-4. Combined: appraisal features → OCC type + intensity
+**Layer 1 — Personality priors (automatic):**
+Extend CognitiveDerivationEngine to derive appraisal weights from JPAF type.
+Known correlations:
+- J types: urgency amplifies Fear faster (deadline-sensitive)
+- P types: urgency amplifies Fear slower (ambiguity-tolerant)
+- Fe types: Pity/Happy-for amplified (relational harmony)
+- Ti types: analytical distance, lower relationship weight
+- Ni types: earlier Fear onset (anticipates consequences)
+- Se types: later Fear onset, higher intensity when deadline arrives
+- Fi types: deeper Remorse/Shame (personal values)
+- Si types: Disappointment amplified by precedent violation
 
-**Feature vector for training:**
-```
-[desirability, likelihood, proximity, unexpectedness, coping_potential,
- norm_compatibility, openness, conscientiousness, extraversion,
- agreeableness, neuroticism, relationship_liking]
-```
+**Layer 2 — Scenario calibration (interactive):**
+Present 15-20 goal scenarios with varying parameters. Agent/user rates
+emotion type and intensity. Results stored in cognitive profile YAML
+(hot-reloaded via CognitiveProfileWatcher). 20 scenarios is sufficient
+to calibrate the key appraisal weights away from personality defaults.
 
-**Inference in neocortex:**
-- Use existing inference-tasks module (TextClassifier, ScalarRegressor)
-- OnnxGoalAppraisal implements GoalAppraisal SPI
-- @Alternative @Priority swap from heuristic to model
+**Layer 3 — Interaction refinement (ongoing, future):**
+Real interaction feedback adjusts calibration — similar to
+PersonalityEvolutionOrchestrator's bounded drift via TraitPressureSource.
+
+**Why not ONNX:** Available datasets (ISEAR, GoEmotions, EmoBank) map
+text → emotion, but goal appraisal input is structured numeric features
+(priority, urgency, feasibility, surfacing count). No dataset maps these
+structured features to OCC emotions. Synthetic data just learns the
+heuristic rules. Personalized calibration is both more practical and
+produces better results than training on generic cross-cultural averages.
 
 ### 6.4 Phase 4: Full OCC Coverage (future)
 

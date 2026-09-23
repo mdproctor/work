@@ -84,9 +84,9 @@
 **Review findings:** R1-15 (OCEAN intermediate removed — use existing direct mapping), R1-16 (PersonalityWeights reference removed — it's about memory domains, not emotion), R1-25 (infrastructure claims corrected)
 **Status:** revised
 
-## D6: ONNX-trainable appraisal (future, not in #296 scope)
+## D6: GoalAppraisal SPI with heuristic implementation
 
-**Choice:** Park the ONNX training path as a follow-up. Start with heuristic OCC appraisal rules in #296, structured behind a GoalAppraisal SPI so an ONNX model can replace the heuristics later without structural changes.
+**Choice:** Define a GoalAppraisal SPI. #296 delivers HeuristicGoalAppraisal. Future calibration via personality priors (JPAF-derived appraisal weights) and scenario-based calibration (per-agent interactive questionnaire) — not ONNX.
 **GoalAppraisal SPI (binding interface for #296):**
 ```java
 // In neocortex cognitive-api or mindmap-api
@@ -103,14 +103,17 @@ public record AppraisalContext(
     Map<String, Double> relationshipScores
 ) {}
 ```
-#296 delivers HeuristicGoalAppraisal (implements GoalAppraisal). A future ONNX-backed OnnxGoalAppraisal replaces it via @Alternative @Priority — same interface, different implementation.
+**Why not ONNX:** Available datasets (ISEAR, GoEmotions, EmoBank) map text → emotion, but goal appraisal input is structured numeric features (priority, urgency, feasibility, surfacing count). No dataset maps these features to OCC emotions. Synthetic training data just learns the heuristic rules. Personalized calibration (personality priors + scenario questionnaire) is more practical and produces better results than training on generic cross-cultural averages.
+**Future calibration path (not #296):**
+1. Personality priors — derive appraisal weights from JPAF type (J→deadline-sensitive, Fe→empathy-amplified, Ni→early anticipation)
+2. Scenario calibration — 15-20 interactive goal scenarios per agent, stored in cognitive profile YAML
+3. Interaction refinement — bounded drift from calibrated baseline via real feedback
 **Alternatives:**
-- Train ONNX model now — requires ML pipeline work out of #296 scope.
-- Inline appraisal in CognitiveGoalOrchestrator — works for #296 but prevents clean ONNX swap.
-**Rationale:** The datasets exist (ISEAR, GoEmotions, EmoBank) and the inference infrastructure exists (neocortex inference-tasks). But each dataset serves a different model architecture (situation→appraisal is regression, text→emotion is classification, text→VAD is regression). Training requires a multi-headed model pipeline. The GoalAppraisal SPI ensures #296's heuristic implementation is structured for replacement.
-**Trade-offs:** Heuristic rules may not produce perfectly calibrated responses but are transparent, testable, and iterable.
+- Inline appraisal in CognitiveGoalOrchestrator — works for #296 but prevents clean swap.
+- ONNX model — impractical for structured-feature input, no suitable training data.
+**Rationale:** The SPI ensures the heuristic implementation is replaceable. Heuristic rules are transparent, testable, and explainable ("Fear is high because you're a Judger with high Fe"). Calibration path fits existing architecture (CognitiveDefaults, CognitiveProfileWatcher, PersonalityEvolutionOrchestrator).
+**Trade-offs:** Heuristic rules may not produce perfectly calibrated responses initially but are iterable and will improve with personality-prior and scenario calibration phases.
 **Depends on:** D4 (CognitiveEmotion types), D5 (MoodBaseline as calibration input)
-**Sources:** ISEAR dataset (Scherer, UNIGE CISA), inference-tasks module (neocortex), research doc §6.3
-**Exploration:** quick
-**Review findings:** R1-18 (GoalAppraisal SPI now specified), R1-19 (dataset complexity acknowledged), R1-26 (dependency on D4 explicit)
+**Sources:** Research doc §6.3, CognitiveDerivationEngine.java, CognitiveProfileWatcher.java
+**Review findings:** R1-18 (GoalAppraisal SPI specified), R1-26 (dependency on D4 explicit)
 **Status:** revised
