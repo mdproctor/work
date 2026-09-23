@@ -23,7 +23,7 @@ import io.smallrye.mutiny.Multi;
 
 import java.util.List;
 
-@McpDomain("work/items")
+@McpDomain(value = "work/items", app = "work")
 public interface WorkItemApi {
 
     @PlatformQuery("List work items with optional filtering")

@@ -13,7 +13,7 @@ import io.casehub.work.api.view.AddRelationRequest;
 import io.casehub.work.api.view.WorkItemRelationView;
 import io.casehub.work.api.view.WorkItemView;
 
-@McpDomain("work/relations")
+@McpDomain(value = "work/relations", app = "work")
 public interface WorkItemRelationApi {
 
     @PlatformMutation("Add a relation with cycle detection")

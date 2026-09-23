@@ -5,7 +5,7 @@ import io.casehub.platform.api.mcp.ModelEnricher;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
-@McpDomain("work")
+@McpDomain(value = "work", app = "work")
 @ApplicationScoped
 public class WorkModelEnricher implements ModelEnricher {
 
