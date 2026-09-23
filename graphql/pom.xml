@@ -87,7 +87,7 @@ Thin-adapter pattern over WorkItemService and WorkItemStore.</description>
           </annotationProcessorPaths>
           <compilerArgs>
             <arg>-Xlint:unchecked</arg>
-            <arg>-AdomainFilter=work/items,work/lifecycle,work/notes,work/links,work/relations,work/audit,work/vocabulary,work/spawn-groups,work/instances,work/bulk,work/spawn,work/schedules,work/templates,work/label-rules</arg>
+            <arg>-AdomainFilter=work/items,work/lifecycle,work/notes,work/links,work/relations</arg>
             <arg>-AgenerateRest=false</arg>
           </compilerArgs>
         </configuration>

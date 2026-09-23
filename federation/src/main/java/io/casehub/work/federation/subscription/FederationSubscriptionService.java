@@ -38,6 +38,12 @@ public class FederationSubscriptionService {
         return entity;
     }
 
+    public List<FederationSubscriptionEntity> findActiveByPeerId(String peerId) {
+        return FederationSubscriptionEntity.<FederationSubscriptionEntity>find(
+                "peerId = ?1 and status = ?2",
+                peerId, FederationSubscriptionEntity.SubscriptionStatus.ACTIVE).list();
+    }
+
     public List<FederationSubscriptionEntity> findActiveSubscriptions(String tenancyId) {
         return FederationSubscriptionEntity.find("tenancyId = ?1 and status = ?2",
                         tenancyId, FederationSubscriptionEntity.SubscriptionStatus.ACTIVE)
@@ -78,6 +84,27 @@ public class FederationSubscriptionService {
     @Transactional
     public void removeTracking(UUID workItemId) {
         FederationTrackingEntity.delete("workItemId = ?1", workItemId);
+    }
+
+    @Transactional
+    public boolean deregister(UUID id) {
+        FederationSubscriptionEntity sub = FederationSubscriptionEntity.findById(id);
+        if (sub == null) {
+            return false;
+        }
+        sub.status = FederationSubscriptionEntity.SubscriptionStatus.DEREGISTERED;
+        return true;
+    }
+
+    @Transactional
+    public java.util.Optional<java.util.Map<String, Object>> reactivate(UUID id) {
+        FederationSubscriptionEntity sub = FederationSubscriptionEntity.findById(id);
+        if (sub == null) {
+            return java.util.Optional.empty();
+        }
+        sub.status = FederationSubscriptionEntity.SubscriptionStatus.ACTIVE;
+        sub.consecutiveFailures = 0;
+        return java.util.Optional.of(java.util.Map.of("id", sub.id, "status", sub.status));
     }
 
     @Transactional

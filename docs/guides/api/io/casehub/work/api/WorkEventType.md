@@ -17,14 +17,6 @@ WorkItems, CaseHub tasks, and future work-unit types all map to these values.
 
 Claim deadline passed without the work being claimed.
 
-### `COMPENSATION_COMPLETED` (`io.casehub.work.api.WorkEventType`)
-
-The compensating WorkItem completed; original marked COMPENSATED.
-
-### `COMPENSATION_STARTED` (`io.casehub.work.api.WorkEventType`)
-
-A compensating WorkItem was created; original marked COMPENSATING.
-
 ### `COMPLETED` (`io.casehub.work.api.WorkEventType`)
 
 ### `CREATED` (`io.casehub.work.api.WorkEventType`)

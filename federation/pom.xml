@@ -88,22 +88,6 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <parameters>true</parameters>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>io.casehub</groupId>
-                            <artifactId>casehub-platform-graphql-generator</artifactId>
-                            <version>0.2-SNAPSHOT</version>
-                        </path>
-                        <path>
-                            <groupId>io.casehub</groupId>
-                            <artifactId>casehub-work-api</artifactId>
-                            <version>${project.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                    <compilerArgs>
-                        <arg>-AdomainFilter=work/federation</arg>
-                        <arg>-AgenerateGraphQL=false</arg>
-                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>

@@ -18,13 +18,9 @@ Minimal WorkItem context passed to `WorkerSelectionStrategy.select`.
 
 ### `excludedUsers` (`java.lang.String`)
 
-### `minimumScore` (`java.lang.Double`)
-
 ### `priority` (`java.lang.String`)
 
 ### `requiredCapabilities` (`java.util.Set<io.casehub.work.api.Capability>`)
-
-### `routingStrategy` (`java.lang.String`)
 
 ### `title` (`java.lang.String`)
 
@@ -48,10 +44,6 @@ work item description — used by semantic matchers (may be null)
 
 comma-separated user IDs excluded from this WorkItem (may be null)
 
-### `minimumScore` (`java.lang.Double`)
-
-per-WorkItem score floor for scoring strategies (null = no floor)
-
 ### `priority` (`java.lang.String`)
 
 WorkItemPriority name e.g. "HIGH" (may be null)
@@ -60,10 +52,6 @@ WorkItemPriority name e.g. "HIGH" (may be null)
 
 capabilities the assignee must possess (empty set = no requirement);
     matched against worker capability tags using exact case-sensitive equality
-
-### `routingStrategy` (`java.lang.String`)
-
-per-WorkItem `WorkerSelectionStrategy` id override (null = use global config)
 
 ### `title` (`java.lang.String`)
 
@@ -75,7 +63,7 @@ WorkItem type paths (may be null or empty)
 
 ## Constructors
 
-### `public SelectionContext(java.util.List<java.lang.String> types, java.lang.String priority, java.util.Set<io.casehub.work.api.Capability> requiredCapabilities, java.lang.String candidateGroups, java.lang.String candidateUsers, java.lang.String title, java.lang.String description, java.lang.String excludedUsers, java.lang.String routingStrategy, java.lang.Double minimumScore)`
+### `public SelectionContext(java.util.List<java.lang.String> types, java.lang.String priority, java.util.Set<io.casehub.work.api.Capability> requiredCapabilities, java.lang.String candidateGroups, java.lang.String candidateUsers, java.lang.String title, java.lang.String description, java.lang.String excludedUsers)`
 
 #### Parameters
 
@@ -87,8 +75,6 @@ WorkItem type paths (may be null or empty)
 - `title` (`java.lang.String`)
 - `description` (`java.lang.String`)
 - `excludedUsers` (`java.lang.String`)
-- `routingStrategy` (`java.lang.String`)
-- `minimumScore` (`java.lang.Double`)
 
 ## Methods
 
@@ -108,13 +94,9 @@ WorkItem type paths (may be null or empty)
 
 ### `public final int hashCode()`
 
-### `public java.lang.Double minimumScore()`
-
 ### `public java.lang.String priority()`
 
 ### `public java.util.Set<io.casehub.work.api.Capability> requiredCapabilities()`
-
-### `public java.lang.String routingStrategy()`
 
 ### `public java.lang.String title()`
 

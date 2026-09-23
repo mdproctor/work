@@ -100,27 +100,6 @@ trackers and best practices for using them together.</description>
   <build>
     <plugins>
       <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <annotationProcessorPaths>
-            <path>
-              <groupId>io.casehub</groupId>
-              <artifactId>casehub-platform-graphql-generator</artifactId>
-              <version>0.2-SNAPSHOT</version>
-            </path>
-            <path>
-              <groupId>io.casehub</groupId>
-              <artifactId>casehub-work-api</artifactId>
-              <version>${project.version}</version>
-            </path>
-          </annotationProcessorPaths>
-          <compilerArgs>
-            <arg>-AdomainFilter=work/issue-links,work/webhooks</arg>
-            <arg>-AgenerateGraphQL=false</arg>
-          </compilerArgs>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>io.smallrye</groupId>
         <artifactId>jandex-maven-plugin</artifactId>
         <version>3.3.1</version>

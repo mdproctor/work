@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-work-parent</artifactId>
+        <version>0.2-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>casehub-work-rest-spring</artifactId>
+    <packaging>jar</packaging>
+    <name>CaseHub Work :: REST Spring</name>
+    <description>Generated Spring MVC REST controllers for work modules.
+        Generated from @Path JAX-RS resources via rest-spring-generator.</description>
+
+    <dependencies>
+        <!-- Work modules — provide core POJO types + their dependencies for compilation.
+             CDI annotations are harmless in Spring — no container activation. -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-runtime-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-reports</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-rest</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-federation</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-issue-tracker</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-ledger</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-progress-rest</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work-ai</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring MVC — generated controllers use these annotations -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.casehub</groupId>
+                <artifactId>casehub-platform-rest-spring-generator</artifactId>
+                <version>${version.io.casehub}</version>
+                <executions>
+                    <execution>
+                        <id>generate-rest</id>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <quarkusModules>
+                                <quarkusModule>${project.basedir}/../reports</quarkusModule>
+                                <quarkusModule>${project.basedir}/../runtime</quarkusModule>
+                                <quarkusModule>${project.basedir}/../rest</quarkusModule>
+                                <quarkusModule>${project.basedir}/../federation</quarkusModule>
+                                <quarkusModule>${project.basedir}/../issue-tracker</quarkusModule>
+                                <quarkusModule>${project.basedir}/../ledger</quarkusModule>
+                                <quarkusModule>${project.basedir}/../progress-rest</quarkusModule>
+                            </quarkusModules>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>verify-rest-drift</id>
+                        <goals><goal>verify</goal></goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <quarkusModules>
+                                <quarkusModule>${project.basedir}/../reports</quarkusModule>
+                                <quarkusModule>${project.basedir}/../runtime</quarkusModule>
+                                <quarkusModule>${project.basedir}/../rest</quarkusModule>
+                                <quarkusModule>${project.basedir}/../federation</quarkusModule>
+                                <quarkusModule>${project.basedir}/../issue-tracker</quarkusModule>
+                                <quarkusModule>${project.basedir}/../ledger</quarkusModule>
+                                <quarkusModule>${project.basedir}/../progress-rest</quarkusModule>
+                            </quarkusModules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

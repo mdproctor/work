@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-import io.casehub.platform.api.mcp.HandWrittenEndpoint;
 import io.casehub.work.api.WorkItemLifecycleEvent;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -32,7 +31,6 @@ import jakarta.ws.rs.core.Response;
  * and is included in the runtime JAR at {@code asyncapi.yaml}.
  */
 @Path("/q/asyncapi")
-@HandWrittenEndpoint("Infrastructure docs endpoint — not a domain API")
 public class AsyncApiResource {
 
     private static final String SPEC_PATH = "/asyncapi.yaml";

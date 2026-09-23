@@ -90,7 +90,7 @@ who only need the Java SPI do not pay JAX-RS coupling cost.</description>
           </annotationProcessorPaths>
           <compilerArgs>
             <arg>-Xlint:unchecked</arg>
-            <arg>-AdomainFilter=work/items,work/lifecycle,work/notes,work/links,work/relations,work/audit,work/vocabulary,work/spawn-groups,work/instances,work/bulk,work/spawn,work/schedules,work/templates,work/label-rules</arg>
+            <arg>-AdomainFilter=work/items,work/lifecycle,work/notes,work/links,work/relations</arg>
             <arg>-AgenerateGraphQL=false</arg>
           </compilerArgs>
         </configuration>

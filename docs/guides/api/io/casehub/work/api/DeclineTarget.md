@@ -4,7 +4,7 @@
 
 **Kind:** `enum`
 
-Determines where a delegated `io.casehub.work.runtime.model.WorkItem` returns
+Determines where a delegated `io.casehub.work.api.WorkItem` returns
 when the delegatee declines.
 
 <p>Configure the scope-level default via `.KEY` through

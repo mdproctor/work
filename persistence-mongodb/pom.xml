@@ -16,11 +16,6 @@
 default JPA stores. Activate by adding this module to the classpath — CDI @Alternative @Priority(1)
 selects it automatically. Translates WorkItemQuery to MongoDB Document filters.</description>
 
-  <properties>
-    <!-- Tests need MongoDB running — skip on CI until Testcontainers or dev services configured -->
-    <maven.test.skip>true</maven.test.skip>
-  </properties>
-
   <dependencies>
 
     <!-- Core POJOs -->
