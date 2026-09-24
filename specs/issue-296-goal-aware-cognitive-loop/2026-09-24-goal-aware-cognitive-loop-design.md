@@ -115,9 +115,9 @@ BLOCKS (tick, per interaction)
 │   ├── checks decay-signal → GoalRevision recommendations
 │   └── caches CognitiveGoalState for prompt rendering
 │
-├── GoalPromptSection (extended) — wired by composition root
-│   │  SocialAvatarCognition.buildSections() replaces basic GoalPromptSection
-│   │  with extended version carrying both orchestrators
+├── GoalPromptSection (extended) — wired via section customizer
+│   │  CognitionCore.setSectionCustomizer() replaces basic GoalPromptSection
+│   │  before directive wrapping, carrying both orchestrators
 │   ├── merges drive goals + cognitive goals
 │   ├── ranks by composite priority
 │   └── renders with OCC emotional tone + surfacing context
@@ -391,6 +391,7 @@ public class CognitiveGoalOrchestrator implements CognitionTickParticipant {
 
     // Per-agent cached state
     private final ConcurrentHashMap<String, CognitiveGoalState> states;
+    private final ConcurrentHashMap<String, Instant> lastSurfacedByGoal;
     private final KeyedLock tickLocks;
 ```
 
@@ -430,6 +431,11 @@ public void tick(CognitionTickContext context) {
         }
 
         // 5. Record surfacing events (selected goals only — not all queried)
+        //    Update in-memory timestamps for real-time cooldown enforcement
+        Instant now = clock.instant();
+        for (var goal : selected) {
+            lastSurfacedByGoal.put(goal.id(), now);
+        }
         recordSurfacing(agentId, tenantId, selected);
 
         // 6. Record agent emotional experiences
@@ -455,11 +461,19 @@ private List<MindMapNode> selectForSurfacing(String agentId, String tenantId,
     Instant now = clock.instant();
     return goals.stream()
         .filter(g -> {
-            var lastSurfaced = instantProperty(g, "last-surfaced-at");
+            // In-memory timestamp for real-time cooldown; fall back to
+            // MindMap node property for cross-restart persistence
+            var lastSurfaced = lastSurfacedByGoal.getOrDefault(
+                g.id(), instantProperty(g, "last-surfaced-at"));
             return lastSurfaced == null
                 || Duration.between(lastSurfaced, now).compareTo(config.surfacingCooldown()) >= 0;
         })
-        .filter(g -> doubleProperty(g, "priority", 0) > config.minimumSurfacingPriority())
+        .filter(g -> {
+            // Absent priority (not yet computed by consolidation) passes through;
+            // only filter when priority IS present and below threshold
+            var priority = optionalDoubleProperty(g, "priority");
+            return priority.isEmpty() || priority.get() > config.minimumSurfacingPriority();
+        })
         .toList();
 }
 ```
@@ -523,27 +537,74 @@ GoalPromptSection is currently constructed inside CognitionCore.promptSections()
 with only GoalProposalOrchestrator. CognitionCore has no reference to
 CognitiveGoalOrchestrator (it's an untyped custom tick participant).
 
-**Solution:** The composition root (SocialAvatarCognition) holds a typed reference
-to CognitiveGoalOrchestrator. Its `buildSections()` method replaces the basic
-GoalPromptSection from `core.promptSections()` with the extended version:
+**Problem with post-hoc replacement:** CognitionCore.promptSections() wraps
+all sections in DirectiveSection when `config.directivePrompts()` is true.
+DirectiveSection stores the original section as a private delegate with no
+accessor. After wrapping, `s instanceof GoalPromptSection` is always false
+— every element is a DirectiveSection. Post-hoc `removeIf` cannot find the
+original GoalPromptSection.
+
+**Solution:** CognitionCore gains a pre-wrapping section customizer hook —
+a `UnaryOperator<List<PromptSection>>` that runs BEFORE directive wrapping.
+This parallels `addParticipant()` as an extension point without constructor
+telescope growth:
 
 ```java
-// In SocialAvatarCognition
-List<PromptSection> buildSections(String agentId, String tenantId) {
-    var sections = new ArrayList<>(core.promptSections());
-    if (cognitiveGoals != null) {
+// CognitionCore — one new field, one new method
+private @Nullable UnaryOperator<List<PromptSection>> sectionCustomizer;
+
+public void setSectionCustomizer(UnaryOperator<List<PromptSection>> customizer) {
+    this.sectionCustomizer = customizer;
+}
+
+public List<PromptSection> promptSections() {
+    var sections = new ArrayList<PromptSection>();
+    // ... existing section construction (mood, drives, goals, etc.) ...
+
+    // Pre-wrapping customization — composition root can replace/add sections
+    if (sectionCustomizer != null) {
+        sections = new ArrayList<>(sectionCustomizer.apply(sections));
+    }
+
+    if (config.directivePrompts()) {
+        return sections.stream().map(DirectiveSection::wrap).toList();
+    }
+    return sections;
+}
+```
+
+The composition root (SocialAvatarCognition) sets up the customizer after
+constructing CognitionCore:
+
+```java
+// In SocialAvatarCognition constructor
+if (cognitiveGoals != null) {
+    core.setSectionCustomizer(sections -> {
         sections.removeIf(s -> s instanceof GoalPromptSection);
         sections.add(new GoalPromptSection(
             goals.orElse(null), cognitiveGoals));
-    }
-    return sections;
+        return sections;
+    });
+}
+```
+
+The `instanceof GoalPromptSection` check works here because the customizer
+runs BEFORE DirectiveSection wrapping. The extended GoalPromptSection's
+simple name is still `"GoalPromptSection"`, so DirectiveSection.wrap()
+looks up the correct directive from its DIRECTIVES map.
+
+SocialAvatarCognition.buildSections() remains unchanged:
+
+```java
+List<PromptSection> buildSections(String agentId, String tenantId) {
+    return new ArrayList<>(core.promptSections());
 }
 ```
 
 For the YAML-driven path (CognitionCompiler): CognitionDefinition gains a
 `@Nullable CognitiveGoalConfigSpec cognitiveGoal` field. CognitionCompiler
 compiles it to CognitiveGoalConfig. The runtime wiring code constructs
-CognitiveGoalOrchestrator and applies the same section-replacement pattern.
+CognitiveGoalOrchestrator and sets the section customizer on CognitionCore.
 
 ### Merging two goal sources
 
@@ -709,10 +770,11 @@ cognitive-api gains a new dependency on mindmap-api for MindMapNode.
 
 | Type | Purpose |
 |---|---|
-| CognitiveGoalOrchestrator | CognitionTickParticipant — queries goals, runs appraisal, records surfacing |
+| CognitiveGoalOrchestrator | CognitionTickParticipant — queries goals, runs appraisal, records surfacing. Maintains in-memory per-goal surfacing timestamps for real-time cooldown enforcement |
 | CognitiveGoalConfig | Thresholds and tuning parameters (including surfacingCooldown, minimumSurfacingPriority) |
 | GoalPromptSection (extended) | Merges drive + cognitive goals, emotional rendering |
 | GoalRevision | Record: decay-signal recommendation |
+| CognitionCore (modified) | New `setSectionCustomizer(UnaryOperator<List<PromptSection>>)` — pre-wrapping section customization hook, parallels `addParticipant()` |
 
 **MoodBaseline access:** CognitiveGoalOrchestrator receives a
 `BiFunction<String, String, PadProjection> moodBaselineProvider` — a function
