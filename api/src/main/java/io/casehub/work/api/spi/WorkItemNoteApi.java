@@ -12,7 +12,7 @@ import io.casehub.platform.api.mcp.RestStatus;
 import io.casehub.work.api.view.AddNoteRequest;
 import io.casehub.work.api.view.WorkItemNoteView;
 
-@McpDomain(value = "work/notes", app = "work")
+@McpDomain(value = "work/notes", app = "work", summary = "Work item notes and comments")
 public interface WorkItemNoteApi {
 
     @PlatformMutation("Add a note to a work item")

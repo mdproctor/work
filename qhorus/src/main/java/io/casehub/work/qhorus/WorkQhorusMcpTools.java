@@ -21,7 +21,7 @@ import org.jboss.logging.Logger;
 
 import java.util.UUID;
 
-@McpDomain(value = "work/human-tasks", app = "work")
+@McpDomain(value = "work/human-tasks", app = "work", summary = "Human task orchestration — request work, check status, poll completion")
 @ApplicationScoped
 public class WorkQhorusMcpTools {
 

@@ -19,7 +19,7 @@ import io.casehub.work.api.view.SuspendRequest;
 import io.casehub.work.api.view.UpdateDeadlineRequest;
 import io.casehub.work.api.view.WorkItemView;
 
-@McpDomain(value = "work/lifecycle", app = "work")
+@McpDomain(value = "work/lifecycle", app = "work", summary = "Work item state transitions — claim, complete, escalate, reassign")
 public interface WorkItemLifecycleApi {
 
     @PlatformMutation("Claim a work item")

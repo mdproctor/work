@@ -12,7 +12,7 @@ import io.casehub.platform.api.mcp.RestStatus;
 import io.casehub.work.api.view.AddLinkRequest;
 import io.casehub.work.api.view.WorkItemLinkView;
 
-@McpDomain(value = "work/links", app = "work")
+@McpDomain(value = "work/links", app = "work", summary = "Work item linking — parent/child and cross-references")
 public interface WorkItemLinkApi {
 
     @PlatformMutation("Add an external link to a work item")
