@@ -14,6 +14,10 @@ Branch scaffolded for casehubio/blocks#304 — CognitiveAttentionMediator. No im
 
 3. **Attention prompt section** — when `lastBriefing` present, render top-N signals ranked by significance in the cognitive prompt.
 
+## Key Constraint
+
+Nothing needs to change in the existing approach. Use the existing `promptSections()` mechanism in CognitionCore — add the attention section as a self-contained prompt section alongside the others. Don't redesign the prompt pipeline. examples#89 (briefing → voice card) will adapt to whatever we build here, not the other way around.
+
 ## Design Reference
 
 The neocortex spec covers the blocks contract in §7:
