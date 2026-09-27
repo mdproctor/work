@@ -2,46 +2,37 @@
 
 ## Last Session
 
-Completed the measurement-driven cognition integration epic (#261). Key achievement: validated that cognitive state presented as structured profile data measurably improves conversation quality over a pure-LLM baseline.
+Implemented **casehubio/blocks#304** — CognitiveAttentionMediator: bridge neocortex attention signals to CognitionCore. Full TDD implementation across 5 commits:
 
-### Issues completed this session
-- #264: Fixed map key collision in section contribution metrics (DirectivePromptSection wrapper)
-- #265: Extended showcase from 4 to 8 turns
-- #266: Stage 6 A/B comparison — cognition wins on depth (+1) and memory utilisation (+1)
-- #267: Fixed results output path (doubled agentic-yaml prefix)
-- #268: LLM-backed narrative episode synthesis
-- #269: Refactored SocialAvatarCognition to delegate to CognitionCore
-- #271: Configurable per-subsystem toggles (CognitionConfig)
-- #272: Production directive prompt sections (DirectiveSection, opt-in)
+1. `CognitiveAttentionMediator` — @ApplicationScoped CDI bean, per-principal ConcurrentLinkedQueue, merge semantics (dedup by sourceNodeId+category, latest urgencyP75, significance-sorted)
+2. `AttentionRelevance` — package-private static utility with EnumSet<SignalCategory> constants mapping cognitive domains to relevant signal categories. Type-safe, no string keys.
+3. `CognitionConfig` — added `attentionEnabled` (13th field)
+4. `CognitionCore` — nullable mediator field, drain-and-discard in tick() FOUNDATION, `isEnabled()` helper for attention-aware section gating, `AttentionPromptSection` rendering, `lastBriefing()` accessor
+5. CDI wiring — BlocksBeans, SocialAvatarCognition, BlocksAutoConfiguration all pass mediator
 
-### Key finding
-Prose directives ("steer toward goals", "seek connection") made cognition WORSE — baseline won 9/8 on 3 dimensions. Removing directives and presenting cognitive state as labeled profile data flipped the result: cognition won on depth and memory utilisation. The LLM integrates character briefing + profile data emergently.
+Docs updated: CLAUDE.md, consumer guide, contributor guide. #305 closed as premature (topN truncation doesn't exist — when it does, retrieval-modulated scoring is the right approach, not arbitrary cutoffs).
 
-### Additional fixes
-- Orchestrator LLM inference hang: MentalModel/UserModel orchestrators hung when their own invokeLlmInference() fired during tick(). Fixed by passing null agentProvider — CognitionCore.recordInteraction() handles all LLM extraction.
-- DescriptorLoader rewritten to construct AgentDescriptor directly (eidos upstream API change).
+2209 tests pass. Full project builds.
 
-## What's Next
+## Follow-up Issues
 
-Follow-on epic #274 — deepen cognitive advantage from 2/5 to 5/5 dimension wins:
+| # | Repo | Title | Scale | Complexity | Notes |
+|---|------|-------|-------|------------|-------|
+| 306 | blocks | Runtime-customizable attention override policy | S | Med | Extract AttentionRelevance to SPI |
+| 307 | blocks | CognitionSnapshot — capture lastBriefing | XS | Low | Attention invisible to observability |
+| 308 | blocks | Context-budget-aware prompt rendering | L | High | Session lifecycle, window management, new vs continuing |
+| 91 | examples | Replace CognitiveBudget.forSituation() with attention gating | S | Med | wacky-manor, depends on #304 + #306 |
+| 89 | examples | Redefine briefing as voice card | — | — | Open, should reference #304 mediator |
 
-| # | Title | Target dimension | Scale |
-|---|-------|-----------------|-------|
-| #275 | Goals as active cognitive objectives | Adaptiveness, Depth | M/Med |
-| #276 | Personality profile as cognitive section | Character consistency | S/Med |
-| #277 | Character constraints as cognitive context | Consistency, Groundedness | S/Low |
-| #278 | Extended conversation length (12-16 turns) | Memory utilisation | S/Low |
-| #279 | Strategy learning contribution | Adaptiveness | S/Med |
+## Design Decisions
+
+- **D1:** Mediator in blocks-core alongside CognitionCore
+- **D2:** attentionEnabled config flag with drain-and-discard when disabled
+- **D3:** AttentionRelevance reverse mapping (domain → categories) with EnumSet constants — type-safe, O(1) bitwise, testable
 
 ## References
 
-| Artifact | Path |
-|----------|------|
-| Research findings | workspace `specs/issue-261-measurement-driven-cognition/2026-09-14-measurement-driven-cognition-findings.md` |
-| Blog post | `blog/2026-09-14-mdp01-when-telling-ais-how-to-think-makes-them-worse.md` |
-| Design spec | workspace `specs/issue-261-measurement-driven-cognition/2026-09-14-measurement-driven-cognition-design.md` |
-| Stage results | `agentic-yaml/src/test/resources/results/` |
-| CognitionCore | `blocks/src/main/java/.../social/CognitionCore.java` |
-| CognitionConfig | `blocks/src/main/java/.../social/CognitionConfig.java` |
-| DirectiveSection | `blocks/src/main/java/.../social/prompt/DirectiveSection.java` |
-| Garden entries | `jvm/GE-20260914-6fc5ce.md` (map key collision), `tools/GE-20260914-e3cb03.md` (profile data technique) |
+- Spec: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/specs/issue-304-cognitive-attention-mediator/2026-09-27-cognitive-attention-mediator-design.md`
+- Decisions: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/specs/issue-304-cognitive-attention-mediator/decisions.md`
+- Plan: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/plans/2026-09-27-cognitive-attention-mediator.md`
+- Neocortex spec §7: `/Users/mdproctor/claude/casehub/slots/203/neocortex/docs/specs/issue-381-progressive-attention-model/2026-09-25-progressive-attention-model-design.md`
