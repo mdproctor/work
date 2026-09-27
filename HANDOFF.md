@@ -2,42 +2,37 @@
 
 ## Last Session
 
-Branch `issue-304-cognitive-attention-mediator` scaffolded. Design brainstorming in progress — 3 decisions captured (D1: mediator in blocks-core, D2: attentionEnabled config flag, D3: AttentionRelevance EnumSet gating). Full design presented and approved. Next: decision review, spec writing, then implementation planning.
+Implemented **casehubio/blocks#304** — CognitiveAttentionMediator: bridge neocortex attention signals to CognitionCore. Full TDD implementation across 5 commits:
 
-## Immediate Next Step
+1. `CognitiveAttentionMediator` — @ApplicationScoped CDI bean, per-principal ConcurrentLinkedQueue, merge semantics (dedup by sourceNodeId+category, latest urgencyP75, significance-sorted)
+2. `AttentionRelevance` — package-private static utility with EnumSet<SignalCategory> constants mapping cognitive domains to relevant signal categories. Type-safe, no string keys.
+3. `CognitionConfig` — added `attentionEnabled` (13th field)
+4. `CognitionCore` — nullable mediator field, drain-and-discard in tick() FOUNDATION, `isEnabled()` helper for attention-aware section gating, `AttentionPromptSection` rendering, `lastBriefing()` accessor
+5. CDI wiring — BlocksBeans, SocialAvatarCognition, BlocksAutoConfiguration all pass mediator
 
-**Write spec and implementation plan for blocks#304.** Design is complete — proceed through decision review gate, write spec, invoke writing-plans.
+Docs updated: CLAUDE.md, consumer guide, contributor guide. #305 closed as premature (topN truncation doesn't exist — when it does, retrieval-modulated scoring is the right approach, not arbitrary cutoffs).
 
-## Design Decisions (D1–D3)
+2209 tests pass. Full project builds.
 
-- **D1:** CognitiveAttentionMediator lives in blocks-core alongside CognitionCore
-- **D2:** CognitionConfig gets `attentionEnabled` boolean (13th field)
-- **D3:** Section gating via `AttentionRelevance` — reverse mapping with `EnumSet<SignalCategory>` constants per cognitive domain, `isEnabled(configFlag, relevanceSet)` helper in CognitionCore. Fully type-safe, no string-based subsystem keys in the override path.
+## Follow-up Issues
 
-## Components
+| # | Repo | Title | Scale | Complexity | Notes |
+|---|------|-------|-------|------------|-------|
+| 306 | blocks | Runtime-customizable attention override policy | S | Med | Extract AttentionRelevance to SPI |
+| 307 | blocks | CognitionSnapshot — capture lastBriefing | XS | Low | Attention invisible to observability |
+| 308 | blocks | Context-budget-aware prompt rendering | L | High | Session lifecycle, window management, new vs continuing |
+| 91 | examples | Replace CognitiveBudget.forSituation() with attention gating | S | Med | wacky-manor, depends on #304 + #306 |
+| 89 | examples | Redefine briefing as voice card | — | — | Open, should reference #304 mediator |
 
-1. **CognitiveAttentionMediator** (@ApplicationScoped) — @Observes CognitiveAttentionRequired, per-principal ConcurrentLinkedQueue, drainAttention() with merge
-2. **AttentionPromptSection** — renders top-N signals by significance
-3. **AttentionRelevance** — package-private static utility, EnumSet constants + overrides() method
-4. **CognitionConfig** — add attentionEnabled field
-5. **CognitionCore** — nullable mediator field, lastBriefing per-tick, 5th constructor, isEnabled() helper
-6. **BlocksBeans** — produce mediator, pass to SocialAvatarCognition
+## Design Decisions
 
-## Out of Scope (tracked)
+- **D1:** Mediator in blocks-core alongside CognitionCore
+- **D2:** attentionEnabled config flag with drain-and-discard when disabled
+- **D3:** AttentionRelevance reverse mapping (domain → categories) with EnumSet constants — type-safe, O(1) bitwise, testable
 
-| # | Issue | What |
-|---|-------|------|
-| 305 | TopN expansion for attention-aware prompt sections | Triggered when first section adds topN truncation |
-| 306 | Runtime-customizable attention override policy | Extract AttentionRelevance to SPI for runtime customization |
-| 297 | Spring coverage expansion | BlocksAutoConfiguration needs same mediator wiring as BlocksBeans |
+## References
 
-## Design Reference
-
-- Neocortex spec §7: `/Users/mdproctor/claude/casehub/slots/203/neocortex/docs/specs/issue-381-progressive-attention-model/2026-09-25-progressive-attention-model-design.md`
+- Spec: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/specs/issue-304-cognitive-attention-mediator/2026-09-27-cognitive-attention-mediator-design.md`
 - Decisions: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/specs/issue-304-cognitive-attention-mediator/decisions.md`
-
-## Dependencies
-
-- **casehubio/neocortex#381** (landed) — provides AttentionBriefing, AttentionSignal, CognitiveAttentionRequired, SignalCategory in mindmap-api
-- CognitionCore in blocks-core module
-- blocks already depends on neocortex mindmap-api
+- Plan: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/plans/2026-09-27-cognitive-attention-mediator.md`
+- Neocortex spec §7: `/Users/mdproctor/claude/casehub/slots/203/neocortex/docs/specs/issue-381-progressive-attention-model/2026-09-25-progressive-attention-model-design.md`

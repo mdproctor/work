@@ -21,3 +21,5 @@ flyway-next-v: unknown
     - [x] Task 4: CDI-wiring-BlocksBeans+SocialAvatarCognition
 - [ ] casehubio/blocks#305 — TopN-expansion-attention-sections
 - [ ] casehubio/blocks#306 — Runtime-customizable-attention-override-policy
+- [ ] casehubio/blocks#307 — CognitionSnapshot-attention-observability
+- [ ] casehubio/blocks#308 — Context-budget-aware-prompt-rendering
