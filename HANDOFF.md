@@ -30,6 +30,19 @@ Docs updated: CLAUDE.md, consumer guide, contributor guide. #305 closed as prema
 - **D2:** attentionEnabled config flag with drain-and-discard when disabled
 - **D3:** AttentionRelevance reverse mapping (domain → categories) with EnumSet constants — type-safe, O(1) bitwise, testable
 
+## Cross-Repo Fixes (2026-09-27)
+
+Fixed broken engine main build to unblock blocks CI:
+
+| Commit | What | File |
+|--------|------|------|
+| `552f69f0f` | Add missing `Event<TickEvaluatedEvent>` param to `RuntimeBeans.evolutionTicker()` producer | `runtime/.../RuntimeBeans.java` |
+| `552f69f0f` | Add `.orElseThrow()` for `Optional<CaseInstance>` return in test | `work-adapter/.../PlanItemCompletionApplierTest.java` |
+| `552f69f0f` | Fix codegen extra-field handling, `getWhen→getCondition`, annotation formatting | Multiple files |
+| `618df923f` | Add REPLAY to `ExecutionOriginTest` coverage assertion | `api/.../ExecutionOriginTest.java` |
+
+Pushed to both `mdproctor/engine` and `casehubio/engine` on main.
+
 ## References
 
 - Spec: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/specs/issue-304-cognitive-attention-mediator/2026-09-27-cognitive-attention-mediator-design.md`
