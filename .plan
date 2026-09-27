@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-304-cognitive-attention-mediator
-state: scaffolded
+state: active
 project-sha: 2a917adb46a8f03631f80173ed12ece97ddd8af3
 date: 2026-09-27
 issue-repo: casehubio/blocks
@@ -13,11 +13,11 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/blocks#304 — Issue #304 ← active
-  - [ ] Batch 1: Foundation
-    - [ ] Task 1: CognitiveAttentionMediator
-    - [ ] Task 2: AttentionRelevance+CognitionConfig
-  - [ ] Batch 2: Integration
-    - [ ] Task 3: CognitionCore+AttentionPromptSection
-    - [ ] Task 4: CDI-wiring-BlocksBeans+SocialAvatarCognition
+  - [x] Batch 1: Foundation
+    - [x] Task 1: CognitiveAttentionMediator
+    - [x] Task 2: AttentionRelevance+CognitionConfig
+  - [x] Batch 2: Integration
+    - [x] Task 3: CognitionCore+AttentionPromptSection
+    - [x] Task 4: CDI-wiring-BlocksBeans+SocialAvatarCognition
 - [ ] casehubio/blocks#305 — TopN-expansion-attention-sections
 - [ ] casehubio/blocks#306 — Runtime-customizable-attention-override-policy
