@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-304-cognitive-attention-mediator
-state: active
+state: closing:review
 project-sha: 2a917adb46a8f03631f80173ed12ece97ddd8af3
 date: 2026-09-27
 issue-repo: casehubio/blocks
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: fba150fa:## Layer Taxonomy|4d2cc5ab:## §1 Introduction and Goals|74aa736f:## §4 Solution Strategy|9ca8de62:## §5 Building Block View|98d8f0eb:## §9 Architecture Decisions
 flyway-next-v: unknown
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#304 — Issue #304 ← active
   - [x] Batch 1: Foundation
