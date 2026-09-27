@@ -13,3 +13,5 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/blocks#304 — Issue #304 ← active
+- [ ] casehubio/blocks#305 — TopN-expansion-attention-sections
+- [ ] casehubio/blocks#306 — Runtime-customizable-attention-override-policy

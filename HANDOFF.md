@@ -2,35 +2,42 @@
 
 ## Last Session
 
-Branch scaffolded for casehubio/blocks#304 — CognitiveAttentionMediator. No implementation yet.
+Branch `issue-304-cognitive-attention-mediator` scaffolded. Design brainstorming in progress — 3 decisions captured (D1: mediator in blocks-core, D2: attentionEnabled config flag, D3: AttentionRelevance EnumSet gating). Full design presented and approved. Next: decision review, spec writing, then implementation planning.
 
 ## Immediate Next Step
 
-**Brainstorm then implement blocks#304.** Three components:
+**Write spec and implementation plan for blocks#304.** Design is complete — proceed through decision review gate, write spec, invoke writing-plans.
 
-1. **CognitiveAttentionMediator** (`@ApplicationScoped`) — `@Observes CognitiveAttentionRequired` CDI event, maintains per-principal `ConcurrentLinkedQueue<AttentionBriefing>`, exposes `drainAttention(String principalId) → Optional<AttentionBriefing>`.
+## Design Decisions (D1–D3)
 
-2. **CognitionCore integration** — add `lastBriefing` field. Both `tick()` (wacky-manor) and push-based agents drain attention through `drainAttention()` delegating to the mediator.
+- **D1:** CognitiveAttentionMediator lives in blocks-core alongside CognitionCore
+- **D2:** CognitionConfig gets `attentionEnabled` boolean (13th field)
+- **D3:** Section gating via `AttentionRelevance` — reverse mapping with `EnumSet<SignalCategory>` constants per cognitive domain, `isEnabled(configFlag, relevanceSet)` helper in CognitionCore. Fully type-safe, no string-based subsystem keys in the override path.
 
-3. **Attention prompt section** — when `lastBriefing` present, render top-N signals ranked by significance in the cognitive prompt.
+## Components
 
-## Key Constraint
+1. **CognitiveAttentionMediator** (@ApplicationScoped) — @Observes CognitiveAttentionRequired, per-principal ConcurrentLinkedQueue, drainAttention() with merge
+2. **AttentionPromptSection** — renders top-N signals by significance
+3. **AttentionRelevance** — package-private static utility, EnumSet constants + overrides() method
+4. **CognitionConfig** — add attentionEnabled field
+5. **CognitionCore** — nullable mediator field, lastBriefing per-tick, 5th constructor, isEnabled() helper
+6. **BlocksBeans** — produce mediator, pass to SocialAvatarCognition
 
-Nothing needs to change in the existing approach. Use the existing `promptSections()` mechanism in CognitionCore — add the attention section as a self-contained prompt section alongside the others. Don't redesign the prompt pipeline. examples#89 (briefing → voice card) will adapt to whatever we build here, not the other way around.
+## Out of Scope (tracked)
+
+| # | Issue | What |
+|---|-------|------|
+| 305 | TopN expansion for attention-aware prompt sections | Triggered when first section adds topN truncation |
+| 306 | Runtime-customizable attention override policy | Extract AttentionRelevance to SPI for runtime customization |
+| 297 | Spring coverage expansion | BlocksAutoConfiguration needs same mediator wiring as BlocksBeans |
 
 ## Design Reference
 
-The neocortex spec covers the blocks contract in §7:
-- Spec location: `neocortex` repo at `docs/specs/issue-381-progressive-attention-model/2026-09-25-progressive-attention-model-design.md`
-- Slot path: `/Users/mdproctor/claude/casehub/slots/203/neocortex/docs/specs/issue-381-progressive-attention-model/2026-09-25-progressive-attention-model-design.md`
-
-Key design decisions from §7:
-- CognitionCore is a manually-constructed POJO (no CDI) — mediator bridges CDI events to it
-- Mediator uses ConcurrentLinkedQueue per principal — same threading model as neocortex accumulator
-- CognitionCore renders attention as a prompt section, not a separate system message
+- Neocortex spec §7: `/Users/mdproctor/claude/casehub/slots/203/neocortex/docs/specs/issue-381-progressive-attention-model/2026-09-25-progressive-attention-model-design.md`
+- Decisions: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/specs/issue-304-cognitive-attention-mediator/decisions.md`
 
 ## Dependencies
 
-- **casehubio/neocortex#381** (landed) — provides `CognitiveAttentionRequired`, `AttentionBriefing`, `AttentionSignal` CDI event types
-- CognitionCore lives in blocks-core module
-- blocks already depends on neocortex mindmap-api (where the event types live)
+- **casehubio/neocortex#381** (landed) — provides AttentionBriefing, AttentionSignal, CognitiveAttentionRequired, SignalCategory in mindmap-api
+- CognitionCore in blocks-core module
+- blocks already depends on neocortex mindmap-api
