@@ -15,7 +15,8 @@
 **Alternatives:**
 - No flag — rely on mediator nullability as the gate
 **Rationale:** Consistency with all other subsystems (moodEnabled, drivesEnabled, etc.). Lets operators disable attention without removing the mediator from classpath.
-**Trade-offs:** One more boolean in the record; mediator still queues when disabled (zero-cost drain returns empty).
+**Trade-offs:** One more boolean in the record.
+**Refinement (light review):** Always drain the mediator queue in tick() regardless of config (prevents unbounded queue growth when disabled). Only set lastBriefing when attentionEnabled=true. Drain-and-discard when disabled.
 **Sources:** CognitionConfig.java (existing pattern)
 **Exploration:** quick
 **Status:** captured
