@@ -43,6 +43,20 @@ Fixed broken engine main build to unblock blocks CI:
 
 Pushed to both `mdproctor/engine` and `casehubio/engine` on main.
 
+## Cross-Repo Fixes (2026-10-14)
+
+Fixed cascading CI failures across blocks and neocortex:
+
+**blocks** (landed via quick-fix `7949bf3`):
+- `DefaultIntegrityCheckerTest` — swapped `findSupersededCases(String, MemoryDomain)` → `findSupersededCases(MemoryDomain, String)` (4 sites)
+- `CognitionCompiler` — added `subThoughtModulationStrength` + `secondaryPleasureModulationFactor` to `DriveConfig` constructor, `trendImprovingThreshold` + `trendDecliningThreshold` + `maxDimensionDelta` to `StrategyLearningConfig`
+- `PatternWorkerFunctionHandler`, `EngineAdapterBeans`, `EngineAdapterAutoConfiguration`, test — `WorkerRuntimeFactory` import: `engine.internal.executor` → `engine.runtime.executor`
+- `IntegrationTestBeans` — 15 imports: `engine.internal.worker` → `engine.runtime.worker`, `engine.internal.routing` → `engine.runtime.routing`, `actorstate` → `engine.actorstate`, `persistence.memory` → `engine.persistence.memory`, `engine.internal.context` → `engine.runtime.context`
+- `BlocksAutoConfiguration` — removed stale `CognitiveAttentionMediator` param from `CognitiveProfileParticipant` constructor
+
+**neocortex** (commit `98e37b9c`):
+- Removed duplicate `casehub-neocortex-sqlite-support` dependency management entry in parent pom (blocked all CI builds)
+
 ## References
 
 - Spec: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-blocks/specs/issue-304-cognitive-attention-mediator/2026-09-27-cognitive-attention-mediator-design.md`
