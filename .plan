@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-346-agent-ref-spec-model
-state: closing:verified
+state: closing:promoted
 project-sha: 
 date: 
 issue-repo: casehubio/blocks
