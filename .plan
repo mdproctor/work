@@ -13,3 +13,8 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/blocks#340 — Issue #340 ← active
+- [ ] casehubio/blocks#341 — Add description field to BranchSpec
+- [ ] casehubio/blocks#342 — Add name and description to PatternSpec
+- [ ] casehubio/blocks#343 — Set task field in pattern YAML examples
+- [ ] casehubio/blocks#344 — Add agent type diversity to patterns
+- [ ] casehubio/blocks#345 — Add governance section to pattern YAML
