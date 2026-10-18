@@ -1,9 +1,10 @@
 ---
 branch: issue-347-enrich-descriptors
-state: active
+state: closing:review
 covers: "347"
 ---
 
 ## Queue
 
 - [x] casehubio/blocks#347 — Enrich historical-encounter descriptors with qualityHint and weighted disposition
+evidence-era: true
