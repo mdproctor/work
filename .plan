@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-346-agent-ref-spec-model
-state: active
+state: closing:review
 project-sha: 
 date: 
 issue-repo: casehubio/blocks
@@ -11,5 +11,6 @@ design-repo:
 design-section-hashes: 
 flyway-next-v: 
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/blocks#346 — Issue #346 ← active
