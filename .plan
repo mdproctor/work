@@ -1,0 +1,15 @@
+# Work Plan — issue-340-enrich-pattern-spec-models
+
+## State
+branch: issue-340-enrich-pattern-spec-models
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/blocks
+covers: 340,341,342,343,344,345
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/blocks#340 — Issue #340 ← active
