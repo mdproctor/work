@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-340-enrich-pattern-spec-models
-state: closing:review
+state: closing:verified
 project-sha: 
 date: 
 issue-repo: casehubio/blocks
