@@ -21,10 +21,10 @@ Issue #284 specifies `LlmObserver` implementing `EnvironmentObserver` and `LlmRu
 | `LlmObserver` implementing `EnvironmentObserver` | `LlmSummarisers.observation()` — same interpretation function, event-driven instead of synchronous SPI |
 | `LlmRuleEvaluator` implementing `LocalRuleSet` | Handler dispatch via `ObservationDispatcher` — caller-registered handlers react to observation patterns, deposit signals, write context |
 | Context window management | `ObservationRenderer<E>` + `Compactor` — existing infrastructure reused for prompt assembly and deduplication |
-| Observation caching | `InFlightGuard` + `EventAccumulator` — events accumulate during LLM processing, no data loss |
+| Observation caching | `InFlightGate` + `EventAccumulator` — emission suppressed during LLM processing, events stay in accumulator |
 | Prompt templates | `LlmSummarisers` factory methods — observation, action, combined templates |
 
-**Transparent fallback:** When the LLM is unavailable, `InFlightGuard` skips the invocation and the `EventAccumulator` continues collecting events. No events are lost — they are processed in the next batch when the LLM becomes available. The engine's deterministic observers and local rules continue operating independently on every tick.
+**Transparent fallback:** When the LLM is unavailable, `InFlightGate` suppresses emission and the `EventAccumulator` continues collecting events. No events are lost — they remain in the accumulator and are included in the next batch when the LLM becomes available. The engine's deterministic observers and local rules continue operating independently on every tick.
 
 ## Architecture
 
@@ -38,15 +38,30 @@ The default composition mirrors the engine's two-phase pipeline:
 
 ### Async Execution Model
 
-LLM invocation is truly async via `CompletableFuture.supplyAsync()` on a caller-supplied `ExecutorService`. The `ContentSummariser.summarise()` returns an immediately-pending `CompletionStage` — the calling thread is never blocked. This is critical for `InFlightGuard` to function: it tracks in-flight status via the pending `CompletionStage`, skipping new invocations while a previous call is still running.
+LLM invocation is truly async via `CompletableFuture.supplyAsync()` on a caller-supplied `ExecutorService`. The `ContentSummariser.summarise()` returns an immediately-pending `CompletionStage` — the calling thread is never blocked.
 
-The `SummarisationRunner` must be ticked by a dedicated thread or scheduler, NOT by the engine tick thread. The runner's `tick()` method blocks until the `CompletionStage` completes — this is acceptable on a dedicated thread, catastrophic on the engine tick thread.
+`SummarisationRunner.tick()` is `synchronized` (prevents concurrent entry) but does NOT block waiting for the `CompletionStage` to complete — it returns `CompletionStage<Void>` immediately. The actual LLM call completes asynchronously on the `llmExecutor` thread, at which point `thenAccept` publishes the result to the `EventStreamBus`. This means handler dispatch (via bus subscribers) runs on the `llmExecutor` thread, not on the tick-calling thread.
+
+**Concurrency control:** The `InFlightGate` coordinates the emission policy and summariser to prevent data loss. `SummarisationRunner.tickWithPolicy()` first checks `shouldEmit()` (which the gate suppresses when in-flight), then drains the accumulator, then invokes the summariser. By preventing emission at the policy level, the gate ensures the accumulator is never drained while a previous LLM call is still running. Events continue accumulating and are included in the next batch after the in-flight call completes.
 
 ### Tick-Trigger Mechanism
 
 The engine dispatches a new `CaseContextChangedEvent` (triggering a new tick) when context keys are written via `WritableLayer.set()`. Signal deposits and observation storage do NOT trigger new events — signals and observations are read at the START of the next tick that occurs for other reasons.
 
 To guarantee a tick fires after LLM write-back, the `EnvironmentWriter` implementation must always write a sentinel context key `llm.interpretation.lastWriteBack` (set to current timestamp) after processing all handler actions. This ensures at least one `WriteContext` action occurs, which triggers the engine tick. Without this, write-backs that only deposit signals or store observations would sit idle until something else triggers a tick.
+
+### Thread Safety
+
+Handler dispatch runs on the `llmExecutor` thread. `EventStreamBus` callbacks run synchronously on the thread that calls `publish()` — which is the `llmExecutor` thread (via `thenAccept` after the LLM `CompletionStage` completes). This means:
+
+- `ObservationDispatcher.dispatch()` runs on `llmExecutor`
+- `ObservationHandler` callbacks (including `EnvironmentWriter` calls) run on `llmExecutor`
+- `EnvironmentWriter.writeContext()` triggers engine tick dispatch from the `llmExecutor` thread
+
+**Requirements:**
+- `EnvironmentWriter` implementations must be thread-safe — they are called from `llmExecutor`, not from engine virtual threads
+- Handlers must not perform blocking I/O or long-running computation — they share the `llmExecutor` thread with LLM invocations
+- The engine's `EventDispatcher` must accept events from non-engine threads — verified: `CaseContextChangedEventHandler` uses `evaluationSerializer.submit()` which queues work regardless of calling thread
 
 ```
 Context Changes (engine events)
@@ -64,7 +79,7 @@ Context Changes (engine events)
          │    ├── Compactor (dedup redundant changes)
          │    ├── ContentSummariser template (LLM → List<Observation>)
          │    │   └── via CompletableFuture.supplyAsync(invokeText, llmExecutor)
-         │    ├── Concurrency guard (skip if previous call in-flight)
+         │    ├── InFlightGate (emission suppressed while previous call in-flight)
          │    └── EventStreamBus → Handler dispatch
          │
          ├── Phase 2: Handler dispatch (pattern-matched)
@@ -330,7 +345,11 @@ public class ObservationDispatcher {
 
 The dispatcher respects the `derivedFrom` hierarchy — leaf observations are dispatched before derived observations, so a handler for "compound-risk" can assume "velocity-anomaly" has already been processed.
 
-**derivedFrom ordering:** Topological sort on the observation DAG. External references (patternIds not in the current batch) are treated as satisfied — they were produced in a previous batch. Cycles are detected and logged at ERROR; cycled observations are dispatched in batch order with a warning.
+**derivedFrom ordering:** Topological sort on the observation DAG:
+- External references (patternIds not in the current batch) → treated as satisfied (produced in a previous batch)
+- Missing references (patternIds that don't exist anywhere) → treated as satisfied, logged at WARNING
+- Self-references (observation's own patternId in its derivedFrom) → ignored, logged at WARNING
+- Cycles (A derivedFrom B, B derivedFrom A) → detected via cycle check, logged at ERROR; cycled observations dispatched in batch order
 
 **Default unhandled behavior:** If `onUnhandled` is not registered, unhandled observations are logged at WARNING and stored via `ctx.storeObservation()`. The default ensures no LLM finding is silently dropped.
 
@@ -377,32 +396,52 @@ public class ChangeGatedEmissionPolicy<E> implements EmissionPolicy<E, Object> {
 }
 ```
 
-### `InFlightGuard<E, R>` (concurrency guard)
+### `InFlightGate<E, R>` (concurrency gate)
 
-Wraps a `ContentSummariser` to skip invocation when a previous call is still in-flight. The accumulator continues collecting events; they will be processed in the next batch.
+Coordinates the emission policy and summariser to prevent data loss during async LLM invocation. Provides two views: a gating emission policy (suppresses emission while in-flight) and a tracking summariser (records in-flight status when invoked).
 
 **Package:** `io.casehub.agency.stigmergy.llm`
 
 ```java
-public class InFlightGuard<E, R> implements ContentSummariser<E, R> {
+public class InFlightGate<E, R> {
 
-    public InFlightGuard(ContentSummariser<E, R> delegate) { ... }
+    private final ContentSummariser<E, R> delegate;
+    private volatile CompletionStage<?> inflight;
 
-    @Override
-    public CompletionStage<R> summarise(List<E> items, R previous) {
-        // If previous CompletionStage is not yet complete, return previous result unchanged
-        // Otherwise delegate and track the pending CompletionStage
+    public InFlightGate(ContentSummariser<E, R> delegate) {
+        this.delegate = delegate;
+    }
+
+    /** Returns a summariser that tracks in-flight status. */
+    public ContentSummariser<E, R> summariser() {
+        return (items, previous) -> {
+            var stage = delegate.summarise(items, previous);
+            inflight = stage;
+            return stage;
+        };
+    }
+
+    /** Returns an emission policy that suppresses emission while in-flight. */
+    public <S> EmissionPolicy<E, S> gating(EmissionPolicy<E, S> policy) {
+        return (buffer, state, now) -> {
+            if (inflight != null && !inflight.toCompletableFuture().isDone()) return false;
+            return policy.shouldEmit(buffer, state, now);
+        };
     }
 }
 ```
 
-`InFlightGuard` tracks the `CompletionStage` returned by the delegate. If the stage is still pending (not complete), the guard returns the previous result immediately. This requires the delegate to return a genuinely pending `CompletionStage` — a synchronous call wrapped in `CompletableFuture.completedFuture()` would always appear "complete" and the guard would never skip.
+**Why not a ContentSummariser wrapper?** `SummarisationRunner.tickWithPolicy()` drains the `EventAccumulator` BEFORE invoking the summariser. A `ContentSummariser` wrapper that skips invocation (returning the previous result) would discard the drained events — they cannot be returned to the accumulator. By gating at the emission policy level, the drain never happens while a previous call is in-flight.
+
+**Thread safety:** `inflight` is `volatile` — the emission policy (called from the tick thread) and summariser (completing on `llmExecutor`) see consistent state. The gate does not need synchronization because the runner's `tick()` is already `synchronized`.
 
 ## Structured JSON Output & Conversion
 
 The LLM produces structured JSON conforming to LLM-facing response records. Templates convert these into engine-facing records. This decouples the prompt schema from engine internals and enables per-item attribution.
 
 ### LLM-Facing Records (what the LLM produces)
+
+**Package:** `io.casehub.agency.stigmergy.llm`
 
 ```java
 // Observation phase JSON output
@@ -451,6 +490,12 @@ The conversion from `actionType` + `parameters` to the correct `RuleAction` seal
 - `"RegisterInterest"` → `new RuleAction.RegisterInterest(declaration)`
 - `"DeregisterInterest"` → `new RuleAction.DeregisterInterest(interestId)`
 - `"Leave"` → `new RuleAction.Leave()`
+
+**Conversion error handling:** Individual conversion failures do not fail the batch:
+- Unknown `actionType` → drop the action, log WARNING with the raw `LlmRecommendation`
+- Missing required parameters (e.g., `DepositSignal` without `name`) → drop the action, log WARNING
+- Wrong parameter types (e.g., `strength` is a string) → attempt coercion (string → double), drop with WARNING if coercion fails
+- The `ActionResult` includes only successfully converted actions. The `reasoning` field preserves the LLM's intent for debugging dropped actions.
 
 ### Prompt Assembly & Key Identification
 
@@ -553,8 +598,9 @@ var dispatcher = ObservationDispatcher.builder()
     })
     .build();
 
-// 3. Wire the pipeline (existing infrastructure)
+// 3. Wire the pipeline with InFlightGate (prevents drain-before-skip data loss)
 var obsBus = new EventStreamBus<LlmObservationResult>();
+var gate = new InFlightGate<>(observer);
 
 // Extract changed keys from engine's CaseContextChangedEvent payload
 Function<LevelEvent<CaseContextChangedEvent>, Set<String>> keyExtractor =
@@ -563,11 +609,11 @@ Function<LevelEvent<CaseContextChangedEvent>, Set<String>> keyExtractor =
         e.payload().contextSnapshot().layer(ContextLayer.WORKING).asJsonNode());
 
 var runner = SummarisationRunner.builder(
-        new InFlightGuard<>(observer).asSummariser(), obsBus, OBSERVATION_LEVEL)
-    .emissionPolicy(new ChangeGatedEmissionPolicy<>(
+        gate.summariser().asSummariser(), obsBus, OBSERVATION_LEVEL)
+    .emissionPolicy(gate.gating(new ChangeGatedEmissionPolicy<>(
         Set.of("transaction.*", "risk.*"),
         keyExtractor,
-        EmissionPolicy.window(WindowPolicy.of(5_000, 10))))
+        EmissionPolicy.window(WindowPolicy.of(5_000, 10)))))
     .compactor(contextChangeCompactor)
     .build();
 
@@ -623,12 +669,15 @@ Plain JUnit 5 with Mockito (no Quarkus runtime in agency tests):
 5. **Combined template** — verify single-call mode produces both observations and actions
 6. **Prompt rendering integration** — verify `ObservationRenderer` / `AffordanceRenderer` output in prompts
 7. **`EnvironmentWriter` mock** — verify handlers call correct write-back operations
-8. **`InFlightGuard`** — verify skip when previous `CompletionStage` is pending, resume after completion
+8. **`InFlightGate`** — verify emission suppressed when previous `CompletionStage` is pending, emission resumes after completion
 9. **`ChangeGatedEmissionPolicy`** — verify watched-key intersection gating, no invocation on irrelevant changes
 10. **End-to-end composition** — full runner pipeline with mock LLM, verify accumulation → processing → handler dispatch → write-back
 11. **Previous result continuity** — verify `StatefulSummariser` state management across ticks
 12. **Compactor integration** — verify redundant context changes are removed before LLM invocation
 13. **Write-back failure logging** — verify `EnvironmentWriter` failures are logged at WARNING with batch correlation metadata
+14. **Sentinel write verification** — verify `EnvironmentWriter` implementation writes `llm.interpretation.lastWriteBack` after all handler actions, ensuring ticks fire even for signal-only or observation-only write-backs
+15. **InFlightGate data preservation** — verify events remain in accumulator when gate suppresses emission, and are included in the next batch after in-flight call completes
+16. **Conversion error resilience** — verify unknown `actionType`, missing parameters, and wrong parameter types are individually dropped with WARNING logs, not batch failures
 
 ## Dependencies
 
