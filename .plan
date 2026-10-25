@@ -13,9 +13,9 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/casehub-mosaic#284 — Issue #284 ← active
-  - [ ] Batch 1: Schema+types
-    - [ ] Task 1: Copy schema and upgrade sub-spec types
-    - [ ] Task 2: Update pattern category interfaces
-  - [ ] Batch 2: Staleness+cleanup
-    - [ ] Task 3: Write schema-staleness test
-    - [ ] Task 4: Remove orphans and verify green
+  - [x] Batch 1: Schema+types
+    - [x] Task 1: Copy schema and upgrade sub-spec types
+    - [x] Task 2: Update pattern category interfaces
+  - [x] Batch 2: Staleness+cleanup
+    - [x] Task 3: Write schema-staleness test
+    - [x] Task 4: Remove orphans and verify green
