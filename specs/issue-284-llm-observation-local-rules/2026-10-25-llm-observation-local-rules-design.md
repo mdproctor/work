@@ -98,6 +98,7 @@ The output of an LLM observation phase. Carries detected patterns and batch corr
 ```java
 public record LlmObservationResult(
     List<Observation> observations,
+    List<LlmObservation> rawObservations,
     double confidence,
     String reasoning,
     Instant batchStart,
@@ -108,6 +109,8 @@ public record LlmObservationResult(
 ```
 
 Named `LlmObservationResult` to avoid collision with `io.casehub.agency.perception.observation.ObservationResult` — the existing type returned by `ObservationRenderer<E>.render()`. Both types appear in the same call chain (prompt assembly uses `ObservationRenderer`, which returns the perception `ObservationResult`; the template then produces `LlmObservationResult`).
+
+The `rawObservations` list parallels `observations` at the same indices — the dispatcher uses `rawObservations` for topological sort (derivedFrom) and passes both the engine `Observation` and raw `LlmObservation` to each handler.
 
 ### `RecommendedAction` (record)
 
@@ -250,7 +253,7 @@ Write-back interface for depositing LLM results into the engine environment. The
 
 ```java
 public interface EnvironmentWriter {
-    void storeObservations(UUID caseId, String agentId, List<Observation> observations);
+    void storeObservation(UUID caseId, String agentId, Observation observation);
     void depositSignal(UUID caseId, String name, double strength,
                        Duration halfLife, String agentId);
     void writeContext(UUID caseId, String key, JsonNode value);
@@ -293,8 +296,8 @@ public record ObservationHandlerContext(
     public void writeContext(String key, JsonNode value) {
         writer.writeContext(caseId, key, value);
     }
-    public void storeObservation() {
-        writer.storeObservations(caseId, agentId, batchResult.observations());
+    public void storeObservation(Observation observation) {
+        writer.storeObservation(caseId, agentId, observation);
     }
 }
 ```
@@ -326,6 +329,17 @@ public class ObservationDispatcher {
 ```
 
 The dispatcher respects the `derivedFrom` hierarchy — leaf observations are dispatched before derived observations, so a handler for "compound-risk" can assume "velocity-anomaly" has already been processed.
+
+**derivedFrom ordering:** Topological sort on the observation DAG. External references (patternIds not in the current batch) are treated as satisfied — they were produced in a previous batch. Cycles are detected and logged at ERROR; cycled observations are dispatched in batch order with a warning.
+
+**Default unhandled behavior:** If `onUnhandled` is not registered, unhandled observations are logged at WARNING and stored via `ctx.storeObservation()`. The default ensures no LLM finding is silently dropped.
+
+**Error handling in templates:** `StructuredAgentInvoker.invoke()` returns sealed `InvocationResult<T>` — `Success`, `ParseError`, or `AgentError`. Templates handle:
+- `Success` → validate each observation individually, filter invalid (missing patternId or confidence), log WARNING per filtered observation, produce result with only valid observations
+- `ParseError` → log WARNING with raw response text, return empty result (previous result preserved via StatefulSummariser continuity)
+- `AgentError` → log ERROR, return empty result, `LlmInvocationPolicy` tracks the failure
+
+**Evidence model acknowledgment:** `evidence` entries are free-form LLM citations from a rendered prompt. There is no structural validation that citations reference actual input data — the LLM cites what it chooses. Handlers should treat evidence as informational context, not as verified provenance.
 
 ### `EnvironmentWriteBackHandlers` (pre-built handlers)
 
@@ -522,20 +536,20 @@ ContentSummariser<CaseContextChangedEvent, LlmObservationResult> observer =
 var dispatcher = ObservationDispatcher.builder()
     .on("risk-spike", (obs, raw, ctx) -> {
         ctx.depositSignal("alert:risk-spike", obs.confidence());
-        ctx.storeObservation();
+        ctx.storeObservation(obs);
     })
     .on("velocity-anomaly", (obs, raw, ctx) -> {
         ctx.depositSignal("alert:velocity", obs.confidence());
-        ctx.storeObservation();
+        ctx.storeObservation(obs);
     })
     .on("high-value-high-risk", (obs, raw, ctx) -> {
         ctx.depositSignal("escalate:aml", obs.confidence());
-        ctx.storeObservation();
+        ctx.storeObservation(obs);
         escalateToHumanReviewer(ctx.caseId(), obs);
     })
     .onUnhandled((obs, raw, ctx) -> {
         log.warnf("Unexpected pattern: %s (confidence: %.2f)", obs.patternId(), obs.confidence());
-        ctx.storeObservation();
+        ctx.storeObservation(obs);
     })
     .build();
 
