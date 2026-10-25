@@ -36,8 +36,18 @@ Engine's choreography and saga subsystems were already in `CapabilityType` under
 
 Both issues closed as no-ops. The foundation work in agency had already done the thinking; the downstream repos just needed to confirm they were aligned. Speculative issues written before the foundation lands are often like this — the decisions they anticipated get made elsewhere.
 
-## What Remains
+## The Language Boundary
 
-One child issue is genuinely substantive: the mosaic alignment. TypeScript needs to derive its category types from the generated JSON schema rather than maintaining hand-written parallel definitions. A staleness CI test already exists and passes, but the type derivation itself — replacing loose `{ type: string }` definitions with types generated from the Java sealed hierarchies — is real work. That's the last piece before the taxonomy is mechanically enforced across the language boundary.
+The last child issue — mosaic's TypeScript alignment — was the one I expected to be purely mechanical. Copy the JSON schema, upgrade the types, add a staleness test. And mechanically it was straightforward. But it surfaced something the design-time analysis missed.
 
-The broader pattern is worth noting. Cross-repo type alignment epics tend to look large from the outside — four repos, two languages, dozens of types. But when the foundation is well-designed, most of the alignment is already implicit. The taxonomy didn't impose order on chaos. It named the order that was already there.
+The schema generator produces `PatternDefinition` with eight topology discriminators. The capability catalog produces twenty-eight capability names. These are different projections of the same system — topologies are how patterns execute, capabilities are what the system can do. Seven of the eight topologies map directly to a catalog name. The eighth, `htn`, maps to the capability `decomposition`. Same concept, different names, because `PatternType.HTN` is a Java enum value named for the AI planning technique, while `CapabilityType.DECOMPOSITION` is named for what it does from the user's perspective.
+
+The staleness test caught this on its first run. That's exactly the point of the test — not to prevent bugs in today's code, but to make tomorrow's drift immediately visible. When agency adds a twenty-ninth capability or a ninth topology, mosaic's CI fails with a message that names the exact mismatch. No silent drift, no quarterly audit discovering that TypeScript has been lying about what the system supports.
+
+The type upgrades themselves were cleaner than expected. Mosaic had `AggregationSpec` as `{ type: string }` — any string accepted, no compile-time feedback. The schema defines four variants: `pass-through`, `collect-all`, `majority-vote`, `auction`. The upgrade to a discriminated union is a one-line type change that makes invalid configurations a compile error. Same for `TerminationSpec` (twelve variants), `RoutingSpec` (five), `DecompositionSpec` (eight). The sealed hierarchies in Java are now faithfully reflected in TypeScript without code generation — hand-maintained types validated by a test that reads the schema.
+
+## The Pattern
+
+Cross-repo type alignment epics tend to look large from the outside — four repos, two languages, dozens of types. This one had four child issues; two closed as no-ops, one was a naming rename, one was a test-and-upgrade pass. The foundation work did the thinking; everything downstream confirmed that the thinking was right.
+
+The taxonomy didn't impose order on chaos. It named the order that was already there.
