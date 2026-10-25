@@ -77,15 +77,29 @@ public record ObservationResult(
 ) {}
 ```
 
+### `RecommendedAction` (record)
+
+Wraps an engine `RuleAction` with LLM attribution — which observations justify this action.
+
+**Package:** `io.casehub.agency.stigmergy.llm`
+
+```java
+public record RecommendedAction(
+    RuleAction action,
+    List<String> justifyingPatternIds,
+    double confidence
+) {}
+```
+
 ### `ActionResult` (record)
 
-The output of an LLM action phase. Carries recommended actions and batch correlation metadata.
+The output of an LLM action phase. Carries recommended actions with per-action attribution and batch correlation metadata.
 
 **Package:** `io.casehub.agency.stigmergy.llm`
 
 ```java
 public record ActionResult(
-    List<RuleAction> recommendedActions,
+    List<RecommendedAction> recommendedActions,
     double confidence,
     String reasoning,
     InvocationMetadata invocationMetadata
@@ -101,7 +115,7 @@ The output of a combined LLM call (observation + action in one pass). Used by th
 ```java
 public record InterpretationResult(
     List<Observation> observations,
-    List<RuleAction> recommendedActions,
+    List<RecommendedAction> recommendedActions,
     double confidence,
     String reasoning,
     Instant batchStart,
@@ -276,6 +290,123 @@ public class InFlightGuard<E, R> implements ContentSummariser<E, R> {
         // Otherwise delegate and track in-flight status
     }
 }
+```
+
+## Structured JSON Output & Conversion
+
+The LLM produces structured JSON conforming to LLM-facing response records. Templates convert these into engine-facing records. This decouples the prompt schema from engine internals and enables per-item attribution.
+
+### LLM-Facing Records (what the LLM produces)
+
+```java
+// Observation phase JSON output
+record LlmObservationResponse(List<LlmObservation> observations) {}
+
+record LlmObservation(
+    String patternId,
+    double confidence,
+    List<String> triggeringKeys,
+    List<String> derivedFrom,
+    Map<String, Object> details,
+    String reasoning
+) {}
+
+// Action phase JSON output
+record LlmActionResponse(List<LlmRecommendation> actions) {}
+
+record LlmRecommendation(
+    String actionType,                 // "DepositSignal", "WriteContext", etc.
+    Map<String, Object> parameters,    // action-type-specific params
+    List<String> justifyingPatternIds, // which observations justify this
+    double confidence,
+    String reasoning
+) {}
+```
+
+### Conversion: LLM Records → Engine Records
+
+Templates handle this conversion internally:
+
+**`LlmObservation` → `Observation`** (engine record):
+- `patternId` → `Observation.patternId()`
+- `confidence` → `Observation.confidence()`
+- `triggeringKeys` + `derivedFrom` + `details` + `reasoning` → `Observation.details()` (serialized as `Map<String, JsonNode>`)
+- `Instant.now()` → `Observation.timestamp()`
+- `derivedFrom` enables hierarchical observations: leaf observations have empty `derivedFrom`, derived observations reference other `patternId`s they build on
+
+**`LlmRecommendation` → `RecommendedAction`**:
+- `actionType` + `parameters` → `RuleAction` variant (e.g., `actionType: "DepositSignal"`, `parameters: {name: "anomaly", strength: 0.85}` → `new RuleAction.DepositSignal("anomaly", 0.85, null)`)
+- `justifyingPatternIds` → `RecommendedAction.justifyingPatternIds()`
+- `confidence` → `RecommendedAction.confidence()`
+
+The conversion from `actionType` + `parameters` to the correct `RuleAction` sealed variant uses a switch on `actionType`:
+- `"DepositSignal"` → `new RuleAction.DepositSignal(name, strength, halfLife)`
+- `"WriteContext"` → `new RuleAction.WriteContext(key, value)`
+- `"RegisterInterest"` → `new RuleAction.RegisterInterest(declaration)`
+- `"DeregisterInterest"` → `new RuleAction.DeregisterInterest(interestId)`
+- `"Leave"` → `new RuleAction.Leave()`
+
+### Prompt Assembly & Key Identification
+
+Context changes are presented to the LLM with explicit key names so the LLM can reference them in `triggeringKeys`. The `Compactor` ensures each key appears at most once per batch (latest value wins), keeping the prompt focused:
+
+```
+Environment state (5 keys changed since last evaluation):
+  risk.score: 0.82 (was: 0.45)
+  transaction.amount: 150000
+  transaction.currency: "USD"
+  counterparty.jurisdiction: "high-risk"
+  account.balance: 3200000
+
+Active signals:
+  velocity-alert: strength 0.7 (deposited 30s ago)
+```
+
+The LLM references these keys in its structured JSON output. Leaf observations cite `triggeringKeys` directly; derived observations reference other observations via `derivedFrom`:
+```json
+{
+  "observations": [
+    {
+      "patternId": "risk-spike",
+      "confidence": 0.92,
+      "triggeringKeys": ["risk.score"],
+      "derivedFrom": [],
+      "details": {"riskDelta": 0.37, "previousValue": 0.45},
+      "reasoning": "Risk score jumped 82% in a single evaluation cycle"
+    },
+    {
+      "patternId": "high-value-high-risk",
+      "confidence": 0.88,
+      "triggeringKeys": ["transaction.amount", "counterparty.jurisdiction"],
+      "derivedFrom": ["risk-spike"],
+      "details": {"threshold": "regulatory"},
+      "reasoning": "Risk spike coincides with high-value transaction to high-risk jurisdiction"
+    }
+  ]
+}
+```
+
+### Attribution Trace
+
+The full causal chain from environment change to deposited signal, with hierarchical observations:
+
+```
+context keys (risk.score)
+    │  LlmObservation.triggeringKeys
+    ▼
+Observation (patternId: "risk-spike", confidence: 0.92, derivedFrom: [])
+    │  LlmObservation.derivedFrom
+    ▼
+context keys (transaction.amount, counterparty.jurisdiction) + derivedFrom: ["risk-spike"]
+    │  LlmObservation.triggeringKeys + derivedFrom
+    ▼
+Observation (patternId: "high-value-high-risk", confidence: 0.88)
+    │  RecommendedAction.justifyingPatternIds
+    ▼
+RecommendedAction (action: DepositSignal("aml:escalate", 0.88), justifying: ["high-value-high-risk"])
+    │  EnvironmentWriteBack
+    ▼
+Signal deposited in engine → deterministic rules react
 ```
 
 ## Usage Example — Separated (Default)

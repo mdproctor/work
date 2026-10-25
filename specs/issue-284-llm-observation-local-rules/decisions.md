@@ -100,3 +100,16 @@
 **Sources:** `EmissionPolicy<IN, S>` (composable emission gating), `EnvironmentObserver.watchedKeys()` (engine's key-change filtering pattern), issue #284 body ("Observation caching — avoid redundant LLM calls")
 **Exploration:** deep-analysis
 **Status:** captured
+
+## D9: Structured JSON output with per-item attribution
+
+**Choice:** LLM produces structured JSON with per-observation triggering keys and per-action justifying pattern IDs. LLM-facing response records (`LlmObservationResponse`, `LlmActionResponse`) are separate from engine-facing records (`Observation`, `RuleAction`). Templates convert between them. Actions are wrapped in `RecommendedAction` which pairs a `RuleAction` with the `patternId`s that justify it.
+**Alternatives:**
+- Free-text output parsed heuristically — fragile, loses structural correlation
+- Engine types as JSON directly — engine's sealed `RuleAction` can't be directly deserialized from JSON; LLM can't produce Java-specific type discriminators
+**Rationale:** Structured JSON via `StructuredAgentInvoker.invoke()` gives reliable deserialization. Separate LLM-facing records decouple the prompt schema from engine internals. Per-item attribution (`triggeringKeys`, `justifyingPatternIds`) enables full causal tracing: context keys → observations → actions.
+**Trade-offs:** LLM must produce valid JSON conforming to the schema. But this is a well-established pattern (`StructuredAgentInvoker` already handles fence-stripping and JSON extraction).
+**Sources:** `StructuredAgentInvoker.invoke()`, `StructuredAgentInvoker.extractJson()`
+**Exploration:** quick
+**Depends on:** D5 (separated phases make attribution cleaner — each phase has clear input→output)
+**Status:** captured
