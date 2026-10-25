@@ -1,0 +1,24 @@
+# Work Plan — issue-355-356-channel-protocols
+
+## State
+branch: issue-355-356-channel-protocols
+state: closing:pushed
+project-sha: 
+date: 
+issue-repo: casehubio/agency
+covers: 355,356
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+evidence-era: true
+## Queue
+- [ ] casehubio/agency#355 — Issue #355 ← active
+  - [x] Batch 1: Rename
+    - [x] Task 1: Rename ConversationProtocol to ConversationConstants
+  - [x] Batch 2: ConversationProtocol
+    - [x] Task 2: DefaultConversationProjection and ConversationRules
+    - [x] Task 3: ConversationProtocol ChannelProtocol impl
+  - [x] Batch 3: JudgmentProtocol
+    - [x] Task 4: Judgment fold types
+    - [x] Task 5: JudgmentProjection JudgmentRules JudgmentProtocol
