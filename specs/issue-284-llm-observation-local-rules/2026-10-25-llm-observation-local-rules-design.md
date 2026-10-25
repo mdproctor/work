@@ -305,7 +305,7 @@ record LlmObservationResponse(List<LlmObservation> observations) {}
 record LlmObservation(
     String patternId,
     double confidence,
-    List<String> triggeringKeys,
+    List<String> evidence,
     List<String> derivedFrom,
     Map<String, Object> details,
     String reasoning
@@ -330,7 +330,7 @@ Templates handle this conversion internally:
 **`LlmObservation` → `Observation`** (engine record):
 - `patternId` → `Observation.patternId()`
 - `confidence` → `Observation.confidence()`
-- `triggeringKeys` + `derivedFrom` + `details` + `reasoning` → `Observation.details()` (serialized as `Map<String, JsonNode>`)
+- `evidence` + `derivedFrom` + `details` + `reasoning` → `Observation.details()` (serialized as `Map<String, JsonNode>`)
 - `Instant.now()` → `Observation.timestamp()`
 - `derivedFrom` enables hierarchical observations: leaf observations have empty `derivedFrom`, derived observations reference other `patternId`s they build on
 
@@ -348,7 +348,7 @@ The conversion from `actionType` + `parameters` to the correct `RuleAction` seal
 
 ### Prompt Assembly & Key Identification
 
-Context changes are presented to the LLM with explicit key names so the LLM can reference them in `triggeringKeys`. The `Compactor` ensures each key appears at most once per batch (latest value wins), keeping the prompt focused:
+Context changes are presented to the LLM with identifiable structure so the LLM can cite them as evidence. The `Compactor` ensures each key appears at most once per batch (latest value wins), keeping the prompt focused:
 
 ```
 Environment state (5 keys changed since last evaluation):
@@ -362,14 +362,14 @@ Active signals:
   velocity-alert: strength 0.7 (deposited 30s ago)
 ```
 
-The LLM references these keys in its structured JSON output. Leaf observations cite `triggeringKeys` directly; derived observations reference other observations via `derivedFrom`:
+The LLM cites what it based each observation on. `evidence` is free-form — could be key names, event descriptions, or quotes from the prompt. `derivedFrom` gives structural hierarchy between observations:
 ```json
 {
   "observations": [
     {
       "patternId": "risk-spike",
       "confidence": 0.92,
-      "triggeringKeys": ["risk.score"],
+      "evidence": ["risk.score"],
       "derivedFrom": [],
       "details": {"riskDelta": 0.37, "previousValue": 0.45},
       "reasoning": "Risk score jumped 82% in a single evaluation cycle"
@@ -377,7 +377,7 @@ The LLM references these keys in its structured JSON output. Leaf observations c
     {
       "patternId": "high-value-high-risk",
       "confidence": 0.88,
-      "triggeringKeys": ["transaction.amount", "counterparty.jurisdiction"],
+      "evidence": ["transaction.amount", "counterparty.jurisdiction"],
       "derivedFrom": ["risk-spike"],
       "details": {"threshold": "regulatory"},
       "reasoning": "Risk spike coincides with high-value transaction to high-risk jurisdiction"
@@ -392,13 +392,13 @@ The full causal chain from environment change to deposited signal, with hierarch
 
 ```
 context keys (risk.score)
-    │  LlmObservation.triggeringKeys
+    │  LlmObservation.evidence
     ▼
 Observation (patternId: "risk-spike", confidence: 0.92, derivedFrom: [])
     │  LlmObservation.derivedFrom
     ▼
 context keys (transaction.amount, counterparty.jurisdiction) + derivedFrom: ["risk-spike"]
-    │  LlmObservation.triggeringKeys + derivedFrom
+    │  LlmObservation.evidence + derivedFrom
     ▼
 Observation (patternId: "high-value-high-risk", confidence: 0.88)
     │  RecommendedAction.justifyingPatternIds
