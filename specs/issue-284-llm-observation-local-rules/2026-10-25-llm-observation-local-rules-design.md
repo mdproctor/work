@@ -8,6 +8,24 @@
 
 LLM-backed interpretation layer for the engine's stigmergy model. Agents use LLM reasoning to interpret full environment state and group events into semantic patterns — replacing static pattern matching with semantic understanding. Built as compositions of existing summarisation primitives, not a new framework. The LLM observes and groups; caller-registered handlers decide what to do with each pattern type.
 
+## Relationship to Issue #284
+
+Issue #284 specifies `LlmObserver` implementing `EnvironmentObserver` and `LlmRuleEvaluator` implementing `LocalRuleSet`. This spec deliberately diverges from that approach:
+
+**`EnvironmentObserver.observe()` has a hardcoded 100ms timeout.** The engine's `CaseContextChangedEventHandler.observations()` wraps each observer call in `CompletableFuture.supplyAsync(...).orTimeout(100, MILLISECONDS).join()`. LLM calls take 30s–60min. An `LlmObserver` implementing `EnvironmentObserver` would timeout on every invocation — this is not configurable, the timeout is hardcoded in engine runtime.
+
+**Deliverable mapping:**
+
+| Issue #284 deliverable | This spec's equivalent |
+|---|---|
+| `LlmObserver` implementing `EnvironmentObserver` | `LlmSummarisers.observation()` — same interpretation function, event-driven instead of synchronous SPI |
+| `LlmRuleEvaluator` implementing `LocalRuleSet` | Handler dispatch via `ObservationDispatcher` — caller-registered handlers react to observation patterns, deposit signals, write context |
+| Context window management | `ObservationRenderer<E>` + `Compactor` — existing infrastructure reused for prompt assembly and deduplication |
+| Observation caching | `InFlightGuard` + `EventAccumulator` — events accumulate during LLM processing, no data loss |
+| Prompt templates | `LlmSummarisers` factory methods — observation, action, combined templates |
+
+**Transparent fallback:** When the LLM is unavailable, `InFlightGuard` skips the invocation and the `EventAccumulator` continues collecting events. No events are lost — they are processed in the next batch when the LLM becomes available. The engine's deterministic observers and local rules continue operating independently on every tick.
+
 ## Architecture
 
 The LLM layer sits **alongside** the engine's synchronous tick loop, not inside it. The engine's `EnvironmentObserver` SPI is designed for bounded-latency deterministic observers (100ms timeout). LLM calls have unbounded latency (30s to 60min). The event-driven model avoids blocking the engine's sequential evaluation pipeline (`observations()` → `localRules()` → `convergenceDetection()`), which would stall the entire case for the duration of the LLM call.
@@ -17,6 +35,18 @@ The default composition mirrors the engine's two-phase pipeline:
 1. **Observation phase** — accumulate context changes, send batch to LLM, produce `List<Observation>` with evidence and derivedFrom hierarchy
 2. **Handler dispatch** — route each observation to caller-registered handlers by patternId, respecting derivedFrom ordering (leaves before derived)
 3. **Write-back** — handlers deposit signals, write context, store observations — triggering a new engine tick
+
+### Async Execution Model
+
+LLM invocation is truly async via `CompletableFuture.supplyAsync()` on a caller-supplied `ExecutorService`. The `ContentSummariser.summarise()` returns an immediately-pending `CompletionStage` — the calling thread is never blocked. This is critical for `InFlightGuard` to function: it tracks in-flight status via the pending `CompletionStage`, skipping new invocations while a previous call is still running.
+
+The `SummarisationRunner` must be ticked by a dedicated thread or scheduler, NOT by the engine tick thread. The runner's `tick()` method blocks until the `CompletionStage` completes — this is acceptable on a dedicated thread, catastrophic on the engine tick thread.
+
+### Tick-Trigger Mechanism
+
+The engine dispatches a new `CaseContextChangedEvent` (triggering a new tick) when context keys are written via `WritableLayer.set()`. Signal deposits and observation storage do NOT trigger new events — signals and observations are read at the START of the next tick that occurs for other reasons.
+
+To guarantee a tick fires after LLM write-back, the `EnvironmentWriter` implementation must always write a sentinel context key `llm.interpretation.lastWriteBack` (set to current timestamp) after processing all handler actions. This ensures at least one `WriteContext` action occurs, which triggers the engine tick. Without this, write-backs that only deposit signals or store observations would sit idle until something else triggers a tick.
 
 ```
 Context Changes (engine events)
@@ -33,10 +63,9 @@ Context Changes (engine events)
          │    ├── EmissionPolicy (change-gated: only invoke when watched keys changed)
          │    ├── Compactor (dedup redundant changes)
          │    ├── ContentSummariser template (LLM → List<Observation>)
+         │    │   └── via CompletableFuture.supplyAsync(invokeText, llmExecutor)
          │    ├── Concurrency guard (skip if previous call in-flight)
-         │    └── EventStreamBus → EnvironmentWriteBack (async)
-         │              │
-         │              ▼ observations stored in ObservationRegistry
+         │    └── EventStreamBus → Handler dispatch
          │
          ├── Phase 2: Handler dispatch (pattern-matched)
          │    ├── ObservationDispatcher routes by patternId
@@ -44,9 +73,9 @@ Context Changes (engine events)
          │    ├── Caller-registered handlers per pattern type
          │    └── Handlers: deposit signals, write context, escalate, etc.
          │              │
-         │              ▼ signals deposited, context written
+         │              ▼ EnvironmentWriter SPI (provided by glue module)
          │
-         └── triggers new engine tick ───► deterministic rules react
+         └── sentinel context write ───► engine tick fires ───► deterministic rules react
 ```
 
 ## Core Principle: Composition via Builder Templates
@@ -60,23 +89,25 @@ End users can:
 
 ## New Types
 
-### `ObservationResult` (record)
+### `LlmObservationResult` (record)
 
 The output of an LLM observation phase. Carries detected patterns and batch correlation metadata.
 
 **Package:** `io.casehub.agency.stigmergy.llm`
 
 ```java
-public record ObservationResult(
+public record LlmObservationResult(
     List<Observation> observations,
     double confidence,
     String reasoning,
     Instant batchStart,
     Instant batchEnd,
     int batchEventCount,
-    InvocationMetadata invocationMetadata
+    StructuredAgentInvoker.InvocationMetadata invocationMetadata
 ) {}
 ```
+
+Named `LlmObservationResult` to avoid collision with `io.casehub.agency.perception.observation.ObservationResult` — the existing type returned by `ObservationRenderer<E>.render()`. Both types appear in the same call chain (prompt assembly uses `ObservationRenderer`, which returns the perception `ObservationResult`; the template then produces `LlmObservationResult`).
 
 ### `RecommendedAction` (record)
 
@@ -103,7 +134,7 @@ public record ActionResult(
     List<RecommendedAction> recommendedActions,
     double confidence,
     String reasoning,
-    InvocationMetadata invocationMetadata
+    StructuredAgentInvoker.InvocationMetadata invocationMetadata
 ) {}
 ```
 
@@ -122,7 +153,7 @@ public record InterpretationResult(
     Instant batchStart,
     Instant batchEnd,
     int batchEventCount,
-    InvocationMetadata invocationMetadata
+    StructuredAgentInvoker.InvocationMetadata invocationMetadata
 ) {}
 ```
 
@@ -157,24 +188,28 @@ Named templates that produce pre-configured `ContentSummariser` implementations.
 public final class LlmSummarisers {
 
     // Phase 1: Observation — interpret environment, produce Observation records
-    public static <E> ContentSummariser<E, ObservationResult> observation(
+    public static <E> ContentSummariser<E, LlmObservationResult> observation(
             AgentProvider agentProvider,
             String systemPrompt,
             LlmInvocationPolicy policy,
-            ObservationRenderer<E> promptRenderer) { ... }
+            ObservationRenderer<E> promptRenderer,
+            ExecutorService llmExecutor) { ... }
 
     // Phase 2: Action — read observations + state, produce RuleAction recommendations
-    public static ContentSummariser<ObservationResult, ActionResult> action(
+    public static ContentSummariser<LlmObservationResult, ActionResult> action(
             AgentProvider agentProvider,
             String systemPrompt,
-            LlmInvocationPolicy policy) { ... }
+            LlmInvocationPolicy policy,
+            Supplier<String> environmentSnapshot,
+            ExecutorService llmExecutor) { ... }
 
     // Combined: observation + action in one call (explicit opt-in)
     public static <E> ContentSummariser<E, InterpretationResult> combined(
             AgentProvider agentProvider,
             String systemPrompt,
             LlmInvocationPolicy policy,
-            ObservationRenderer<E> promptRenderer) { ... }
+            ObservationRenderer<E> promptRenderer,
+            ExecutorService llmExecutor) { ... }
 
     // Builder for custom configurations
     public static <E, R> InterpretationBuilder<E, R> builder(AgentProvider agentProvider) { ... }
@@ -185,9 +220,11 @@ Each template internally:
 1. Renders the batch into a prompt using the observation pipeline infrastructure (`ObservationRenderer<E>`, `AffordanceRenderer`, `CognitiveObservationSections`) — NOT a parallel rendering path
 2. Prepends the system prompt with phase-specific instructions
 3. If previous result exists, includes it for continuity
-4. Invokes the LLM via `StructuredAgentInvoker`
+4. Invokes the LLM via `CompletableFuture.supplyAsync(() -> StructuredAgentInvoker.invoke(...), llmExecutor)` — returns immediately-pending `CompletionStage`
 5. Monitors invocation duration against `LlmInvocationPolicy`
 6. Wraps the response with batch correlation metadata
+
+The `action()` template's `Supplier<String> environmentSnapshot` is called at invocation time and its output is included in the action prompt alongside the observation items. The caller provides a supplier that reads the current `CaseContext` and renders it as a prompt section.
 
 ### `InterpretationBuilder<E, R>` (builder)
 
@@ -199,11 +236,28 @@ public static class InterpretationBuilder<E, R> {
     InterpretationBuilder<E, R> invocationPolicy(LlmInvocationPolicy policy);
     InterpretationBuilder<E, R> promptRenderer(ObservationRenderer<E> renderer);
     InterpretationBuilder<E, R> model(String modelId);
-    InterpretationBuilder<E, R> outputMode(OutputMode mode);
     InterpretationBuilder<E, R> watchedKeys(Set<String> keys);
+    InterpretationBuilder<E, R> llmExecutor(ExecutorService executor);
     ContentSummariser<E, R> build();
 }
 ```
+
+### `EnvironmentWriter` (SPI)
+
+Write-back interface for depositing LLM results into the engine environment. The agency module defines this SPI; the engine runtime or glue module provides the implementation using internal types (`ObservationRegistry`, `SignalRegistry`).
+
+**Package:** `io.casehub.agency.stigmergy.llm`
+
+```java
+public interface EnvironmentWriter {
+    void storeObservations(UUID caseId, String agentId, List<Observation> observations);
+    void depositSignal(UUID caseId, String name, double strength,
+                       Duration halfLife, String agentId);
+    void writeContext(UUID caseId, String key, JsonNode value);
+}
+```
+
+This SPI decouples the agency module from engine-internal types. `ObservationRegistry` (`io.casehub.engine.common.internal.observation`) and `SignalRegistry` (`io.casehub.engine.common.internal.signal`) are in `engine-common-core`'s `internal` packages — agency-core depends on `engine-api`, not `engine-common-core`. The implementation handles the sentinel context write (`llm.interpretation.lastWriteBack`) to guarantee tick triggering.
 
 ### `ObservationHandler` (functional interface)
 
@@ -220,21 +274,28 @@ public interface ObservationHandler {
 
 ### `ObservationHandlerContext` (record)
 
-Context provided to observation handlers — gives access to environment write-back operations.
+Context provided to observation handlers — gives access to environment write-back operations via the `EnvironmentWriter` SPI.
 
 ```java
 public record ObservationHandlerContext(
     UUID caseId,
     String agentId,
     String tenancyId,
-    SignalRegistry signalRegistry,
-    ObservationRegistry observationRegistry,
-    ObservationResult batchResult
+    EnvironmentWriter writer,
+    LlmObservationResult batchResult
 ) {
-    public void depositSignal(String name, double strength) { ... }
-    public void depositSignal(String name, double strength, Duration halfLife) { ... }
-    public void writeContext(String key, JsonNode value) { ... }
-    public void storeObservation() { ... }
+    public void depositSignal(String name, double strength) {
+        writer.depositSignal(caseId, name, strength, null, agentId);
+    }
+    public void depositSignal(String name, double strength, Duration halfLife) {
+        writer.depositSignal(caseId, name, strength, halfLife, agentId);
+    }
+    public void writeContext(String key, JsonNode value) {
+        writer.writeContext(caseId, key, value);
+    }
+    public void storeObservation() {
+        writer.storeObservations(caseId, agentId, batchResult.observations());
+    }
 }
 ```
 
@@ -249,9 +310,10 @@ public class ObservationDispatcher {
 
     public static Builder builder() { return new Builder(); }
 
-    public void dispatch(ObservationResult result, ObservationHandlerContext ctx) {
+    public void dispatch(LlmObservationResult result, ObservationHandlerContext ctx) {
         // For each observation in result, match to registered handler by patternId
         // Respects derivedFrom ordering — leaf observations dispatched before derived
+        // Logs unhandled observations at WARNING level
     }
 
     public static class Builder {
@@ -265,27 +327,18 @@ public class ObservationDispatcher {
 
 The dispatcher respects the `derivedFrom` hierarchy — leaf observations are dispatched before derived observations, so a handler for "compound-risk" can assume "velocity-anomaly" has already been processed.
 
-### `EnvironmentWriteBack` (helper)
+### `EnvironmentWriteBackHandlers` (pre-built handlers)
 
-Pre-built `ObservationHandler` implementations for common write-back patterns. Dispatches asynchronously via `CompletableFuture.runAsync()`.
+Pre-built `ObservationHandler` implementations for common write-back patterns.
 
 **Package:** `io.casehub.agency.stigmergy.llm`
 
 ```java
-public final class EnvironmentWriteBack {
+public final class EnvironmentWriteBackHandlers {
 
     public static ObservationHandler depositSignal(String signalNamePrefix) { ... }
     public static ObservationHandler storeObservation() { ... }
     public static ObservationHandler all() { ... }  // store + deposit
-}
-```
-
-### `OutputMode` (enum)
-
-```java
-public enum OutputMode {
-    OBSERVATIONS_ONLY,
-    OBSERVATIONS_AND_ACTIONS
 }
 ```
 
@@ -323,11 +376,13 @@ public class InFlightGuard<E, R> implements ContentSummariser<E, R> {
 
     @Override
     public CompletionStage<R> summarise(List<E> items, R previous) {
-        // If previous call in-flight, return previous result unchanged
-        // Otherwise delegate and track in-flight status
+        // If previous CompletionStage is not yet complete, return previous result unchanged
+        // Otherwise delegate and track the pending CompletionStage
     }
 }
 ```
+
+`InFlightGuard` tracks the `CompletionStage` returned by the delegate. If the stage is still pending (not complete), the guard returns the previous result immediately. This requires the delegate to return a genuinely pending `CompletionStage` — a synchronous call wrapped in `CompletableFuture.completedFuture()` would always appear "complete" and the guard would never skip.
 
 ## Structured JSON Output & Conversion
 
@@ -438,19 +493,19 @@ context keys (transaction.amount, counterparty.jurisdiction) + derivedFrom: ["ri
     │  LlmObservation.evidence + derivedFrom
     ▼
 Observation (patternId: "high-value-high-risk", confidence: 0.88)
-    │  RecommendedAction.justifyingPatternIds
+    │  ObservationHandler → ObservationHandlerContext
     ▼
-RecommendedAction (action: DepositSignal("aml:escalate", 0.88), justifying: ["high-value-high-risk"])
-    │  EnvironmentWriteBack
+Handler deposits signal: DepositSignal("aml:escalate", 0.88)
+    │  EnvironmentWriter.writeContext sentinel
     ▼
-Signal deposited in engine → deterministic rules react
+Engine tick fires → deterministic rules react
 ```
 
 ## Usage Example — Handler-Driven (Default)
 
 ```java
 // 1. Build the observation summariser
-ContentSummariser<ContextChange, ObservationResult> observer =
+ContentSummariser<CaseContextChangedEvent, LlmObservationResult> observer =
     LlmSummarisers.observation(
         agentProvider,
         "You are analyzing financial transaction patterns. "
@@ -460,7 +515,8 @@ ContentSummariser<ContextChange, ObservationResult> observer =
             Duration.ofSeconds(30),    // expected
             Duration.ofMinutes(1),     // warn
             Duration.ofMinutes(5)),    // error
-        transactionObservationRenderer);
+        transactionObservationRenderer,
+        llmExecutor);
 
 // 2. Register handlers — keyed to the vocabulary in the prompt
 var dispatcher = ObservationDispatcher.builder()
@@ -473,41 +529,47 @@ var dispatcher = ObservationDispatcher.builder()
         ctx.storeObservation();
     })
     .on("high-value-high-risk", (obs, raw, ctx) -> {
-        // Derived observation — derivedFrom: ["risk-spike"]
-        // Handler knows this is a higher-level grouping
         ctx.depositSignal("escalate:aml", obs.confidence());
         ctx.storeObservation();
         escalateToHumanReviewer(ctx.caseId(), obs);
     })
     .onUnhandled((obs, raw, ctx) -> {
-        log.infof("Unexpected pattern: %s (confidence: %.2f)", obs.patternId(), obs.confidence());
-        ctx.storeObservation();  // store for visibility, don't act
+        log.warnf("Unexpected pattern: %s (confidence: %.2f)", obs.patternId(), obs.confidence());
+        ctx.storeObservation();
     })
     .build();
 
 // 3. Wire the pipeline (existing infrastructure)
-var obsBus = new EventStreamBus<ObservationResult>();
+var obsBus = new EventStreamBus<LlmObservationResult>();
+
+// Extract changed keys from engine's CaseContextChangedEvent payload
+Function<LevelEvent<CaseContextChangedEvent>, Set<String>> keyExtractor =
+    e -> contextHistoryBuffer.computeChangedKeys(
+        e.payload().instance().getUuid(),
+        e.payload().contextSnapshot().layer(ContextLayer.WORKING).asJsonNode());
+
 var runner = SummarisationRunner.builder(
         new InFlightGuard<>(observer).asSummariser(), obsBus, OBSERVATION_LEVEL)
     .emissionPolicy(new ChangeGatedEmissionPolicy<>(
         Set.of("transaction.*", "risk.*"),
-        e -> e.payload().changedKeys(),
-        EmissionPolicy.anyOf(WindowPolicy.of(5_000, 10))))
+        keyExtractor,
+        EmissionPolicy.window(WindowPolicy.of(5_000, 10))))
     .compactor(contextChangeCompactor)
     .build();
 
 // 4. Connect dispatcher to bus
-var handlerCtx = new ObservationHandlerContext(
-    caseId, agentId, tenancyId, signalRegistry, observationRegistry, null);
 obsBus.subscribe(e -> true, event -> {
-    dispatcher.dispatch(event.payload(),
-        handlerCtx.withBatchResult(event.payload()));
+    var handlerCtx = new ObservationHandlerContext(
+        caseId, agentId, tenancyId, environmentWriter, event.payload());
+    dispatcher.dispatch(event.payload(), handlerCtx);
 });
 
-// 5. Feed events and tick
-runner.collect(new LevelEvent<>(contextChange, timestamp, INPUT_LEVEL, tenancyId));
+// 5. Feed events and tick (on dedicated thread, NOT the engine tick thread)
+runner.collect(new LevelEvent<>(contextChangedEvent, timestamp, INPUT_LEVEL, tenancyId));
 runner.tick(now);
 ```
+
+**Note:** `EmissionPolicy.window(WindowPolicy)` is a new public factory method that wraps `WindowPolicy` into an `EmissionPolicy`. `WindowPolicyEmission` is package-private in `summarisation-api` — this factory provides the public bridge. This is a minor addition to `summarisation-api`, not a change to the existing API shape.
 
 ## Relationship to Existing Patterns
 
@@ -516,60 +578,66 @@ runner.tick(now);
 | `ContentSummariser<T,R>` | Directly implements | The processing SPI — batch + previous → result |
 | `.asSummariser()` | Bridge | Converts to `StatefulSummariser` for the runner |
 | `SummarisationRunner` | Unchanged | Handles accumulation, windowing, compaction, ticking |
-| `EventStreamBus` | Unchanged | Output routing (async write-back subscribers) |
+| `EventStreamBus` | Unchanged | Output routing (handler dispatch subscribers) |
 | `EventAccumulator` | Via runner | Event buffering |
 | `WindowPolicy` / `EmissionPolicy` | Via runner | Emission gating (change-gated for LLM) |
 | `Compactor` | Via runner | Pre-LLM deduplication |
 | `StructuredAgentInvoker` | Internal to template | LLM invocation with structured output |
-| `InvocationMetadata` | Captured | Token usage, cost, duration |
+| `StructuredAgentInvoker.InvocationMetadata` | Captured | Token usage, cost, duration (nested record) |
 | `ObservationRenderer<E>` | Prompt assembly | Existing observation rendering for LLM prompts |
 | `AffordanceRenderer` | Prompt assembly | Entity/action grounding chains |
 | `CognitiveObservationSections` | Prompt assembly | Goals, beliefs, trust, norms sections |
 
 ## What This Does NOT Do
 
-- Does NOT implement `EnvironmentObserver` — event-driven, not synchronous SPI
+- Does NOT implement `EnvironmentObserver` — event-driven, not synchronous SPI (see §Relationship to Issue #284)
 - Does NOT change `SummarisationRunner` — composes existing infrastructure
 - Does NOT create a parallel "digest" concept — named templates for `ContentSummariser`
 - Does NOT hardcode timeouts — caller supplies `LlmInvocationPolicy`
-- Does NOT change the engine — writes back via standard signals/context/observations
+- Does NOT change the engine — writes back via `EnvironmentWriter` SPI
 - Does NOT create parallel rendering infrastructure — integrates with existing observation pipeline
+- Does NOT depend on engine-internal types — `EnvironmentWriter` SPI abstracts `ObservationRegistry` / `SignalRegistry`
 
 ## Testing Strategy
 
 Plain JUnit 5 with Mockito (no Quarkus runtime in agency tests):
 
-1. **Result record construction and validation** — `ObservationResult`, `ActionResult`, `InterpretationResult` semantics
+1. **Result record construction and validation** — `LlmObservationResult`, `ActionResult`, `InterpretationResult` semantics
 2. **`LlmInvocationPolicy` monitoring** — test warning/error thresholds against mock durations
-3. **`LlmSummarisers` templates** — mock `AgentProvider`, verify prompt assembly, response parsing
-4. **Separated pipeline** — verify observation output feeds action input correctly
+3. **`LlmSummarisers` templates** — mock `AgentProvider`, verify prompt assembly, response parsing, async invocation on executor
+4. **Handler dispatch** — verify `ObservationDispatcher` routes by patternId, respects derivedFrom ordering
 5. **Combined template** — verify single-call mode produces both observations and actions
 6. **Prompt rendering integration** — verify `ObservationRenderer` / `AffordanceRenderer` output in prompts
-7. **`EnvironmentWriteBack`** — mock registries, verify async dispatch, observations stored, signals deposited
-8. **`InFlightGuard`** — verify skip when previous call in-flight, resume after completion
+7. **`EnvironmentWriter` mock** — verify handlers call correct write-back operations
+8. **`InFlightGuard`** — verify skip when previous `CompletionStage` is pending, resume after completion
 9. **`ChangeGatedEmissionPolicy`** — verify watched-key intersection gating, no invocation on irrelevant changes
-10. **End-to-end composition** — full runner pipeline with mock LLM, verify accumulation → processing → write-back
+10. **End-to-end composition** — full runner pipeline with mock LLM, verify accumulation → processing → handler dispatch → write-back
 11. **Previous result continuity** — verify `StatefulSummariser` state management across ticks
 12. **Compactor integration** — verify redundant context changes are removed before LLM invocation
+13. **Write-back failure logging** — verify `EnvironmentWriter` failures are logged at WARNING with batch correlation metadata
 
 ## Dependencies
 
-**Compile:** `casehub-agency-summarisation-api` (EventAccumulator, WindowPolicy, EmissionPolicy, ContentSummariser, SummarisationRunner, EventStreamBus, LevelEvent), `casehub-engine-api` (Observation, RuleAction, ObservationRegistry, SignalRegistry)
+**Compile:** `casehub-agency-summarisation-api` (EventAccumulator, WindowPolicy, EmissionPolicy, ContentSummariser, SummarisationRunner, EventStreamBus, LevelEvent), `casehub-engine-api` (Observation, RuleAction)
 **Provided:** `casehub-platform-agent-api` (AgentProvider, AgentSessionConfig)
-**Internal:** `StructuredAgentInvoker`, `InvocationMetadata` (agency-core invoke package), `ObservationRenderer`, `AffordanceRenderer`, `CognitiveObservationSections` (agency-core perception packages)
+**Internal:** `StructuredAgentInvoker`, `StructuredAgentInvoker.InvocationMetadata` (agency-core invoke package — `InvocationMetadata` is a nested public record), `ObservationRenderer`, `AffordanceRenderer`, `CognitiveObservationSections` (agency-core perception packages)
+
+**NOT a dependency:** `casehub-engine-common-core` — `ObservationRegistry` and `SignalRegistry` are in `internal` packages. The `EnvironmentWriter` SPI abstracts these; the implementation is provided by the glue module that has access to engine internals.
+
+**New addition to `summarisation-api`:** `EmissionPolicy.window(WindowPolicy)` factory method — wraps `WindowPolicy` into `EmissionPolicy` via the existing package-private `WindowPolicyEmission`.
 
 ## References
 
 - engine `CaseContextChangedEventHandler.observations()` — tick loop architecture, 100ms hardcoded timeout, virtual threads
 - engine `CaseContextChangedEventHandler.evaluateAndDispatch()` — sequential pipeline: observations → localRules → convergenceDetection
+- engine `CaseContextChangedEventHandler.localRules()` — batched `WriteContext` actions dispatch `CaseContextChangedEvent` (tick trigger), `DepositSignal` deposits to `SignalRegistry` without event dispatch
 - engine `EnvironmentObserver`, `Observation`, `ObservationContext` — SPIs we integrate with (not implement)
 - engine `LocalRule`, `RuleAction`, `RuleSpace` — action model for LLM recommendations
-- engine `SignalRegistry`, `ObservationRegistry` — environment write-back targets
 - agency `ContentSummariser<T,R>`, `SummarisationRunner` — composition primitives
 - agency `EmissionPolicy<IN,S>` — composable emission gating
 - agency `ObservationRenderer<E>`, `AffordanceRenderer`, `CognitiveObservationSections` — prompt assembly
-- agency `StructuredAgentInvoker` — LLM invocation utility
-- wacky-manor `NarratorAgent` (examples/wacky-manor) — existing pattern for tick-driven LLM batch processing
+- agency `StructuredAgentInvoker` — LLM invocation utility (synchronous `invokeText()`, wrapped in `supplyAsync` by templates)
+- agency `LlmContentSummariser` — existing pattern: synchronous `invokeText()` wrapped in `completedFuture()` (this spec improves on this with `supplyAsync`)
 - casehubio/engine#1104 — parent Hive Mind epic
 - casehubio/engine#1105 — Environment observation SPI (closed)
 - casehubio/engine#1109 — Local rule evaluation (closed)
