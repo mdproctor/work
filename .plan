@@ -13,3 +13,14 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/agency#284 — Issue #284 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: Records SPIs and EmissionPolicy bridge
+    - [ ] Task 2: EmissionPolicy.window factory
+  - [ ] Batch 2: Emission
+    - [ ] Task 3: ChangeGatedEmissionPolicy and InFlightGate
+  - [ ] Batch 3: Dispatch
+    - [ ] Task 4: ObservationHandlerContext
+    - [ ] Task 5: ObservationDispatcher with topological sort
+  - [ ] Batch 4: Templates
+    - [ ] Task 6: LlmResponseConverter and LlmSummarisers
+    - [ ] Task 7: End-to-end integration test
