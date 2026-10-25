@@ -268,12 +268,14 @@ Write-back interface for depositing LLM results into the engine environment. The
 
 ```java
 public interface EnvironmentWriter {
-    void storeObservation(UUID caseId, String agentId, Observation observation);
+    void storeObservations(UUID caseId, String agentId, List<Observation> observations);
     void depositSignal(UUID caseId, String name, double strength,
                        Duration halfLife, String agentId);
     void writeContext(UUID caseId, String key, JsonNode value);
 }
 ```
+
+**Batch semantics for `storeObservations()`:** The engine's `ObservationRegistry.storeObservations()` is batch-replace — each call replaces the entire observation list for `(caseId, agentId)` via `.put(agentId, List.copyOf(obs))`. The `ObservationDispatcher` accumulates observations across all handler calls and makes a single `storeObservations()` call after dispatch completes (see §ObservationDispatcher). Signal deposits and context writes are fire-immediately — they don't have batch-replace semantics.
 
 This SPI decouples the agency module from engine-internal types. `ObservationRegistry` (`io.casehub.engine.common.internal.observation`) and `SignalRegistry` (`io.casehub.engine.common.internal.signal`) are in `engine-common-core`'s `internal` packages — agency-core depends on `engine-api`, not `engine-common-core`. The implementation handles the sentinel context write (`llm.interpretation.lastWriteBack`) to guarantee tick triggering.
 
@@ -290,18 +292,25 @@ public interface ObservationHandler {
 }
 ```
 
-### `ObservationHandlerContext` (record)
+### `ObservationHandlerContext`
 
-Context provided to observation handlers — gives access to environment write-back operations via the `EnvironmentWriter` SPI.
+Context provided to observation handlers — gives access to environment write-back operations via the `EnvironmentWriter` SPI. Signal deposits and context writes fire immediately. Observation storage is accumulated — `storeObservation()` adds to a pending list that the `ObservationDispatcher` flushes as a single batch after all handlers complete (matching the engine's batch-replace API).
 
 ```java
-public record ObservationHandlerContext(
-    UUID caseId,
-    String agentId,
-    String tenancyId,
-    EnvironmentWriter writer,
-    LlmObservationResult batchResult
-) {
+public class ObservationHandlerContext {
+
+    private final UUID caseId;
+    private final String agentId;
+    private final String tenancyId;
+    private final EnvironmentWriter writer;
+    private final LlmObservationResult batchResult;
+    private final List<Observation> pendingObservations = new ArrayList<>();
+
+    public ObservationHandlerContext(UUID caseId, String agentId, String tenancyId,
+                                     EnvironmentWriter writer, LlmObservationResult batchResult) {
+        // ...
+    }
+
     public void depositSignal(String name, double strength) {
         writer.depositSignal(caseId, name, strength, null, agentId);
     }
@@ -312,8 +321,19 @@ public record ObservationHandlerContext(
         writer.writeContext(caseId, key, value);
     }
     public void storeObservation(Observation observation) {
-        writer.storeObservation(caseId, agentId, observation);
+        pendingObservations.add(observation);
     }
+
+    // Package-private — called by ObservationDispatcher after all handlers complete
+    void flushObservations() {
+        if (!pendingObservations.isEmpty()) {
+            writer.storeObservations(caseId, agentId, List.copyOf(pendingObservations));
+        }
+    }
+
+    public UUID caseId() { return caseId; }
+    public String agentId() { return agentId; }
+    public LlmObservationResult batchResult() { return batchResult; }
 }
 ```
 
@@ -329,14 +349,16 @@ public class ObservationDispatcher {
     public static Builder builder() { return new Builder(); }
 
     public void dispatch(LlmObservationResult result, ObservationHandlerContext ctx) {
-        // For each observation in result, match to registered handler by patternId
-        // Respects derivedFrom ordering — leaf observations dispatched before derived
-        // Logs unhandled observations at WARNING level
+        // 1. Topological sort on derivedFrom DAG
+        // 2. For each observation (leaves first), match handler by precedence:
+        //    on(patternId) > onDerived() > onUnhandled()
+        // 3. Invoke matched handler
+        // 4. After all handlers: ctx.flushObservations() — single batch write
     }
 
     public static class Builder {
         Builder on(String patternId, ObservationHandler handler);
-        Builder onDerived(ObservationHandler handler);  // any obs with non-empty derivedFrom
+        Builder onDerived(ObservationHandler handler);  // fallback for derived obs without specific on() match
         Builder onUnhandled(ObservationHandler handler);
         ObservationDispatcher build();
     }
@@ -344,6 +366,15 @@ public class ObservationDispatcher {
 ```
 
 The dispatcher respects the `derivedFrom` hierarchy — leaf observations are dispatched before derived observations, so a handler for "compound-risk" can assume "velocity-anomaly" has already been processed.
+
+**Handler precedence:** For each observation, exactly one handler fires. Precedence order:
+1. `on(patternId)` — specific match by patternId (most specific)
+2. `onDerived()` — any observation with non-empty `derivedFrom` that did NOT match a specific `on()` handler
+3. `onUnhandled()` — any observation that matched neither `on()` nor `onDerived()`
+
+An observation like `"high-value-high-risk"` with `derivedFrom: ["risk-spike"]` that has a specific `on("high-value-high-risk", ...)` handler will fire only that handler — `onDerived()` will NOT fire for it.
+
+**Post-dispatch flush:** After all handlers complete, the dispatcher calls `ctx.flushObservations()` to batch-write all pending observations via `EnvironmentWriter.storeObservations()`. This matches the engine's batch-replace semantics — `ObservationRegistry.storeObservations()` replaces the entire observation list for `(caseId, agentId)` on each call.
 
 **derivedFrom ordering:** Topological sort on the observation DAG:
 - External references (patternIds not in the current batch) → treated as satisfied (produced in a previous batch)
@@ -618,6 +649,8 @@ var runner = SummarisationRunner.builder(
     .build();
 
 // 4. Connect dispatcher to bus
+//    dispatcher.dispatch() calls each handler, then flushes pending observations
+//    as a single batch via EnvironmentWriter.storeObservations()
 obsBus.subscribe(e -> true, event -> {
     var handlerCtx = new ObservationHandlerContext(
         caseId, agentId, tenancyId, environmentWriter, event.payload());
