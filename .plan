@@ -1,11 +1,11 @@
-# Work Plan — issue-284-llm-observation-local-rules
+# Work Plan — issue-284-derive-types-from-schema
 
 ## State
-branch: issue-284-llm-observation-local-rules
+branch: issue-284-derive-types-from-schema
 state: closing:promoted
 project-sha: 
 date: 
-issue-repo: casehubio/agency
+issue-repo: casehubio/casehub-mosaic
 covers: 284
 design-repo: 
 design-section-hashes: 
@@ -13,18 +13,10 @@ flyway-next-v:
 
 evidence-era: true
 ## Queue
-- [ ] casehubio/agency#284 — Issue #284 ← active
-  - [x] Batch 1: Foundation
-    - [x] Task 1: Records SPIs and EmissionPolicy bridge
-    - [x] Task 2: EmissionPolicy.window factory
-  - [x] Batch 2: Emission
-    - [x] Task 3: ChangeGatedEmissionPolicy and InFlightGate
-  - [x] Batch 3: Dispatch
-    - [x] Task 4: ObservationHandlerContext
-    - [x] Task 5: ObservationDispatcher with topological sort
-  - [x] Batch 4: Templates
-    - [x] Task 6: LlmResponseConverter and LlmSummarisers
-    - [x] Task 7: End-to-end integration test
-
-## Deferred
-- [ ] InterpretationBuilder API alignment with spec (S / Low) [] — Builder shape differs from spec — add model(), watchedKeys(), and generic build() as consumer usage patterns emerge
+- [ ] casehubio/casehub-mosaic#284 — Issue #284 ← active
+  - [x] Batch 1: Schema+types
+    - [x] Task 1: Copy schema and upgrade sub-spec types
+    - [x] Task 2: Update pattern category interfaces
+  - [x] Batch 2: Staleness+cleanup
+    - [x] Task 3: Write schema-staleness test
+    - [x] Task 4: Remove orphans and verify green
