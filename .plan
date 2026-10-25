@@ -1,0 +1,15 @@
+# Work Plan — issue-284-derive-types-from-schema
+
+## State
+branch: issue-284-derive-types-from-schema
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/casehub-mosaic
+covers: 284
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/casehub-mosaic#284 — Issue #284 ← active
