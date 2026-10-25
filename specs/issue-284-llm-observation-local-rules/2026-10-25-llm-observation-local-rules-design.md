@@ -6,7 +6,7 @@
 
 ## Summary
 
-LLM-backed interpretation layer for the engine's stigmergy model. Agents use LLM reasoning to interpret full environment state and decide actions — replacing static pattern matching with semantic understanding. Built as compositions of existing summarisation primitives, not a new framework. Mirrors the engine's two-phase pipeline (observe then decide) with separated observation and action summarisers by default.
+LLM-backed interpretation layer for the engine's stigmergy model. Agents use LLM reasoning to interpret full environment state and group events into semantic patterns — replacing static pattern matching with semantic understanding. Built as compositions of existing summarisation primitives, not a new framework. The LLM observes and groups; caller-registered handlers decide what to do with each pattern type.
 
 ## Architecture
 
@@ -14,9 +14,9 @@ The LLM layer sits **alongside** the engine's synchronous tick loop, not inside 
 
 The default composition mirrors the engine's two-phase pipeline:
 
-1. **Observation phase** — accumulate context changes, send batch to LLM, produce `List<Observation>`
-2. **Action phase** — read observations + environment state, send to LLM, produce `List<RuleAction>`
-3. **Write-back** — async subscriber deposits results into the engine environment, triggering a new tick
+1. **Observation phase** — accumulate context changes, send batch to LLM, produce `List<Observation>` with evidence and derivedFrom hierarchy
+2. **Handler dispatch** — route each observation to caller-registered handlers by patternId, respecting derivedFrom ordering (leaves before derived)
+3. **Write-back** — handlers deposit signals, write context, store observations — triggering a new engine tick
 
 ```
 Context Changes (engine events)
@@ -38,10 +38,11 @@ Context Changes (engine events)
          │              │
          │              ▼ observations stored in ObservationRegistry
          │
-         ├── Phase 2: Action (optional, triggered by observation results)
-         │    ├── Reads observations + environment state
-         │    ├── ContentSummariser template (LLM → List<RuleAction>)
-         │    └── EventStreamBus → EnvironmentWriteBack (async)
+         ├── Phase 2: Handler dispatch (pattern-matched)
+         │    ├── ObservationDispatcher routes by patternId
+         │    ├── derivedFrom ordering (leaves before derived)
+         │    ├── Caller-registered handlers per pattern type
+         │    └── Handlers: deposit signals, write context, escalate, etc.
          │              │
          │              ▼ signals deposited, context written
          │
@@ -204,50 +205,86 @@ public static class InterpretationBuilder<E, R> {
 }
 ```
 
+### `ObservationHandler` (functional interface)
+
+Handler for a specific observation pattern type. The caller registers handlers keyed to the observation vocabulary defined in the system prompt.
+
+**Package:** `io.casehub.agency.stigmergy.llm`
+
+```java
+@FunctionalInterface
+public interface ObservationHandler {
+    void handle(Observation observation, LlmObservation raw, ObservationHandlerContext ctx);
+}
+```
+
+### `ObservationHandlerContext` (record)
+
+Context provided to observation handlers — gives access to environment write-back operations.
+
+```java
+public record ObservationHandlerContext(
+    UUID caseId,
+    String agentId,
+    String tenancyId,
+    SignalRegistry signalRegistry,
+    ObservationRegistry observationRegistry,
+    ObservationResult batchResult
+) {
+    public void depositSignal(String name, double strength) { ... }
+    public void depositSignal(String name, double strength, Duration halfLife) { ... }
+    public void writeContext(String key, JsonNode value) { ... }
+    public void storeObservation() { ... }
+}
+```
+
+### `ObservationDispatcher` (handler routing)
+
+Routes observations to pattern-matched handlers. The prompt vocabulary and handler registration form a closed contract.
+
+**Package:** `io.casehub.agency.stigmergy.llm`
+
+```java
+public class ObservationDispatcher {
+
+    public static Builder builder() { return new Builder(); }
+
+    public void dispatch(ObservationResult result, ObservationHandlerContext ctx) {
+        // For each observation in result, match to registered handler by patternId
+        // Respects derivedFrom ordering — leaf observations dispatched before derived
+    }
+
+    public static class Builder {
+        Builder on(String patternId, ObservationHandler handler);
+        Builder onDerived(ObservationHandler handler);  // any obs with non-empty derivedFrom
+        Builder onUnhandled(ObservationHandler handler);
+        ObservationDispatcher build();
+    }
+}
+```
+
+The dispatcher respects the `derivedFrom` hierarchy — leaf observations are dispatched before derived observations, so a handler for "compound-risk" can assume "velocity-anomaly" has already been processed.
+
 ### `EnvironmentWriteBack` (helper)
 
-Pre-built `EventStreamBus` subscriber that routes results to the engine environment. Dispatches asynchronously via `CompletableFuture.runAsync()` to avoid blocking the LLM thread during signal deposits, context writes, and observation storage.
+Pre-built `ObservationHandler` implementations for common write-back patterns. Dispatches asynchronously via `CompletableFuture.runAsync()`.
 
 **Package:** `io.casehub.agency.stigmergy.llm`
 
 ```java
 public final class EnvironmentWriteBack {
 
-    public static void subscribeObservations(
-            EventStreamBus<ObservationResult> bus,
-            ObservationRegistry observationRegistry,
-            UUID caseId,
-            String agentId,
-            ExecutorService executor) { ... }
-
-    public static void subscribeActions(
-            EventStreamBus<ActionResult> bus,
-            SignalRegistry signalRegistry,
-            UUID caseId,
-            ExecutorService executor) { ... }
-
-    public static void subscribeCombined(
-            EventStreamBus<InterpretationResult> bus,
-            ObservationRegistry observationRegistry,
-            SignalRegistry signalRegistry,
-            UUID caseId,
-            String agentId,
-            ExecutorService executor) { ... }
+    public static ObservationHandler depositSignal(String signalNamePrefix) { ... }
+    public static ObservationHandler storeObservation() { ... }
+    public static ObservationHandler all() { ... }  // store + deposit
 }
 ```
-
-Each subscriber:
-1. Dispatches write-back via `CompletableFuture.runAsync(() -> ..., executor)`
-2. For observations: stores in `ObservationRegistry` for the agent
-3. For actions: deposits signals, writes context
-4. Logs batch correlation metadata for observability
 
 ### `OutputMode` (enum)
 
 ```java
 public enum OutputMode {
     OBSERVATIONS_ONLY,
-    ACTIONS_ONLY,
     OBSERVATIONS_AND_ACTIONS
 }
 ```
@@ -409,35 +446,48 @@ RecommendedAction (action: DepositSignal("aml:escalate", 0.88), justifying: ["hi
 Signal deposited in engine → deterministic rules react
 ```
 
-## Usage Example — Separated (Default)
+## Usage Example — Handler-Driven (Default)
 
 ```java
-// Phase 1: Observation summariser
+// 1. Build the observation summariser
 ContentSummariser<ContextChange, ObservationResult> observer =
     LlmSummarisers.observation(
         agentProvider,
         "You are analyzing financial transaction patterns. "
-            + "Report detected anomalies as observations with confidence scores.",
+            + "Detect these patterns: risk-spike, high-value-high-risk, velocity-anomaly. "
+            + "Report as observations with confidence scores and evidence.",
         LlmInvocationPolicy.of(
             Duration.ofSeconds(30),    // expected
             Duration.ofMinutes(1),     // warn
             Duration.ofMinutes(5)),    // error
         transactionObservationRenderer);
 
-// Phase 2: Action summariser
-ContentSummariser<ObservationResult, ActionResult> advisor =
-    LlmSummarisers.action(
-        agentProvider,
-        "Given these observations, recommend actions: "
-            + "deposit signals for patterns, write context for state updates.",
-        LlmInvocationPolicy.of(
-            Duration.ofSeconds(45),
-            Duration.ofMinutes(2),
-            Duration.ofMinutes(10)));
+// 2. Register handlers — keyed to the vocabulary in the prompt
+var dispatcher = ObservationDispatcher.builder()
+    .on("risk-spike", (obs, raw, ctx) -> {
+        ctx.depositSignal("alert:risk-spike", obs.confidence());
+        ctx.storeObservation();
+    })
+    .on("velocity-anomaly", (obs, raw, ctx) -> {
+        ctx.depositSignal("alert:velocity", obs.confidence());
+        ctx.storeObservation();
+    })
+    .on("high-value-high-risk", (obs, raw, ctx) -> {
+        // Derived observation — derivedFrom: ["risk-spike"]
+        // Handler knows this is a higher-level grouping
+        ctx.depositSignal("escalate:aml", obs.confidence());
+        ctx.storeObservation();
+        escalateToHumanReviewer(ctx.caseId(), obs);
+    })
+    .onUnhandled((obs, raw, ctx) -> {
+        log.infof("Unexpected pattern: %s (confidence: %.2f)", obs.patternId(), obs.confidence());
+        ctx.storeObservation();  // store for visibility, don't act
+    })
+    .build();
 
-// Wire observation pipeline
+// 3. Wire the pipeline (existing infrastructure)
 var obsBus = new EventStreamBus<ObservationResult>();
-var obsRunner = SummarisationRunner.builder(
+var runner = SummarisationRunner.builder(
         new InFlightGuard<>(observer).asSummariser(), obsBus, OBSERVATION_LEVEL)
     .emissionPolicy(new ChangeGatedEmissionPolicy<>(
         Set.of("transaction.*", "risk.*"),
@@ -446,27 +496,17 @@ var obsRunner = SummarisationRunner.builder(
     .compactor(contextChangeCompactor)
     .build();
 
-// Wire action pipeline (triggered by observation results)
-var actBus = new EventStreamBus<ActionResult>();
-var actRunner = SummarisationRunner.builder(
-        advisor.asSummariser(), actBus, ACTION_LEVEL)
-    .windowPolicy(WindowPolicy.ofCount(1))  // act on each observation result
-    .build();
-
-// Connect: observation output feeds action input
-obsBus.subscribe(e -> true, obsEvent -> {
-    actRunner.collect(new LevelEvent<>(obsEvent.payload(),
-        System.currentTimeMillis(), OBSERVATION_LEVEL, tenancyId));
+// 4. Connect dispatcher to bus
+var handlerCtx = new ObservationHandlerContext(
+    caseId, agentId, tenancyId, signalRegistry, observationRegistry, null);
+obsBus.subscribe(e -> true, event -> {
+    dispatcher.dispatch(event.payload(),
+        handlerCtx.withBatchResult(event.payload()));
 });
 
-// Wire environment write-back (async)
-EnvironmentWriteBack.subscribeObservations(obsBus, observationRegistry, caseId, agentId, executor);
-EnvironmentWriteBack.subscribeActions(actBus, signalRegistry, caseId, executor);
-
-// Feed events and tick
-obsRunner.collect(new LevelEvent<>(contextChange, timestamp, INPUT_LEVEL, tenancyId));
-obsRunner.tick(now);
-actRunner.tick(now);
+// 5. Feed events and tick
+runner.collect(new LevelEvent<>(contextChange, timestamp, INPUT_LEVEL, tenancyId));
+runner.tick(now);
 ```
 
 ## Relationship to Existing Patterns

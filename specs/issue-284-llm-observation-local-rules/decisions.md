@@ -113,3 +113,17 @@
 **Exploration:** quick
 **Depends on:** D5 (separated phases make attribution cleaner — each phase has clear input→output)
 **Status:** captured
+
+## D10: Pattern-matched observation handlers replace second LLM call for actions
+
+**Choice:** The caller registers handlers keyed to the observation vocabulary defined in the system prompt. The LLM observes and groups events; caller-supplied handlers decide what to do with each observation type. The prompt and handlers are two sides of the same configuration — the caller controls both the vocabulary and the reactions. `EnvironmentWriteBack` becomes one possible handler implementation, not the primary output mechanism.
+**Alternatives:**
+- Second LLM call for actions (D5 phase 2) — the LLM decides what actions to take. More autonomous but less controllable, 2x latency, and the caller loses explicit control over responses to specific patterns
+- Simple EventStreamBus subscribers (D6) — generic pub/sub without pattern-based dispatch. Caller must filter by patternId manually in each subscriber
+- Engine's LocalRule system only — observations stored in ObservationRegistry, deterministic rules react. Works but requires pre-registering static rules for each LLM observation type
+**Rationale:** The LLM's strength is semantic interpretation and event grouping — detecting that "these 5 changes together mean X." The caller's strength is knowing what to DO about X (deposit a signal, block a transaction, escalate to a human). Splitting these roles matches the engine's observe/decide separation and gives the caller explicit control over actions. The observation vocabulary in the prompt and the handler registration form a closed contract — the framework can validate that every vocabulary entry has a handler and vice versa.
+**Trade-offs:** Requires the caller to anticipate observation types upfront (in both the prompt and handlers). Novel/unexpected observations go to `onUnhandled()`. A second LLM call (D5 phase 2) remains available as a handler implementation for cases where the action decision is also too complex for static rules.
+**Sources:** `ChannelAgentHandler.handles()` + `ChannelAgentDispatcher` (first-match handler routing pattern in agency communication.dispatch)
+**Exploration:** deep-analysis
+**Depends on:** D5 (separated observation/action), D9 (structured output with patternId)
+**Status:** captured
