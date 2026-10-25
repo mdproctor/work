@@ -2,64 +2,16 @@
 
 ## Last Session
 
-Implemented **casehubio/agency#304** — CognitiveAttentionMediator: bridge neocortex attention signals to CognitionCore. Full TDD implementation across 5 commits:
+Design session for #284 (LLM-driven observation & local rules). Produced 10 architectural decisions, a reviewed design spec, and a 7-task implementation plan across 4 batches. Key insight: LLM interpretation sits alongside the engine's tick loop (event-driven, not synchronous SPI) and composes existing summarisation primitives via builder templates — no new runner type.
 
-1. `CognitiveAttentionMediator` — @ApplicationScoped CDI bean, per-principal ConcurrentLinkedQueue, merge semantics (dedup by sourceNodeId+category, latest urgencyP75, significance-sorted)
-2. `AttentionRelevance` — package-private static utility with EnumSet<SignalCategory> constants mapping cognitive domains to relevant signal categories. Type-safe, no string keys.
-3. `CognitionConfig` — added `attentionEnabled` (13th field)
-4. `CognitionCore` — nullable mediator field, drain-and-discard in tick() FOUNDATION, `isEnabled()` helper for attention-aware section gating, `AttentionPromptSection` rendering, `lastBriefing()` accessor
-5. CDI wiring — AgencyBeans, SocialAvatarCognition, AgencyAutoConfiguration all pass mediator
+## Immediate Next Step
 
-Docs updated: CLAUDE.md, consumer guide, contributor guide. #305 closed as premature (topN truncation doesn't exist — when it does, retrieval-modulated scoring is the right approach, not arbitrary cutoffs).
-
-2209 tests pass. Full project builds.
-
-## Follow-up Issues
-
-| # | Repo | Title | Scale | Complexity | Notes |
-|---|------|-------|-------|------------|-------|
-| 306 | agency | Runtime-customizable attention override policy | S | Med | Extract AttentionRelevance to SPI |
-| 307 | agency | CognitionSnapshot — capture lastBriefing | XS | Low | Attention invisible to observability |
-| 308 | agency | Context-budget-aware prompt rendering | L | High | Session lifecycle, window management, new vs continuing |
-| 91 | examples | Replace CognitiveBudget.forSituation() with attention gating | S | Med | wacky-manor, depends on #304 + #306 |
-| 89 | examples | Redefine briefing as voice card | — | — | Open, should reference #304 mediator |
-
-## Design Decisions
-
-- **D1:** Mediator in agency-core alongside CognitionCore
-- **D2:** attentionEnabled config flag with drain-and-discard when disabled
-- **D3:** AttentionRelevance reverse mapping (domain → categories) with EnumSet constants — type-safe, O(1) bitwise, testable
-
-## Cross-Repo Fixes (2026-09-27)
-
-Fixed broken engine main build to unblock agency CI:
-
-| Commit | What | File |
-|--------|------|------|
-| `552f69f0f` | Add missing `Event<TickEvaluatedEvent>` param to `RuntimeBeans.evolutionTicker()` producer | `runtime/.../RuntimeBeans.java` |
-| `552f69f0f` | Add `.orElseThrow()` for `Optional<CaseInstance>` return in test | `work-adapter/.../PlanItemCompletionApplierTest.java` |
-| `552f69f0f` | Fix codegen extra-field handling, `getWhen→getCondition`, annotation formatting | Multiple files |
-| `618df923f` | Add REPLAY to `ExecutionOriginTest` coverage assertion | `api/.../ExecutionOriginTest.java` |
-
-Pushed to both `mdproctor/engine` and `casehubio/engine` on main.
-
-## Cross-Repo Fixes (2026-10-14)
-
-Fixed cascading CI failures across agency and neocortex:
-
-**agency** (landed via quick-fix `7949bf3`):
-- `DefaultIntegrityCheckerTest` — swapped `findSupersededCases(String, MemoryDomain)` → `findSupersededCases(MemoryDomain, String)` (4 sites)
-- `CognitionCompiler` — added `subThoughtModulationStrength` + `secondaryPleasureModulationFactor` to `DriveConfig` constructor, `trendImprovingThreshold` + `trendDecliningThreshold` + `maxDimensionDelta` to `StrategyLearningConfig`
-- `PatternWorkerFunctionHandler`, `EngineAdapterBeans`, `EngineAdapterAutoConfiguration`, test — `WorkerRuntimeFactory` import: `engine.internal.executor` → `engine.runtime.executor`
-- `IntegrationTestBeans` — 15 imports: `engine.internal.worker` → `engine.runtime.worker`, `engine.internal.routing` → `engine.runtime.routing`, `actorstate` → `engine.actorstate`, `persistence.memory` → `engine.persistence.memory`, `engine.internal.context` → `engine.runtime.context`
-- `AgencyAutoConfiguration` — removed stale `CognitiveAttentionMediator` param from `CognitiveProfileParticipant` constructor
-
-**neocortex** (commit `98e37b9c`):
-- Removed duplicate `casehub-neocortex-sqlite-support` dependency management entry in parent pom (blocked all CI builds)
+Implement Batch 1 — foundation records, SPIs, and `EmissionPolicy.window()` factory. Plan at `plans/2026-10-25-llm-observation-local-rules.md`.
 
 ## References
 
-- Spec: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-agency/specs/issue-304-cognitive-attention-mediator/2026-09-27-cognitive-attention-mediator-design.md`
-- Decisions: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-agency/specs/issue-304-cognitive-attention-mediator/decisions.md`
-- Plan: `/Users/mdproctor/claude/casehub/slots/203/wsp-casehub-agency/plans/2026-09-27-cognitive-attention-mediator.md`
-- Neocortex spec §7: `/Users/mdproctor/claude/casehub/slots/203/neocortex/docs/specs/issue-381-progressive-attention-model/2026-09-25-progressive-attention-model-design.md`
+- Spec: `specs/issue-284-llm-observation-local-rules/2026-10-25-llm-observation-local-rules-design.md`
+- Decisions: `specs/issue-284-llm-observation-local-rules/decisions.md` (D1-D10)
+- Plan: `plans/2026-10-25-llm-observation-local-rules.md` (4 batches, 7 tasks)
+- Blog: `blog/2026-10-25-mdp01-the-llm-doesnt-belong-in-the-tick-loop.md`
+- Journal: `JOURNAL.md`
