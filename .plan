@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-366-unify-prompt-opt-evolution
-state: active
+state: closing:review
 project-sha: 0102b10fc22f3d66b2a1f77ecadd3c8a07cf70f7
 date: 2026-10-26
 issue-repo: casehubio/agency
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/agency#366 — Issue #366 ← active
   - [x] Batch 1: CoreSPIs
