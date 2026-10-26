@@ -96,6 +96,7 @@ public interface SwarmCoordinationListener {
 
 // engine-api — event types visible to both engine-runtime and agency
 public sealed interface SwarmCoordinationEvent {
+    record SwarmInitialised(List<RetrievedExperience> experiences, SwarmProgress progress) implements SwarmCoordinationEvent {}
     record RoleChanged(List<DetectedRole> roles, SwarmProgress progress) implements SwarmCoordinationEvent {}
     record TeamChanged(List<DetectedTeam> teams, SwarmProgress progress) implements SwarmCoordinationEvent {}
     record ProgressUpdated(SwarmProgress progress) implements SwarmCoordinationEvent {}
@@ -114,9 +115,9 @@ Location: `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/`
 |-------|-------------|
 | `LlmSwarmCoordinator` | Composition root. Wires SwarmRoutingStrategy, CollectiveReasoningAggregation, SwarmExperienceSection, SwarmProvisioningAdvisorImpl. Manages coordinator prompt assembly. Not CDI-managed — constructed by PatternCompiler via SwarmCoordinatorBuilder. |
 | `SwarmCoordinatorBuilder` | Builder API for constructing LlmSwarmCoordinator. Mirrors the PatternDefinition.Swarm record fields. Used by PatternCompiler and Java consumers. |
-| `SwarmRoutingStrategy` | `RoutingStrategy<SwarmContext>` implementation. Invokes coordinator LLM with full agent roster (or CoalitionEvaluator-scored shortlist for large rosters), experience replay context, and current swarm state. Returns `RoutingDecision.SwarmAssignment` carrying both the flat agent list (for dispatch compatibility) and structured team assignments. |
+| `SwarmRoutingStrategy` | `RoutingStrategy<SwarmContext>` implementation. Invokes coordinator LLM with full agent roster (or CoalitionEvaluator-scored shortlist for large rosters), experience replay context, and current swarm state. Returns `RoutingDecision.SwarmAssignment` carrying both the flat agent list (for dispatch compatibility) and structured team assignments. **Pre-filter heuristic** (when agent count > `preFilterThreshold`): capability-based greedy construction — group agents by declared capabilities, greedily build `preFilterThreshold` candidate `CoalitionProposal` instances by selecting agents that maximise uncovered required capabilities, score each via `CoalitionEvaluator.evaluate()`, present the top-scoring proposals to the LLM. This avoids combinatorial blowup (linear in capability clusters, not C(n,k) in roster size). |
 | `SwarmContext` | Mutable state holder (class, not record) carrying swarm-specific data: detected roles, detected teams, swarm progress, active coordination strategy, pre-retrieved CBR experiences. Updated by `SwarmEventSource` as `SwarmCoordinationEvent` instances arrive. The same instance is passed to every driver iteration, ensuring fresh state without context replacement. See §SwarmContext State Evolution. |
-| `CollectiveReasoningAggregation` | `AggregationStrategy<SwarmAggregationState>` implementation. Collects AgentResults from swarm members, invokes LLM via `StructuredAgentInvoker` with synthesis-focused prompt (not summarisation). Produces `AggregationResult.Resolved` with collective analysis identifying agreements, disagreements, complementary observations. |
+| `CollectiveReasoningAggregation` | `AggregationStrategy<SwarmContext>` implementation. Receives `AggregationContext<SwarmContext>` (same `T` as all other `ExecutionModel` components). Collects AgentResults from swarm members, reads swarm state from `context.state()`, invokes LLM via `StructuredAgentInvoker` with synthesis-focused prompt (not summarisation). Produces `AggregationResult.Resolved(swarmAggregationState)` — `SwarmAggregationState` is the output value, not the type parameter. |
 | `SwarmAggregationState` | Record: collective analysis output — agreements, disagreements, complementary observations, confidence, minority viewpoints. |
 | `SwarmExperienceSection` | Coordinator prompt section — contributes experience replay context to the coordinator's system prompt. Reads pre-retrieved experiences from `SwarmContext` and uses `ExperienceAnalyser` static methods for per-agent success rate analysis, formats as coordination pattern examples. Configurable via `ExperienceReplayConfig`. Not engine-api's `RoutingPromptSection` — the coordinator has its own prompt assembly. Implements a local `@FunctionalInterface SwarmPromptSection` (`String contribute(SwarmContext)`). |
 | `SwarmPromptSection` | `@FunctionalInterface`: `String contribute(SwarmContext)`. Coordinator prompt composition SPI — each section contributes text for the coordinator's system prompt. Multiple sections assembled by LlmSwarmCoordinator. |
@@ -125,12 +126,12 @@ Location: `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/`
 | `SwarmEventSource` | `EventSource` implementation. Wraps `SwarmCoordinationListener` (engine-api SPI), translates `SwarmCoordinationEvent` to `DriverEvent`. Registered with engine at swarm startup. |
 | `SwarmInvocationPolicy` | Record: `maxCallsPerExecution` (int), `maxTokensPerExecution` (long), `provisioningReserve` (int, default 3), `warnAfter` (Duration), `errorAfter` (Duration). Extends the latency-only `LlmInvocationPolicy` concept with cost budgets. Global budget shared across all four LLM capabilities, with a per-capability exemption: provisioning advice retains a reserved call count (`provisioningReserve`) that non-provisioning capabilities cannot consume. This ensures safety-critical scaling decisions always have LLM capacity. |
 | `SwarmInvocationTracker` | Thread-safe counter tracking LLM calls and tokens consumed within a swarm execution. Checked before each coordinator invocation. When budget exhausted, triggers heuristic fallback — except for provisioning advice, which draws from its reserved allocation. |
-| `SwarmConvergenceTermination` | `TerminationCondition<SwarmContext>` implementation. Evaluates convergence against `SwarmProgress.consensusScore()` and `SwarmProgress.stabilityScore()` — does NOT use `ConvergenceTermination` (which requires `ConversationState` and the epistemic/convergence subsystem). Constructed with a `threshold` (double). The `PatternCompiler.resolveTermination()` handles `TerminationSpec.Convergence` for `PatternDefinition.Swarm` by constructing this type instead of throwing `UnsupportedOperationException`. |
+| `SwarmConvergenceTermination` | `TerminationCondition<SwarmContext>` implementation. Evaluates convergence as conjunction: terminates when BOTH `SwarmProgress.consensusScore() >= threshold` AND `SwarmProgress.stabilityScore() >= threshold`. Both conditions are required — high consensus with low stability (still in flux) continues iterating; high stability with low consensus (stalled disagreement) is a deadlock signal, not convergence. Does NOT use `ConvergenceTermination` (which requires `ConversationState` and the epistemic/convergence subsystem). Constructed with a `threshold` (double). The `PatternCompiler.resolveTermination()` handles `TerminationSpec.Convergence` for `PatternDefinition.Swarm` by constructing this type instead of throwing `UnsupportedOperationException`. |
 | `SwarmFallbackStrategy` | Heuristic fallback implementations for when LLM is unavailable or budget exhausted: `CoalitionEvaluator` for team formation, `CollectAll` for aggregation, budget-based logic for provisioning advice. |
 
 ### Modified type: `RoutingDecision` (agency-core)
 
-Add a new sealed variant to `RoutingDecision`:
+Add a new sealed variant to `RoutingDecision` (also add `SwarmAssignment` to the existing `permits` clause: `permits Selected, Unresolvable, Escalate, SwarmAssignment`):
 
 ```java
 record SwarmAssignment(
@@ -233,7 +234,7 @@ Patterns.swarm()
 
 `SwarmExperienceSection` implements `SwarmPromptSection` and injects historical coordination patterns into the coordinator's system prompt.
 
-**Retrieval pipeline:** Experiences are pre-retrieved at swarm initialisation via the existing `CbrRetrievalService` pipeline (engine-runtime-core) and injected into `SwarmContext.experiences` as `List<RetrievedExperience>`. This follows CBR ADR 0001's single retrieval pipeline principle — no parallel retrieval path, no direct `CbrCaseMemoryStore` injection from agency. The CBR query uses the swarm's task description as the problem description and the agent roster capabilities as feature context.
+**Retrieval pipeline:** Experiences are delivered to agency through the engine-api SPI boundary — agency never calls `CbrRetrievalService` directly (it lives in engine-runtime-core, which agency cannot depend on). The mechanism: `SwarmCoordinationEvent` includes a `SwarmInitialised` bootstrap event that carries pre-retrieved `List<RetrievedExperience>`, delivered via `SwarmCoordinationListener` at swarm startup. The engine retrieves experiences using its `CbrRetrievalService` pipeline with the swarm's task description and agent roster capabilities as query context, then passes the results through the event bridge. `SwarmEventSource` stores these in `SwarmContext.experiences` on receipt. This follows the same pattern as `AgentRoutingContext.experiences()` — the engine retrieves, agency consumes — and CBR ADR 0001's single retrieval pipeline principle.
 
 **Analysis (agency-side):** `SwarmExperienceSection` reads pre-retrieved experiences from `SwarmContext` and:
 
@@ -246,7 +247,7 @@ The section is assembled into the coordinator's prompt alongside swarm state con
 
 ## Collective Reasoning
 
-`CollectiveReasoningAggregation` implements `AggregationStrategy<SwarmAggregationState>`. Unlike existing mechanical aggregations (PassThrough, CollectAll, MajorityVote), this is the first LLM-powered aggregation strategy.
+`CollectiveReasoningAggregation` implements `AggregationStrategy<SwarmContext>`. The type parameter must be `SwarmContext` (matching `ExecutionModel<SwarmContext>`) — `SwarmAggregationState` is the output wrapped in `AggregationResult.Resolved`, not the type parameter. Unlike existing mechanical aggregations (PassThrough, CollectAll, MajorityVote), this is the first LLM-powered aggregation strategy.
 
 The synthesis prompt is explicitly multi-perspective analysis, not summarisation:
 - What do the swarm members agree on?
@@ -291,7 +292,7 @@ When the coordinator LLM is unavailable (network failure, rate limit, context ov
 | Adaptive coordination | No-op — swarm continues without re-coordination |
 | Provisioning advice | Budget-based heuristic — provision if under budget and capabilities needed |
 
-The swarm continues operating with reduced intelligence. Observability events are delivered via the standard `ExecutionEventListener` mechanism — `SwarmDegradedEvent` records (new, in `io.casehub.agency.orchestration.swarm`) signal degraded-mode operation through listener callbacks. Agency's own event model; no dependency on engine-runtime-core's `SwarmEvent`.
+The swarm continues operating with reduced intelligence. Observability events are delivered via a new `default void onSwarmDegraded(SwarmDegradedEvent event) {}` callback on `ExecutionEventListener` — backward-compatible since all methods on the interface have default implementations. `SwarmDegradedEvent` records (new, in `io.casehub.agency.orchestration.swarm`) signal which capability degraded and whether fallback is active. Agency's own event model; no dependency on engine-runtime-core's `SwarmEvent`.
 
 ## PatternCompiler Changes
 
@@ -342,13 +343,17 @@ All tests use plain JUnit 5 + Mockito (no CDI container, per project conventions
 - `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmConvergenceTermination.java`
 - `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmDegradedEvent.java`
 - `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmFallbackStrategy.java`
+- `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmBuilder.java`
 
 ### New files (agentic-yaml)
 - `agentic-yaml/src/main/java/io/casehub/agency/agentic/yaml/ExperienceReplaySpec.java`
 - `agentic-yaml/src/main/java/io/casehub/agency/agentic/yaml/SwarmInvocationPolicySpec.java`
 
 ### Modified files (agency-core)
-- `RoutingDecision.java` — add `SwarmAssignment` sealed variant
+- `RoutingDecision.java` — add `SwarmAssignment` to sealed `permits` clause and add the new record variant
+- `AbstractExecutionDriver.java` — add `SwarmAssignment` case to `instanceof` chain in `executeIteration()` (reads `agents()` for dispatch, same as `Selected`; without this, `SwarmAssignment` silently falls through with no dispatch)
+- `ExecutionEventListener.java` — add `default void onSwarmDegraded(SwarmDegradedEvent event) {}` callback for degraded-mode observability
+- `Patterns.java` — add `swarm()` builder method (9th topology, alongside existing `supervisor()`, `sequence()`, `loop()`, `parallel()`, `voting()`, `debate()`, `conditional()`, `htn()`)
 
 ### Modified files (agentic-yaml)
 - `PatternDefinition.java` — add `Swarm` sealed record variant + `@Type` annotation
@@ -366,7 +371,7 @@ All tests use plain JUnit 5 + Mockito (no CDI container, per project conventions
 
 ### Cross-repo (engine-api — separate issue/PR)
 - New `SwarmCoordinationListener` SPI interface
-- New `SwarmCoordinationEvent` sealed interface with 5 event types
+- New `SwarmCoordinationEvent` sealed interface with 6 event types (including `SwarmInitialised` bootstrap event carrying pre-retrieved experiences)
 
 ## Out of Scope
 
@@ -390,7 +395,7 @@ All tests use plain JUnit 5 + Mockito (no CDI container, per project conventions
 - `LlmInvocationPolicy` (agency stigmergy/llm) — latency threshold pattern
 - `EventSource` / `EventConcurrencyPolicy` (agency orchestration/execution) — event-driven infrastructure
 - `StructuredAgentInvoker` (agency core/invoke) — LLM invocation utility
-- `ContentSummariser` (summarisation-api) — synthesis interface pattern
+- CBR ADR 0001 (agency docs/adr) — single retrieval pipeline principle
 - `CbrRoutingPromptSection` (agency routing/agent) — CBR prompt section pattern
 - SwarmExp (arXiv:2608.30661) — experience extraction + replay
 - "Drop the Hierarchy and Roles" (arXiv:2603.28990) — minimal scaffolding
