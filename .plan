@@ -16,10 +16,10 @@ flyway-next-v:
   - [x] Batch 1: YAML+Foundation
     - [x] Task 1: PatternDefinition.Swarm+YAML
     - [x] Task 2: SwarmAssignment+SwarmContext+records
-  - [ ] Batch 2: Coordination
-    - [ ] Task 3: SwarmExperienceSection+SwarmRoutingStrategy
-    - [ ] Task 4: CollectiveReasoning+Convergence
-    - [ ] Task 5: CostControls+EventBridge+Fallback
+  - [x] Batch 2: Coordination
+    - [x] Task 3: SwarmExperienceSection+SwarmRoutingStrategy
+    - [x] Task 4: CollectiveReasoning+Convergence
+    - [x] Task 5: CostControls+EventBridge+Fallback
   - [ ] Batch 3: Integration
     - [ ] Task 6: Coordinator+ProvisioningAdvisor
     - [ ] Task 7: PatternCompiler+Patterns.swarm
