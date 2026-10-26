@@ -24,15 +24,15 @@
 
 ## D3: Engine integration model
 
-**Choice:** Implement engine SPIs directly — SwarmProvisioningAdvisor with LLM intelligence, ChoreographedDriver for event-driven execution
+**Choice:** Implement engine SPIs for provisioning veto + use ChoreographedDriver for event-driven execution. SwarmProvisioningAdvisor handles scaling decisions (should we add/remove agents?). Coordination intelligence (team formation, work distribution, collective reasoning) lives in the coordinator's own prompt/invocation pipeline, not in the provisioning SPI.
 **Alternatives:**
 - Self-contained with engine types — more independent but duplicates mechanical swarm logic
 - Thin adapter + rich agency layer — adds an abstraction layer between SPI and real logic without clear benefit
-**Rationale:** Clean dependency direction. Agency has provided dependency on engine-api. SwarmProvisioningAdvisor is the designed extension point. ChoreographedDriver's event-driven model (blocking queue + signal()) is a natural fit for swarm event processing.
-**Trade-offs:** Couples agency's coordination to engine's provisioning lifecycle; changes to SwarmProvisioningAdvisor contract affect agency
+**Rationale:** Clean dependency direction. Agency has provided dependency on engine-api. SwarmProvisioningAdvisor is one integration point for scaling decisions (`shouldProvision: boolean`). The real coordination intelligence is agency-owned and uses the coordinator's prompt assembly, not the advisor contract.
+**Trade-offs:** Couples agency's provisioning advice to engine's lifecycle; coordination intelligence is agency-owned and independent
 **Sources:** SwarmProvisioningAdvisor SPI (engine-api), ChoreographedDriver (agency-core), SwarmProvisioner (engine runtime)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-02: clarified provisioning veto vs coordination intelligence boundary)
 
 ## D4: Experience replay mechanism
 
@@ -65,23 +65,23 @@
 - Specialised SwarmDriver subclass — cleaner swarm semantics but breaks the pattern where all topologies share the same driver → SPI composition; PatternCompiler needs special case
 - Decomposition-centric swarm — elegant decomposition SPI mapping but forces swarm into task-breakdown mental model; doesn't support adaptive redistribution
 **Rationale:** Stays within existing 5-SPI ExecutionModel so PatternCompiler works naturally. Concentrates LLM intelligence in coordinator with full context for reasoning. YAML surface is clean and consistent with existing topologies.
-**Trade-offs:** Coordinator holds significant responsibility; single point of LLM reasoning rather than distributed intelligence
+**Trade-offs:** Coordinator holds significant responsibility; single point of LLM reasoning rather than distributed intelligence. This is a deliberate v1 trade-off — full distributed per-agent LLM coordination is XL/Very High complexity. Engine's mechanical RoleTracker/TeamDetector handle emergent role/team formation; the LLM adds reasoning about what the mechanical layer detects, not replacing distributed emergence.
 **Sources:** OrchestratedDriver/ChoreographedDriver (agency-core), PatternCompiler (agentic-yaml), ConvergenceTermination (agency-core)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-04: acknowledged centralisation as deliberate v1 scope boundary)
 
 ## D7: Team formation reasoning model
 
-**Choice:** Batch reasoning — one LLM call with full agent roster, capabilities, experience data, and detected roles/teams
+**Choice:** Batch reasoning with pre-filter fallback — one LLM call with full agent roster when roster ≤ configurable threshold (default 12). When roster exceeds threshold, CoalitionEvaluator heuristic pre-filters to top candidates by capability coverage, then LLM reasons about the shortlist.
 **Alternatives:**
 - Iterative selection — evaluate one candidate at a time against growing team; lower per-call cost but loses holistic composition reasoning
-- Two-phase filter-then-reason — heuristic pre-filter via CoalitionEvaluator then LLM reasons about shortlist; balances cost but adds a pipeline stage
-**Rationale:** Swarm team formation is inherently a combinatorial problem where agent complementarity matters. Batch reasoning lets the LLM consider all trade-offs simultaneously. Token cost is acceptable for a coordination decision that shapes the entire execution.
-**Trade-offs:** Higher single-call token cost; roster size limited by context window
+- Pure batch (no fallback) — simpler but context window overflow on large rosters is a hard failure
+**Rationale:** Batch reasoning lets the LLM consider complementary capabilities simultaneously. Pre-filter fallback prevents context window overflow for large agent pools without sacrificing reasoning quality for typical swarm sizes (≤12 agents).
+**Trade-offs:** Pre-filter may exclude agents the LLM would have selected; threshold tuning is domain-dependent
 **Depends on:** D6 (coordinator architecture)
 **Sources:** CoalitionEvaluator (agency deliberation/coalition), SwarmBootstrapContext (engine-api)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-06: added pre-filter fallback for large rosters)
 
 ## D8: Collective reasoning mechanism
 
@@ -98,26 +98,52 @@
 
 ## D9: Adaptive coordination triggers
 
-**Choice:** Engine swarm events via ChoreographedDriver — SwarmEvents arrive as DriverEvents, event loop wakes coordinator to re-reason with updated context
+**Choice:** Engine swarm events via ChoreographedDriver — events arrive as DriverEvents through a SwarmEventSource bridge (EventSource impl). Agency cannot depend on engine-runtime-core where SwarmEvent lives, so the bridge consumes events via an engine-api SPI (SwarmCoordinationListener or equivalent) that engine-runtime implements.
 **Alternatives:**
 - Tick-based polling — fixed interval, simpler but wastes cycles and misses fast changes
 - Threshold-triggered — only re-evaluate on metric threshold crossings; efficient but requires domain-specific threshold tuning
-**Rationale:** Natural fit with D3 (ChoreographedDriver) and D5 (light scaffolding). Engine already emits SwarmEvents for role changes, team changes, and progress updates. The coordinator reacts to meaningful state changes rather than polling or requiring pre-defined thresholds.
-**Trade-offs:** Event volume could cause excessive LLM calls; needs a coalescing EventConcurrencyPolicy
+**Rationale:** Natural fit with D3 (ChoreographedDriver) and D5 (light scaffolding). The event bridge translates engine's swarm lifecycle events into DriverEvents without crossing the engine-api → engine-runtime dependency boundary. Coalescing via EventConcurrencyPolicy prevents LLM call storms.
+**Trade-offs:** Requires a new SPI in engine-api for event delivery (SwarmCoordinationListener); engine-runtime must implement the bridge adapter
 **Depends on:** D3 (engine integration), D5 (light scaffolding)
-**Sources:** ChoreographedDriver (agency-core), SwarmEvent (engine runtime), EventConcurrencyPolicy (agency-core)
+**Sources:** ChoreographedDriver (agency-core), EventSource (agency-core), SwarmEvent (engine-runtime — not directly consumed)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised (R1-05: explicit event bridge design with dependency-safe SPI)
 
 ## D10: YAML surface shape
 
-**Choice:** Rich surface — maxSize, experience (replay config), coordinationModel, roleAffinityThreshold, teamFormationStrategy, adaptationFrequency, observationWindow
+**Choice:** Agency-specific fields only — no duplication of engine's SwarmConfig. YAML fields: `experience` (replay config: maxTraces, minSimilarity), `coordinationModel` (LLM model id), `invocationPolicy` (cost budget per execution), `preFilterThreshold` (roster size above which CoalitionEvaluator pre-filters). Mechanical swarm tuning (maxSwarmSize, teamAffinityThreshold, roleSimilarityThreshold, detectionInterval) lives in engine's SwarmConfig, not duplicated here.
 **Alternatives:**
-- Minimal (maxSize + experience + model) — keeps surface small but gives domain teams no control over swarm behaviour tuning
+- Rich surface with engine-duplicating fields — creates two configuration authorities for the same swarm, guarantees drift
 - Extensible with properties map — flexible but untyped and hard to validate
-**Rationale:** Domain teams need control over swarm behaviour without changing code. Role affinity and adaptation frequency are tunable knobs that vary by use case. Typed fields with validation are better than a generic map.
-**Trade-offs:** Larger spec record; more fields to document and test; slight tension with D5 (light scaffolding) but these configure the coordinator's context, not its logic
+**Rationale:** Single source of truth: engine owns mechanical swarm tuning, agency owns LLM coordination tuning. Domain teams configure engine's SwarmConfig for mechanical behaviour and agency's YAML for LLM coordination. No conflicting values.
+**Trade-offs:** Domain teams must configure two surfaces (engine SwarmConfig + agency YAML); but each surface is authoritative for its concern
 **Depends on:** D1 (topology placement), D5 (coordination structure)
 **Sources:** PatternDefinition existing topology fields, SwarmConfig (engine-api)
 **Exploration:** quick
+**Status:** revised (R1-03/R1-11: removed engine-duplicating fields, added invocationPolicy)
+
+## D11: LLM cost controls
+
+**Choice:** LlmInvocationPolicy per swarm execution — reuse existing LlmInvocationPolicy (agency stigmergy/llm) to gate coordination calls with configurable cost budgets. Coalescing EventConcurrencyPolicy (D9) provides mechanical rate limiting; LlmInvocationPolicy provides cost-aware gating. When budget is exhausted, coordinator falls back to heuristic decisions (CoalitionEvaluator for team formation, CollectAll for aggregation).
+**Alternatives:**
+- No cost controls — all four LLM capabilities fire without limit; unsustainable at production scale with concurrent swarms
+- Per-capability budgets — separate budgets for team formation, collective reasoning, adaptive coordination; more granular but harder to configure and reason about
+**Rationale:** A single execution-level budget is simplest to configure and reason about. The existing LlmInvocationPolicy already provides latency thresholds; extending it with token/cost budgets is natural. Heuristic fallbacks are production-safe defaults.
+**Trade-offs:** Coarse-grained budget may exhaust on team formation, leaving nothing for adaptive coordination later in the execution
+**Depends on:** D2 (all four capabilities), D7 (team formation), D8 (collective reasoning), D9 (adaptive coordination)
+**Sources:** LlmInvocationPolicy (agency stigmergy/llm), CoalitionEvaluator (agency deliberation/coalition), CollectAll (agency orchestration/aggregation)
+**Exploration:** quick (surfaced by R1-09)
+**Status:** captured
+
+## D12: Failure degradation
+
+**Choice:** Graceful heuristic fallback — when coordinator LLM call fails (network, rate limit, context overflow), fall back to mechanical coordination: CoalitionEvaluator for team formation, CollectAll for aggregation, no adaptive re-coordination. Swarm continues operating with reduced intelligence rather than stopping.
+**Alternatives:**
+- Hard failure — coordinator failure stops the swarm; simpler but production-fragile
+- Retry with exponential backoff — delays but doesn't solve persistent failures; blocks the driver loop
+**Rationale:** LLM provider outages and rate limits are production realities. The mechanical fallbacks already exist in agency and are production-tested. Degraded operation is better than no operation.
+**Trade-offs:** Degraded mode may produce suboptimal team compositions; consumers may not be aware coordination is running in heuristic mode without observability signals
+**Depends on:** D6 (coordinator architecture), D11 (cost controls)
+**Sources:** CoalitionEvaluator (agency deliberation/coalition), CollectAll (agency orchestration/aggregation), AbstractExecutionDriver (agency-core)
+**Exploration:** quick (surfaced by R1-10)
 **Status:** captured
