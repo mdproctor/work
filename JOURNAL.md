@@ -1,1 +1,1 @@
-# Design Journal — issue-357-observation-action-pipeline
+# Design Journal — issue-362-coordinator-prompt-tuning
