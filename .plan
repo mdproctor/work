@@ -13,3 +13,13 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/agency#285 — Issue #285 ← active
+  - [ ] Batch 1: YAML+Foundation
+    - [ ] Task 1: PatternDefinition.Swarm+YAML
+    - [ ] Task 2: SwarmAssignment+SwarmContext+records
+  - [ ] Batch 2: Coordination
+    - [ ] Task 3: SwarmExperienceSection+SwarmRoutingStrategy
+    - [ ] Task 4: CollectiveReasoning+Convergence
+    - [ ] Task 5: CostControls+EventBridge+Fallback
+  - [ ] Batch 3: Integration
+    - [ ] Task 6: Coordinator+ProvisioningAdvisor
+    - [ ] Task 7: PatternCompiler+Patterns.swarm
