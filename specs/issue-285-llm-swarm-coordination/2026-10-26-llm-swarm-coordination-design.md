@@ -63,9 +63,10 @@ public class SwarmContext {
     private volatile List<DetectedTeam> detectedTeams;
     private volatile SwarmProgress swarmProgress;
     private volatile String activeStrategy;
-    private final List<RetrievedExperience> experiences;
+    private volatile List<RetrievedExperience> experiences = List.of();
 
     // Updated by SwarmEventSource on each SwarmCoordinationEvent
+    void onSwarmInitialised(List<RetrievedExperience> experiences, SwarmProgress progress) { ... }
     void onRoleChanged(List<DetectedRole> roles, SwarmProgress progress) { ... }
     void onTeamChanged(List<DetectedTeam> teams, SwarmProgress progress) { ... }
     void onProgressUpdated(SwarmProgress progress) { ... }
@@ -126,7 +127,7 @@ Location: `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/`
 | `SwarmEventSource` | `EventSource` implementation. Wraps `SwarmCoordinationListener` (engine-api SPI), translates `SwarmCoordinationEvent` to `DriverEvent`. Registered with engine at swarm startup. |
 | `SwarmInvocationPolicy` | Record: `maxCallsPerExecution` (int), `maxTokensPerExecution` (long), `provisioningReserve` (int, default 3), `warnAfter` (Duration), `errorAfter` (Duration). Extends the latency-only `LlmInvocationPolicy` concept with cost budgets. Global budget shared across all four LLM capabilities, with a per-capability exemption: provisioning advice retains a reserved call count (`provisioningReserve`) that non-provisioning capabilities cannot consume. This ensures safety-critical scaling decisions always have LLM capacity. |
 | `SwarmInvocationTracker` | Thread-safe counter tracking LLM calls and tokens consumed within a swarm execution. Checked before each coordinator invocation. When budget exhausted, triggers heuristic fallback — except for provisioning advice, which draws from its reserved allocation. |
-| `SwarmConvergenceTermination` | `TerminationCondition<SwarmContext>` implementation. Evaluates convergence as conjunction: terminates when BOTH `SwarmProgress.consensusScore() >= threshold` AND `SwarmProgress.stabilityScore() >= threshold`. Both conditions are required — high consensus with low stability (still in flux) continues iterating; high stability with low consensus (stalled disagreement) is a deadlock signal, not convergence. Does NOT use `ConvergenceTermination` (which requires `ConversationState` and the epistemic/convergence subsystem). Constructed with a `threshold` (double). The `PatternCompiler.resolveTermination()` handles `TerminationSpec.Convergence` for `PatternDefinition.Swarm` by constructing this type instead of throwing `UnsupportedOperationException`. |
+| `SwarmConvergenceTermination` | `TerminationCondition<SwarmContext>` implementation. Three-outcome evaluation: (1) `consensusScore >= threshold AND stabilityScore >= threshold` → `TerminationDecision.Complete` (converged); (2) `stabilityScore >= threshold AND consensusScore < threshold` → `TerminationDecision.Escalate` (deadlocked — stable but disagreeing, wastes LLM budget to continue); (3) otherwise → `Continue` (still evolving). Follows the same pattern as `ConvergenceTermination.toDecision()` which returns `Escalate` for `DEADLOCK`. Does NOT use `ConvergenceTermination` (which requires `ConversationState` and the epistemic/convergence subsystem). Constructed with a `threshold` (double). The `PatternCompiler.resolveTermination()` handles `TerminationSpec.Convergence` for `PatternDefinition.Swarm` by constructing this type instead of throwing `UnsupportedOperationException`. |
 | `SwarmFallbackStrategy` | Heuristic fallback implementations for when LLM is unavailable or budget exhausted: `CoalitionEvaluator` for team formation, `CollectAll` for aggregation, budget-based logic for provisioning advice. |
 
 ### Modified type: `RoutingDecision` (agency-core)
@@ -343,6 +344,7 @@ All tests use plain JUnit 5 + Mockito (no CDI container, per project conventions
 - `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmConvergenceTermination.java`
 - `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmDegradedEvent.java`
 - `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmFallbackStrategy.java`
+- `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmPromptSection.java`
 - `agency-core/src/main/java/io/casehub/agency/orchestration/swarm/SwarmBuilder.java`
 
 ### New files (agentic-yaml)
