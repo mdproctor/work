@@ -2,14 +2,14 @@
 
 ## State
 branch: issue-366-unify-prompt-opt-evolution
-state: scaffolded
-project-sha: 
-date: 
+state: active
+project-sha: 0102b10fc22f3d66b2a1f77ecadd3c8a07cf70f7
+date: 2026-10-26
 issue-repo: casehubio/agency
 covers: 366
-design-repo: 
+design-repo: project
 design-section-hashes: 
-flyway-next-v: 
+flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/agency#366 — Issue #366 ← active
