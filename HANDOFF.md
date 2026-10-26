@@ -2,21 +2,20 @@
 
 ## Last Session
 
-Landed agency#362 — wired the existing prompt optimisation framework to the swarm coordinator's three LLM call sites (team formation, collective reasoning, provisioning). Core framework was already generic; swarm-specific work was leaf classes only. Filed agency#366 to unify the prompt batch cycle with engine#1115's evolution loop (landed same day). Engine session also filed agency#365 (wire EvolutionTicker into CognitionCore.tick).
+Completed agency#365 — wired engine EvolutionTicker into the cognitive agent's tick cycle. Four new types in `io.casehub.agency.social.cognition.evolution`: `EvolutionTickBridge` (@FunctionalInterface SPI), `CognitiveEvolutionConfig` (curiosity thresholds), `CircuitBreakerMoodMapper` (TickTrace gate → MoodSignal.DirectShift), `CognitiveEvolutionAdapter` (composition root with CURIOSITY-modulated tick frequency). `CognitionAvatarAdapter` gained a backward-compatible four-arg constructor that calls the adapter after `core.tick()`. 15 tests, landed as `af4d1947` on main, issue closed.
 
-Fixed workspace corruption: repointed `proj` symlink from old `blocks` path to `agency`, cleaned stale `.plan` on main.
+Also completed agency#366 — prompt optimisation as an evolution loop participant. Five new types in `io.casehub.agency.optimisation.prompt.evolution`. Landed as `6181a111`.
 
 ## Immediate Next Step
 
-Pick up agency#365 or #366 — both depend on engine#1115 (landed). #365 is cognitive timing integration, #366 is prompt optimisation as an evolution participant.
+Both #365 and #366 are done. Check issue backlog for next work.
 
 ## Cross-Module
 
 - **engine#1259** — SwarmCoordinationListener impl needed for real lifecycle events (blocks full swarm event flow)
-- **engine#1115** — landed. Evolution loop infrastructure that #365 and #366 integrate with.
 
 ## References
 
-- New package: `agency-core/.../orchestration/swarm/prompt/` (SwarmPromptSignatures, SwarmOptimisedFewShotSection, SwarmOutcomeMetric, SwarmOutcomeMapper)
-- Blog: `blog/2026-10-26-mdp01-the-framework-was-already-generic.md`
+- New package: `agency-core/.../social/cognition/evolution/` (#365 — landed)
+- New package: `agency-core/.../optimisation/prompt/evolution/` (#366 — landed)
 - Engine evolution: `engine/runtime-core/.../improvement/EvolutionTicker.java`
