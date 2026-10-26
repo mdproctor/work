@@ -20,6 +20,6 @@ flyway-next-v:
     - [x] Task 3: SwarmExperienceSection+SwarmRoutingStrategy
     - [x] Task 4: CollectiveReasoning+Convergence
     - [x] Task 5: CostControls+EventBridge+Fallback
-  - [ ] Batch 3: Integration
-    - [ ] Task 6: Coordinator+ProvisioningAdvisor
-    - [ ] Task 7: PatternCompiler+Patterns.swarm
+  - [x] Batch 3: Integration
+    - [x] Task 6: Coordinator+ProvisioningAdvisor
+    - [x] Task 7: PatternCompiler+Patterns.swarm
