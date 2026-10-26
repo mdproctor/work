@@ -1,1 +1,1 @@
-# Design Journal — issue-362-coordinator-prompt-tuning
+# Design Journal — issue-366-unify-prompt-opt-evolution
