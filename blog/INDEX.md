@@ -2,6 +2,7 @@
 
 | Entry | Date | Summary |
 |-------|------|---------|
+| [2026-10-26-mdp01-the-framework-was-already-generic.md](2026-10-26-mdp01-the-framework-was-already-generic.md) | 2026-10-26 | Prompt optimisation framework was generic all along — three PromptSignatures wire it to swarm coordinator LLM call sites with no core changes |
 | [2026-08-04-mdp01-fourteen-open-issues-is-not-a-gap-analysis.md](2026-08-04-mdp01-fourteen-open-issues-is-not-a-gap-analysis.md) | 2026-08-04 | langchain4j gap analysis — 4 real parity gaps out of 16 engine#102 issues; filed engine#830 (A2A outbound) and engine#831 (MCP tools) |
 | [2026-08-02-mdp01-the-planner-that-decides-its-own-depth.md](2026-08-02-mdp01-the-planner-that-decides-its-own-depth.md) | 2026-08-02 | Recursive LlmDecomposition with maxDepth — LLM decides what needs further breakdown, full tree materialised as DagPlan before execution |
 | [2026-08-01-mdp01-teaching-a-planner-to-rank.md](2026-08-01-mdp01-teaching-a-planner-to-rank.md) | 2026-08-01 | DecompositionHeuristic SPI, HeuristicDecomposition with backtracking, context-carried decomposer pattern, three heuristic implementations |
