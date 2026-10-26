@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-366-unify-prompt-opt-evolution
-state: closing:review
+state: closing:verified
 project-sha: 0102b10fc22f3d66b2a1f77ecadd3c8a07cf70f7
 date: 2026-10-26
 issue-repo: casehubio/agency
