@@ -1,1 +1,1 @@
-# Design Journal — issue-285-llm-swarm-coordination
+# Design Journal — issue-357-observation-action-pipeline
