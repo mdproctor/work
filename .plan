@@ -13,3 +13,10 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/agency#366 — Issue #366 ← active
+  - [ ] Batch 1: CoreSPIs
+    - [ ] Task 1: CategoryProvider+ConflictStrategy+OutcomeProvider
+  - [ ] Batch 2: EvaluatorAndSource
+    - [ ] Task 2: RegressionEvaluator
+    - [ ] Task 3: ProposalSource
+  - [ ] Batch 3: Docs
+    - [ ] Task 4: CLAUDE.md update
