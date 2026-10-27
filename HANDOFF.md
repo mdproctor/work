@@ -6,9 +6,19 @@ Completed agency#365 — wired engine EvolutionTicker into the cognitive agent's
 
 Also completed agency#366 — prompt optimisation as an evolution loop participant. Five new types in `io.casehub.agency.optimisation.prompt.evolution`. Landed as `6181a111`.
 
+Filed agency#367 — memory hygiene as the second evolution loop participant. Builds directly on #365 and #366.
+
+Published 4 blog entries (2 from Oct 25, 2 from Oct 26) to personal-notes and casehub-notes.
+
 ## Immediate Next Step
 
-Both #365 and #366 are done. Check issue backlog for next work.
+Start agency#367 — wire `MemoryHygieneOrchestrator` as an evolution loop participant. Follow the pattern established by `PromptOptimisationProposalSource` (#366). New types needed:
+- `ImprovementProposalSource` impl proposing retention/consolidation/scoring adjustments
+- `RegressionEvaluator` impl monitoring memory quality metrics
+- `ImprovementCategoryProvider` for memory-hygiene tuning category
+- Wiring into `MemoryHygieneScheduler.maintain()` tick
+
+Run `work start #367` to begin.
 
 ## Cross-Module
 
@@ -17,5 +27,8 @@ Both #365 and #366 are done. Check issue backlog for next work.
 ## References
 
 - New package: `agency-core/.../social/cognition/evolution/` (#365 — landed)
-- New package: `agency-core/.../optimisation/prompt/evolution/` (#366 — landed)
+- New package: `agency-core/.../optimisation/prompt/evolution/` (#366 — pattern to follow for #367)
+- `MemoryHygieneOrchestrator` — `agency-core/.../social/memory/`
+- `MemoryHygieneScheduler` — `agency-core/.../social/memory/`
+- Engine evolution SPIs: `ImprovementProposalSource`, `RegressionEvaluator`, `ImprovementCategoryProvider` — `engine-api`
 - Engine evolution: `engine/runtime-core/.../improvement/EvolutionTicker.java`
