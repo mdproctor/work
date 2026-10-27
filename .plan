@@ -13,9 +13,9 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/agency#367 — Issue #367 ← active
-  - [ ] Batch 1: Foundation
-    - [ ] Task 1: Outcome types and SPI
-    - [ ] Task 2: CategoryProvider and ConflictStrategy
+  - [x] Batch 1: Foundation
+    - [x] Task 1: Outcome types and SPI
+    - [x] Task 2: CategoryProvider and ConflictStrategy
   - [ ] Batch 2: Core
     - [ ] Task 3: ProposalSource
     - [ ] Task 4: RegressionEvaluator
