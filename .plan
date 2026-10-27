@@ -19,7 +19,7 @@ flyway-next-v:
   - [x] Batch 2: Core
     - [x] Task 3: ProposalSource
     - [x] Task 4: RegressionEvaluator
-  - [ ] Batch 3: CapabilityArea
-    - [ ] Task 5: CapabilityArea impl
-  - [ ] Batch 4: Docs
-    - [ ] Task 6: Update CLAUDE.md
+  - [x] Batch 3: CapabilityArea
+    - [x] Task 5: CapabilityArea impl
+  - [x] Batch 4: Docs
+    - [x] Task 6: Update CLAUDE.md
