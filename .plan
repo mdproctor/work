@@ -13,3 +13,7 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/agency#360 — Issue #360 ← active
+  - [ ] Batch 1: Templates and Documentation
+    - [ ] Task 1: Create request-response.playbook.yaml
+    - [ ] Task 2: Create task-completion.playbook.yaml
+    - [ ] Task 3: Add protocol templates to consumer guide
