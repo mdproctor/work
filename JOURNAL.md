@@ -1,1 +1,1 @@
-# Design Journal — issue-367-memory-hygiene-evolution
+# Design Journal — issue-360-playbook-templates-built-in-protocols

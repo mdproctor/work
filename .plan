@@ -1,0 +1,15 @@
+# Work Plan — issue-360-playbook-templates-built-in-protocols
+
+## State
+branch: issue-360-playbook-templates-built-in-protocols
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/agency
+covers: 360
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/agency#360 — Issue #360 ← active
