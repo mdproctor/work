@@ -1,27 +1,22 @@
-# Playbook Templates for Built-in Protocols
+# Playbook Templates for Built-in Protocols (Revised)
 
 **Issue:** casehubio/agency#360
 **Date:** 2026-10-27
-**Status:** Draft
+**Status:** Revised — supersedes tiered state machine approach
 
 ## Problem
 
-Qhorus has four built-in channel protocols implemented as Java classes with hardcoded logic. Two of these — REQUEST_RESPONSE and TASK_COMPLETION — encode important communication patterns that consumers cannot easily inspect, modify, or extend. The protocol logic is opaque: you either use the built-in or rewrite from scratch.
-
-Platform#661 delivered a `PlaybookProtocolEvaluator` that can execute protocol definitions expressed as state machines, backed by `OrcStateMachine` and `CoordinationStateStore`. This opens the door to expressing protocols as YAML playbook templates — readable, forkable, and extensible.
+Qhorus has four built-in channel protocols implemented as Java classes with hardcoded logic. Two of these — REQUEST_RESPONSE and TASK_COMPLETION — encode important communication patterns that consumers cannot easily inspect, modify, or extend.
 
 ## Goal
 
-Express REQUEST_RESPONSE and TASK_COMPLETION as playbook YAML templates that:
-- Consumers can read to understand how the protocol works
-- Consumers can fork and modify to create custom variants
-- The system teaches by example — "here's how REQUEST_RESPONSE works as a state machine"
+Express REQUEST_RESPONSE and TASK_COMPLETION as standard playbook YAML files — using the existing playbook executor with counters, guards, and pattern matching for exact behavioral equivalence.
 
-## Constraints
+## Key Design Decision
 
-- **No adapter bridge yet.** The `ChannelProtocol` adapter that wires `PlaybookProtocolEvaluator` into qhorus's dispatch pipeline is qhorus#497 (open). These templates are not executable as channel protocols until that lands.
-- **Commitment counting vs state machines.** The built-in protocols count active commitments against a threshold. A finite state machine cannot count unboundedly. Templates use a tiered approximation (IDLE/ACTIVE/OVERLOADED) with metadata documenting the exact counting rules.
-- **No new Java code.** Templates are YAML files + documentation. No loader, no registration mechanism, no tests against `PlaybookProtocolEvaluator`.
+A protocol playbook is a normal playbook. Same YAML format, same compiler, same executor, same primitives. No separate protocol engine. No separate state map format.
+
+The earlier approach (tiered state machine via `CompiledProtocol.from()`) was an approximation that lost precision — it couldn't count, couldn't guard, couldn't pattern-match. The standard playbook executor already has all of these. `PlaybookProtocolEvaluator` and its parallel engine are technical debt (platform#669 filed for cleanup).
 
 ## Design
 
@@ -33,205 +28,141 @@ agency-core/src/main/resources/playbook-templates/
 └── task-completion.playbook.yaml
 ```
 
-Agency owns YAML surfaces for orchestration (agentic-yaml) and summarisation (summarisation-yaml). Protocol templates follow the same pattern — YAML definitions for reusable infrastructure.
+### Playbook Format
 
-### Template Format
+Each protocol playbook uses the standard playbook YAML format:
 
-Each template uses the established playbook multi-document YAML format with front-matter envelope (`playbook: "1.0"`, `schema`, `name`), followed by a body containing both metadata (exact semantics) and states (state machine approximation).
-
-#### Structure
-
-```yaml
----
-playbook: "1.0"
-schema: protocol
-name: <protocol-name>
----
-metadata:
-  description: <human-readable description>
-  config:
-    <param-name>:
-      type: int
-      default: <value>
-      override-key: <policyOverrides key>
-  exact-rules:
-    - <rule 1 — precise specification of when advisories fire>
-    - <rule 2>
-
-states:
-  <STATE_1>:
-    - on: { <EVENT>: <TARGET_STATE> }
-  <STATE_2>:
-    - advisory: { severity: <level>, message: <text>, action: <action> }
-    - on: { <EVENT>: <TARGET_STATE> }
-```
-
-The `metadata` section is documentation — it captures the exact behavioral specification that the tiered state machine approximates. The `states` section is the executable state machine definition, compatible with `CompiledProtocol.from()` in the platform's `PlaybookProtocolEvaluator`.
-
-The `schema: protocol` value is a new schema type — not yet registered in `playbook.schema.json`. Registration is deferred to qhorus#497 when the runtime integration lands. Until then, the templates use this value conventionally to signal their purpose.
+- **Front-matter** — `playbook: "1.0"`, `name`, and `metadata` block
+- **Metadata** — declares the playbook's role (`type: protocol`), pre-initializes resources (counter defaults, policyOverride keys for per-channel customisation), and documents exact behavioral rules
+- **Body** — event-driven loop using `from:` + `loop: continuous`, `match` on event type, `counter-add`/`counter-get` for tracking, `when` guards for threshold checks, advisory emission
 
 ### Template: request-response.playbook.yaml
 
 **Source protocol:** `RequestResponseProtocol` (qhorus runtime-core)
 
-**Exact behavior:** Checks `ProtocolContext.activeCommitments()` for open QUERY commitments. If incoming message is QUERY and open queries >= `maxOpenQueries` (default 3): WARNING. If incoming is neither QUERY nor RESPONSE and there are open queries: ADVISORY.
-
-**State machine approximation:**
+**Exact behavior to reproduce:**
+1. When a QUERY arrives and open queries >= `maxOpenQueries` (default 3): emit WARNING
+2. When a non-QUERY, non-RESPONSE message arrives with open queries > 0: emit ADVISORY/INFO
 
 ```yaml
----
 playbook: "1.0"
-schema: protocol
 name: request-response
 ---
 metadata:
-  description: >
-    Monitors the request-response cycle in a channel. Warns when too many
-    queries are unanswered, indicating the responder may be overloaded or
-    messages are being lost.
+  type: protocol
   config:
-    maxOpenQueries:
-      type: int
-      default: 3
-      override-key: request-response.max-open-queries
-  exact-rules:
-    - >
-      When a QUERY arrives and the count of open (unanswered) QUERY
-      commitments >= maxOpenQueries, emit WARNING with action INVESTIGATE
-    - >
-      When a non-QUERY, non-RESPONSE message arrives and there are any
-      open QUERY commitments, emit ADVISORY with action LOG
-
-states:
-  IDLE:
-    - on:
-        QUERY: AWAITING_RESPONSE
-        RESPONSE: IDLE
-
-  AWAITING_RESPONSE:
-    - advisory:
-        severity: INFO
-        message: "channel has open queries awaiting response"
-        action: LOG
-    - on:
-        RESPONSE: IDLE
-        QUERY: OVERLOADED
-
-  OVERLOADED:
-    - advisory:
-        severity: WARNING
-        message: "multiple unanswered queries — responder may be overloaded"
-        action: INVESTIGATE
-    - on:
-        RESPONSE: AWAITING_RESPONSE
-        QUERY: OVERLOADED
+    maxOpenQueries: { default: 3, override-key: request-response.max-open-queries }
+  rules:
+    - "QUERY with openQueries >= maxOpenQueries → WARNING/INVESTIGATE"
+    - "non-QUERY non-RESPONSE with openQueries > 0 → INFO/LOG"
+---
+- step: evaluate
+  from: dispatch-events
+  loop: continuous
+  match: "${event.type}"
+  cases:
+    - pattern: "QUERY"
+      counter-add: { name: "openQueries", delta: 1 }
+      when ${counter-get('openQueries') >= config.maxOpenQueries}:
+        - advisory: { severity: WARNING, message: "unanswered queries exceed threshold", action: INVESTIGATE }
+    - pattern: "RESPONSE"
+      counter-add: { name: "openQueries", delta: -1 }
+    - default:
+        - when ${counter-get('openQueries') > 0}:
+            - advisory: { severity: INFO, message: "channel has open queries awaiting response", action: LOG }
 ```
-
-**Tier mapping:** IDLE = 0 open queries, AWAITING_RESPONSE = 1 open query, OVERLOADED = 2+ open queries. The Java implementation uses a configurable threshold (default 3); the state machine triggers at 2 for simplicity. The metadata documents the exact threshold behavior.
 
 ### Template: task-completion.playbook.yaml
 
 **Source protocol:** `TaskCompletionProtocol` (qhorus runtime-core)
 
-**Exact behavior:** Checks `ProtocolContext.activeCommitments()` for open COMMAND commitments. If incoming is COMMAND and open commands >= `maxOpenCommands` (default 3): WARNING. If sender is the obligor on an open command and incoming is not DONE/FAILURE/DECLINE: WARNING ("you have an open obligation").
-
-**State machine approximation:**
+**Exact behavior to reproduce:**
+1. When a COMMAND arrives and open commands >= `maxOpenCommands` (default 3): emit WARNING
+2. When the sender is the obligor on an open command and incoming is not DONE/FAILURE/DECLINE: emit WARNING
 
 ```yaml
----
 playbook: "1.0"
-schema: protocol
 name: task-completion
 ---
 metadata:
-  description: >
-    Monitors the task assignment and completion cycle. Warns when too many
-    commands are outstanding or when an obligor sends non-completion messages
-    while they have open obligations.
+  type: protocol
   config:
-    maxOpenCommands:
-      type: int
-      default: 3
-      override-key: task-completion.max-open-commands
-  exact-rules:
-    - >
-      When a COMMAND arrives and the count of open (incomplete) COMMAND
-      commitments >= maxOpenCommands, emit WARNING with action INVESTIGATE
-    - >
-      When the sender is the obligor on an open COMMAND commitment and
-      the incoming message is not DONE, FAILURE, or DECLINE, emit WARNING
-      with action INVESTIGATE ("obligor has an open obligation")
-
-states:
-  IDLE:
-    - on:
-        COMMAND: TASK_ASSIGNED
-        DONE: IDLE
-        FAILURE: IDLE
-        DECLINE: IDLE
-
-  TASK_ASSIGNED:
-    - advisory:
-        severity: INFO
-        message: "channel has open task assignments awaiting completion"
-        action: LOG
-    - on:
-        DONE: IDLE
-        FAILURE: IDLE
-        DECLINE: IDLE
-        COMMAND: OVERLOADED
-
-  OVERLOADED:
-    - advisory:
-        severity: WARNING
-        message: "multiple incomplete tasks — assignee may be overloaded"
-        action: INVESTIGATE
-    - on:
-        DONE: TASK_ASSIGNED
-        FAILURE: TASK_ASSIGNED
-        DECLINE: TASK_ASSIGNED
-        COMMAND: OVERLOADED
+    maxOpenCommands: { default: 3, override-key: task-completion.max-open-commands }
+  rules:
+    - "COMMAND with openCommands >= maxOpenCommands → WARNING/INVESTIGATE"
+    - "obligor sends non-completion message with open obligation → WARNING/INVESTIGATE"
+---
+- step: evaluate
+  from: dispatch-events
+  loop: continuous
+  match: "${event.type}"
+  cases:
+    - pattern: "COMMAND"
+      counter-add: { name: "openCommands", delta: 1 }
+      when ${counter-get('openCommands') >= config.maxOpenCommands}:
+        - advisory: { severity: WARNING, message: "incomplete tasks exceed threshold", action: INVESTIGATE }
+    - pattern: "DONE"
+      counter-add: { name: "openCommands", delta: -1 }
+    - pattern: "FAILURE"
+      counter-add: { name: "openCommands", delta: -1 }
+    - pattern: "DECLINE"
+      counter-add: { name: "openCommands", delta: -1 }
+    - default:
+        - when ${event.sender == obligor && counter-get('openCommands') > 0}:
+            - advisory: { severity: WARNING, message: "obligor has an open obligation", action: INVESTIGATE }
 ```
 
-**Tier mapping:** IDLE = 0 open commands, TASK_ASSIGNED = 1 open command, OVERLOADED = 2+ open commands. The obligor check (sender has open obligation but sends non-completion message) is documented in `exact-rules` but cannot be represented in the state machine without guard expressions — the state machine tracks channel-level load, not per-sender obligations.
+Note: the obligor check requires sender context from the dispatch event. The `event.sender == obligor` guard assumes the dispatch binding provides obligor identity. If this isn't available in the event payload, the obligor rule is documented in metadata but not enforced by the playbook — same gap as before, but explicit.
+
+### Tests
+
+Add a test-scoped dependency on platform's playbook executor modules. Tests:
+
+1. **Parse validation** — each playbook parses through the playbook walker (same pattern as `PlaybookParsingTest`)
+2. **Execution validation** — feed simulated events, assert counter state and advisory output:
+   - REQUEST_RESPONSE: feed 3 QUERYs, verify WARNING on 3rd. Feed RESPONSE, verify counter decrements. Feed non-QUERY with open queries, verify INFO.
+   - TASK_COMPLETION: feed 3 COMMANDs, verify WARNING on 3rd. Feed DONE, verify decrement. Feed FAILURE/DECLINE, verify decrement.
+
+### Dependencies
+
+Add to agency-core's `pom.xml` at test scope:
+- `casehub-platform-yaml-core` — OrcCounter, OrcStateMachine, ExecutionScope
+- `casehub-platform-yaml-step-runtime` — playbook parser, walker, step catalog
 
 ### Documentation
 
-Add a "Protocol Templates" section to `docs/guides/consumer-guide.md`:
-
-1. **What protocol templates are** — YAML playbook definitions expressing channel protocol behavior as state machines
-2. **How to read a template** — metadata section (exact semantics) vs states section (executable approximation)
-3. **How to create a custom protocol** — fork a template, modify states/transitions/advisories, rename
-4. **Limitations** — templates are tiered approximations; exact counting and per-sender checks require the Java implementation; templates become executable when qhorus#497 lands
+Update `docs/guides/consumer-guide.md` Protocol Templates section:
+- Protocol playbooks are standard playbooks — same format, same executor
+- Front-matter metadata declares role and pre-initializes resources
+- How to fork and customize (change thresholds, add cases, modify advisories)
 
 ### What's Not In Scope
 
-- No Java loader or registration code
-- No tests against `PlaybookProtocolEvaluator` (no platform dependency added)
-- No CONTRIBUTION_REQUIRED or ROUND_ROBIN templates
-- No `ChannelProtocol` adapter bridge (that's qhorus#497)
-- No extension of `PlaybookProtocolEvaluator` to support guard expressions
+- No `ChannelProtocol` adapter bridge (qhorus#497)
+- No CONTRIBUTION_REQUIRED or ROUND_ROBIN playbooks
+- No deletion of `PlaybookProtocolEvaluator` (platform#669)
 
-## Behavioral Gap Analysis
+## Behavioral Equivalence
 
-| Aspect | Java Implementation | State Machine Template |
-|--------|-------------------|----------------------|
-| Commitment counting | Exact count vs threshold | Tiered (0 / 1 / 2+) |
-| Configurable threshold | Via `QhorusConfig` + `policyOverrides` | Documented in metadata, not enforced by states |
-| Obligor check (TASK_COMPLETION) | Per-sender obligation tracking | Documented in metadata only |
-| Advisory severity mapping | `Severity.WARNING` / `Severity.ADVISORY` | `AdvisorySeverity.WARNING` / `AdvisorySeverity.INFO` |
-| State persistence | Stateless (re-derived from commitments) | Durable via `CoordinationStateStore` (when running) |
+| Aspect | Java Implementation | Playbook |
+|--------|-------------------|----------|
+| Commitment counting | Exact count via activeCommitments | Counter primitive — exact |
+| Configurable threshold | QhorusConfig + policyOverrides | metadata.config with override-key |
+| Obligor check | Per-sender obligation tracking | Guard on event.sender (if available in payload) |
+| Advisory emission | DispatchAdvisory | advisory step output |
 
-The metadata `exact-rules` section bridges this gap — consumers can see both what the state machine does and what the full Java implementation does.
+The playbooks achieve exact behavioral equivalence for counting and threshold logic. The obligor check depends on dispatch binding providing sender context.
 
 ## References
 
-- `RequestResponseProtocol.java` (qhorus runtime-core) — source protocol implementation
-- `TaskCompletionProtocol.java` (qhorus runtime-core) — source protocol implementation
-- `PlaybookProtocolEvaluator.java` (platform coordination-core) — playbook evaluation engine
-- `CompiledProtocol.java` (platform coordination-core) — state map compilation
-- `PlaybookFrontMatter.java` (platform yaml-core) — front-matter record
-- `playbook.schema.json` (platform yaml-core) — YAML schema
+- `RequestResponseProtocol.java` (qhorus runtime-core)
+- `TaskCompletionProtocol.java` (qhorus runtime-core)
+- `counter.playbook.yaml` (platform playbooks/coordination-primitives)
+- `match-cases.playbook.yaml` (platform playbooks/step-workflows)
+- `when-guard.playbook.yaml` (platform playbooks/flow-control)
+- `from-channel-close.playbook.yaml` (platform playbooks/flow-control)
+- `OrcCounter.java` (platform yaml-core)
+- `PlaybookParsingTest.java` (platform yaml-step-runtime)
 - casehubio/platform#661 — playbook-as-protocol bridge (closed)
-- casehubio/qhorus#497 — playbook protocol lifecycle (open, blocks runtime integration)
-- casehubio/casehub-ops#201 — Phase 2: playbook-backed channel protocols (parent epic)
+- casehubio/platform#669 — delete PlaybookProtocolEvaluator (filed)
+- casehubio/qhorus#497 — playbook protocol lifecycle (open)
