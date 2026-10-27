@@ -16,9 +16,9 @@ flyway-next-v:
   - [x] Batch 1: Foundation
     - [x] Task 1: Outcome types and SPI
     - [x] Task 2: CategoryProvider and ConflictStrategy
-  - [ ] Batch 2: Core
-    - [ ] Task 3: ProposalSource
-    - [ ] Task 4: RegressionEvaluator
+  - [x] Batch 2: Core
+    - [x] Task 3: ProposalSource
+    - [x] Task 4: RegressionEvaluator
   - [ ] Batch 3: CapabilityArea
     - [ ] Task 5: CapabilityArea impl
   - [ ] Batch 4: Docs
