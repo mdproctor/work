@@ -1,0 +1,15 @@
+# Work Plan — issue-367-memory-hygiene-evolution
+
+## State
+branch: issue-367-memory-hygiene-evolution
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/agency
+covers: 367
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/agency#367 — Issue #367 ← active

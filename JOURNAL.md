@@ -1,1 +1,1 @@
-# Design Journal — issue-366-unify-prompt-opt-evolution
+# Design Journal — issue-367-memory-hygiene-evolution
