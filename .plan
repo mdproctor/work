@@ -13,3 +13,13 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/agency#367 — Issue #367 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: Outcome types and SPI
+    - [ ] Task 2: CategoryProvider and ConflictStrategy
+  - [ ] Batch 2: Core
+    - [ ] Task 3: ProposalSource
+    - [ ] Task 4: RegressionEvaluator
+  - [ ] Batch 3: CapabilityArea
+    - [ ] Task 5: CapabilityArea impl
+  - [ ] Batch 4: Docs
+    - [ ] Task 6: Update CLAUDE.md
