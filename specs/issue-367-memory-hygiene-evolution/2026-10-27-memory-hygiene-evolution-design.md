@@ -65,7 +65,7 @@ public record MemoryHygieneOutcome(
 Constructor takes `MemoryHygieneOutcomeProvider`, `double qualityThreshold` (default 0.7), `int minSampleSize` (default 20).
 
 `propose()` logic:
-1. Call outcome provider with agentId (extracted from context — tenancyId or caseId mapping)
+1. Extract agentId from `ImprovementConfig` metadata or derive from `tenancyId` parameter. Call outcome provider with agentId.
 2. Gate: if `sampleSize < minSampleSize`, return empty — insufficient data
 3. Compute composite quality score:
    - retentionQuality weight 0.4
