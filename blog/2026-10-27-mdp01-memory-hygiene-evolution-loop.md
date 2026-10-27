@@ -5,7 +5,7 @@ date: 2026-10-27
 entry_type: note
 subtype: diary
 projects: [casehubio/agency]
-tags: [evolution, memory-hygiene, improvement-loop, capability-area]
+tags: [evolution, memory-hygiene, improvement-loop, capability-area, langchain4j, platform-evolution]
 ---
 
 # Memory Hygiene Joins the Evolution Loop
@@ -42,3 +42,13 @@ When quality falls below the threshold plus a tuning margin, the proposal source
 Two evolution participants validates the pattern. The third will be easier than the second — the template is now concrete across two domains with genuinely different quality signals. Candidates: trust scoring (ledger-driven, different quality surface), coalition formation (team assembly outcomes), and cognitive evolution itself (the adapter is already wired, just needs improvement proposal generation).
 
 The `CapabilityArea` SPI now has a reference implementation. Other domains can look at `MemoryHygieneCapabilityArea` for the pattern: outcome provider → composite health score → landscape position → ROI. The assessment contract is small enough that adding it to an existing domain participant is a single class.
+
+## When the Platform Moves Under You
+
+Reviewing the open issue backlog turned up #150 — a LangChain4j integration module from August that proposed bridging LC4j `@SupervisorAgent` CDI beans into CaseHub workers via `ChatModelAgentProvider`. The design made sense at the time: platform had `agent-langchain4j` modules with `ChatModelAgentProvider` and `AgentProviderChatModel` bridging the two worlds.
+
+Except platform#638 removed all of it. The LC4j dependency is gone. Platform now uses native SDK implementations directly — `AnthropicNativeChatModel`, `GeminiNativeChatModel`, `OpenAiNativeChatModel`. The bridge classes that #150 would have composed with no longer exist.
+
+This is the kind of issue that looks valid until you check the ground truth. The title reads well, the scope is clear, the ADR reference checks out — but the foundation shifted. The governance composition parts (oversight gates, trust routing on LC4j-backed workers) were always orthogonal — those SPIs are provider-agnostic. The LC4j-specific bridge was the only part that mattered, and it's gone.
+
+Closed it as "not planned." If LC4j interop is needed in the future, it would start from a different architecture entirely.
