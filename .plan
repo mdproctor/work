@@ -1,20 +1,15 @@
-# Work Plan — issue-368-cognition-rest-endpoint
+# Work Plan — issue-362-coordinator-prompt-tuning-swarm
 
 ## State
-branch: issue-368-cognition-rest-endpoint
-state: closing:merged
+branch: issue-362-coordinator-prompt-tuning-swarm
+state: scaffolded
 project-sha: 
 date: 
 issue-repo: casehubio/agency
-covers: 368
+covers: 362
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
 
-evidence-era: true
 ## Queue
-- [ ] casehubio/agency#368 — Issue #368 ← active
-  - [x] Batch 1: Foundation
-    - [x] Task 1: @JsonProperty annotation
-    - [x] Task 2: Runtime classes and JAX-RS resource
-    - [x] Task 3: Deployment wiring
+- [ ] casehubio/agency#362 — Issue #362 ← active
