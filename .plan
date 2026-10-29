@@ -1,16 +1,15 @@
-# Work Plan — issue-371-llm-triage-handler
+# Work Plan — issue-368-cognition-rest-endpoint
 
 ## State
-branch: issue-371-llm-triage-handler
-state: closing:stamped
+branch: issue-368-cognition-rest-endpoint
+state: scaffolded
 project-sha: 
 date: 
 issue-repo: casehubio/agency
-covers: 371
+covers: 368
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
 
-evidence-era: true
 ## Queue
-- [ ] casehubio/agency#371 — Issue #371 ← active
+- [ ] casehubio/agency#368 — Issue #368 ← active
