@@ -81,6 +81,6 @@ The difference between these two families isn't just the primitives they use. It
 
 ## What This Opens Up
 
-The playbooks aren't wired into channel dispatch yet — qhorus#497 will bridge that. When it lands, a consumer forks any of the four playbook templates, adjusts the thresholds or participant list, adds domain-specific event cases, and registers it. No Java.
+With the playbook executor bridge now wired into channel dispatch, a consumer forks any of the four playbook templates, adjusts the thresholds or participant list, adds domain-specific event cases, and registers it. No Java.
 
 The deeper point is that protocol logic stops being opaque framework code and becomes something you can read, test, and modify. The playbook format is the same one used everywhere else in the platform. A developer who can read one playbook can read a protocol.
