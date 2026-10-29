@@ -1,20 +1,15 @@
-# Work Plan — issue-360-playbook-templates-built-in-protocols
+# Work Plan — issue-369-playbook-contribution-round-robin
 
 ## State
-branch: issue-360-playbook-templates-built-in-protocols
-state: closing:promoted
+branch: issue-369-playbook-contribution-round-robin
+state: scaffolded
 project-sha: 
 date: 
 issue-repo: casehubio/agency
-covers: 360
+covers: 369
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
 
-evidence-era: true
 ## Queue
-- [ ] casehubio/agency#360 — Issue #360 ← active
-  - [x] Batch 1: Templates and Documentation
-    - [x] Task 1: Create request-response.playbook.yaml
-    - [x] Task 2: Create task-completion.playbook.yaml
-    - [x] Task 3: Add protocol templates to consumer guide
+- [ ] casehubio/agency#369 — Issue #369 ← active
