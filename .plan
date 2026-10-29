@@ -1,0 +1,15 @@
+# Work Plan — issue-370-docs-playbook-composition
+
+## State
+branch: issue-370-docs-playbook-composition
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/agency
+covers: 370
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
+
+## Queue
+- [ ] casehubio/agency#370 — Issue #370 ← active
