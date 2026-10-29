@@ -5,7 +5,7 @@ date: 2026-10-27
 entry_type: note
 subtype: diary
 projects: [casehubio/agency]
-tags: [protocols, playbook, yaml, counters, qhorus]
+tags: [protocols, playbook, yaml, counters, composition, quorum, qhorus]
 ---
 
 # Protocols You Can Read
@@ -79,8 +79,29 @@ ROUND_ROBIN is the purest sender-tracking protocol. It doesn't count anything �
 
 The difference between these two families isn't just the primitives they use. It's what they're watching. Counter-based protocols monitor the *channel's* health — are obligations piling up? Sender-tracking protocols monitor *participant behaviour* — is someone hogging the conversation, or speaking out of turn? Same format, same executor, different lens on the same event stream.
 
+## Beyond the Built-ins
+
+The four built-in protocols only use counters, state, and guards. The playbook executor exposes the full yaml-core primitive set: maps for per-key tracking, gauges for typed values, flags for boolean toggles, and state machines for lifecycle phases. These compose within the same reactive event loop.
+
+The most interesting composition is quorum — "N of M distinct sources must agree before escalation." A counter can't do this because it tracks volume, not identity. You need a map to track *which* sources have reported, then check the map's size against a quorum threshold:
+
+![Quorum pattern — map-based distinct source tracking](images/quorum-pattern.svg)
+
+```yaml
+cases:
+  - pattern: "OVERLOAD_REPORT"
+    block:
+      - map-put: { name: "reporters", key: "${event.sender}", value: "true" }
+      - advisory: { severity: WARNING, message: "quorum reached", action: ESCALATE }
+        when: "${map-size('reporters') >= config.quorum}"
+```
+
+Three monitors independently reporting overload doesn't mean three separate incidents. The map deduplicates by sender — the advisory only fires when enough *distinct* sources confirm. This is the difference between "something screamed three times" and "three independent things agree there's a problem."
+
+State machines compose with counters too. An onboarding channel might tolerate 10 unanswered queries during setup but only 3 in production — same counter, different threshold per lifecycle phase. And gauges enable temporal patterns: store when a COMMAND was issued, check on each TICK whether the deadline has elapsed without a DONE.
+
 ## What This Opens Up
 
-With the playbook executor bridge now wired into channel dispatch, a consumer forks any of the four playbook templates, adjusts the thresholds or participant list, adds domain-specific event cases, and registers it. No Java.
+With the playbook executor bridge now wired into channel dispatch, a consumer forks any of the four playbook templates, adjusts the thresholds or participant list, adds domain-specific event cases, and registers it. No Java. And the composition patterns mean custom protocols can express policies that the built-in Java classes never could — quorum, lifecycle-aware thresholds, temporal deadlines — all in the same declarative format.
 
-The deeper point is that protocol logic stops being opaque framework code and becomes something you can read, test, and modify. The playbook format is the same one used everywhere else in the platform. A developer who can read one playbook can read a protocol.
+Protocol logic stops being opaque framework code and becomes something you can read, test, and modify. The playbook format is the same one used everywhere else in the platform. A developer who can read one playbook can read a protocol.
