@@ -81,34 +81,38 @@ Builder currently passes `promptCustomiser` only to
 Package: `io.casehub.agency.orchestration.swarm.prompt`
 
 ```java
-@ApplicationScoped
-public class SwarmOutcomeRecorder {
-    SwarmOutcomeRecorder(PromptVariantStore store) { ... }
+public class SwarmOutcomeRecorder implements TerminationCondition<SwarmContext> {
+    SwarmOutcomeRecorder(TerminationCondition<SwarmContext> delegate,
+                         PromptVariantStore store,
+                         String variantSlot) { ... }
 
-    void onSwarmConverged(@Observes SwarmCoordinationEvent event,
-                          String signatureId, String variantId,
-                          String convergenceOutcome,
-                          double similarityScore,
-                          @Nullable Duration executionDuration) { ... }
+    TerminationDecision evaluate(SwarmContext context) { ... }
+
+    List<VariantOutcome> outcomes(String signatureId) { ... }
 }
 ```
 
-Responsibilities:
-- Observe swarm convergence outcomes (terminal events from
-  `SwarmConvergenceTermination`)
-- Map via `SwarmOutcomeMapper` (one mapper per signature)
-- Record `VariantOutcome` to `PromptVariantStore`
+**Design:** Decorates `SwarmConvergenceTermination` rather than observing
+CDI events (swarm termination has no CDI event path — the execution loop
+lives in the driver layer and `SwarmConvergenceTermination.evaluate()` is
+a pure function over `SwarmContext`).
 
-The recorder needs to know which variant slot was active for the
-execution. Two options for plumbing the variant ID:
+When `delegate.evaluate()` returns a terminal decision (Complete or
+Escalate/Failed), the recorder:
+1. Extracts convergence outcome from the decision reason
+2. Reads `SwarmProgress` (consensusScore, stabilityScore) from
+   `SwarmContext.swarmProgress()`
+3. Maps via `SwarmOutcomeMapper` (one mapper per signature, all three
+   recorded per execution since the variant slot is shared)
+4. Records `VariantOutcome` to `PromptVariantStore`
 
-**Approach:** The recorder is injected into `SwarmCoordinatorBuilder`
-and `build()` calls `recorder.registerExecution(executionId, variantSlot)`
-before the coordinator runs. Terminal events carry the execution context
-(available from `SwarmContext`). The recorder correlates execution ID →
-variant slot → recorded outcome.
+The `variantSlot` is set at construction by the builder (D5 — consistent
+slot per execution). No execution ID correlation needed — the recorder
+is scoped to one coordinator instance and records once on terminal
+decision.
 
-This avoids passing variant metadata through the event hierarchy.
+`outcomes(signatureId)` provides read access for the batch cycle.
+Thread-safe via `CopyOnWriteArrayList`.
 
 ### 4. SwarmPromptOutcomeProvider (new class)
 
@@ -117,14 +121,18 @@ Package: `io.casehub.agency.orchestration.swarm.prompt`
 ```java
 @ApplicationScoped
 public class SwarmPromptOutcomeProvider implements PromptOutcomeProvider {
-    SwarmPromptOutcomeProvider(SwarmOutcomeRecorder recorder) { ... }
+    void register(SwarmOutcomeRecorder recorder) { ... }
 
     List<VariantOutcome> outcomes(String signatureId) { ... }
 }
 ```
 
-Reads recorded outcomes from `SwarmOutcomeRecorder`'s in-memory store.
+CDI-managed aggregation point. Each `SwarmOutcomeRecorder` (one per
+coordinator instance) registers itself on construction. `outcomes()`
+aggregates across all registered recorders for the given signature.
+
 The batch cycle calls this to score control vs experiment variants.
+`ConcurrentHashMap<String, List<VariantOutcome>>` keyed by signatureId.
 
 ### 5. Generalise SwarmOptimisedFewShotSection
 

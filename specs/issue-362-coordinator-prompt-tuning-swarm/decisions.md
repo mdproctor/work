@@ -26,12 +26,13 @@
 
 ## D3: Outcome recorder location — swarm/prompt/ package
 
-**Choice:** New `SwarmOutcomeRecorder` `@ApplicationScoped` bean in the existing `orchestration.swarm.prompt` sub-package.
+**Choice:** New `SwarmOutcomeRecorder` as a `TerminationCondition<SwarmContext>` decorator in `orchestration.swarm.prompt`. Decorates `SwarmConvergenceTermination` — intercepts terminal decisions and records outcomes. Not CDI-managed (per-coordinator instance, created by builder). Registered with CDI-managed `SwarmPromptOutcomeProvider` for aggregation.
 **Alternatives:**
+- CDI observer on SwarmCoordinationEvent — swarm termination has no CDI event path; this approach doesn't work
 - Extend SwarmCoordinatorBuilder — tighter coupling but guaranteed lifecycle
 - In the evolution sub-package — groups batch-cycle plumbing together but separates from swarm prompt types
-**Rationale:** Co-located with `SwarmOutcomeMetric`, `SwarmOutcomeMapper`, and `SwarmOptimisedFewShotSection`. Follows the principle of grouping by domain (swarm prompt optimisation) rather than by framework layer.
-**Trade-offs:** Slight package growth in `swarm/prompt/`.
+**Rationale:** Decorator pattern captures outcomes at the exact termination point without modifying the event hierarchy. Co-located with `SwarmOutcomeMetric`, `SwarmOutcomeMapper`, and `SwarmOptimisedFewShotSection`.
+**Trade-offs:** One recorder per coordinator instance — outcomes must be aggregated via `SwarmPromptOutcomeProvider`.
 **Sources:** `SwarmOutcomeMetric.java`, `SwarmOutcomeMapper.java`
 **Exploration:** quick
 **Status:** captured
