@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-372-outcome-provider-deregistration
-state: active
+state: closing:review
 project-sha: bb3b9c82
 date: 2026-10-30
 issue-repo: casehubio/agency
@@ -11,5 +11,6 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/agency#372 — Issue #372 ← active
