@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-362-coordinator-prompt-tuning-swarm
-state: closing:promoted
+state: closing:stamped
 project-sha: 
 date: 
 issue-repo: casehubio/agency
