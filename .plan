@@ -2,7 +2,7 @@
 
 ## State
 branch: issue-373-remove-playbook-evaluator-api
-state: active
+state: closing:review
 project-sha: 
 date: 
 issue-repo: casehubio/agency
@@ -11,5 +11,6 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 
+evidence-era: true
 ## Queue
 - [ ] casehubio/agency#373 — Issue #373 ← active
