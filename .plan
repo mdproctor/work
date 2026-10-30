@@ -1,8 +1,8 @@
 # Work Plan — issue-372-outcome-provider-deregistration
 
 ## State
-branch: issue-372-outcome-provider-deregistration
-state: closing:stamped
+branch: issue-373-remove-playbook-evaluator-api
+state: active
 project-sha: bb3b9c82
 date: 2026-10-30
 issue-repo: casehubio/agency
@@ -10,7 +10,7 @@ covers: 372
 design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
-
 evidence-era: true
+
 ## Queue
-- [ ] casehubio/agency#372 — Issue #372 ← active
+- [x] casehubio/agency#372 — Issue #372
