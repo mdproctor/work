@@ -61,11 +61,22 @@ if (promptCustomiser != null) {
 Builder currently passes `promptCustomiser` only to
 `CollectiveReasoningAggregation`. Changes:
 
+- Change `LlmSwarmCoordinator.convergenceTermination` field from
+  `SwarmConvergenceTermination` to `TerminationCondition<SwarmContext>`.
+  Constructor parameter and accessor change accordingly (`convergenceTermination()`
+  becomes `terminationCondition()`). This enables the `SwarmOutcomeRecorder`
+  decorator (§3) to be transparently substituted.
 - Pass `promptCustomiser` to `SwarmRoutingStrategy` constructor
 - Accept optional `VariantSelector` via `variantSelector(VariantSelector)`
 - In `build()`: if `VariantSelector` is present, call
-  `selectSlot(caseId, capabilityName)` once and propagate the slot to
-  all three sites via their `setVariantSlot()` methods
+  `selectSlot(UUID.randomUUID(), "swarm-coordination")` once and
+  propagate the slot to all three sites via their `setVariantSlot()`
+  methods, AND to all `SwarmOptimisedFewShotSection` instances via
+  their `setVariantSlot()` methods. The random UUID gives independent
+  variant assignment per coordinator build; the shared capability name
+  ensures one slot for all three signatures (D5). Coordinators are
+  single-use per build — each `build()` creates fresh `SwarmContext`
+  state and a fresh variant assignment.
 - Accept optional `SwarmProvisioningAdvisorImpl` via
   `provisioningAdvisor(SwarmProvisioningAdvisorImpl)` so the builder can
   wire its customiser and variant slot. If not provided, provisioning
@@ -114,6 +125,12 @@ decision.
 `outcomes(signatureId)` provides read access for the batch cycle.
 Thread-safe via `CopyOnWriteArrayList`.
 
+**Composition precondition:** The recorder wraps the raw
+`SwarmConvergenceTermination`. If additional termination conditions
+(timeout, cycle limit) are needed, compose them with the recorder
+(e.g. `recorder.or(timeout)`), not underneath it — the recorder
+must be in the composition tree to intercept terminal decisions.
+
 ### 4. SwarmPromptOutcomeProvider (new class)
 
 Package: `io.casehub.agency.orchestration.swarm.prompt`
@@ -140,7 +157,15 @@ The batch cycle calls this to score control vs experiment variants.
 3-arg constructor. The 2-arg constructor defaults to `TEAM_FORMATION`.
 
 Changes:
-- No structural changes needed — the class is already parameterised.
+- Add `setVariantSlot(@Nullable String variantSlot)`. When set,
+  `contribute()` uses the provided slot directly for
+  `store.getActive()` instead of calling `selector.selectSlot()`.
+  This eliminates the split-brain between independent slot selection
+  and the builder-set variant slot (D5). The `selector`-based path
+  remains as fallback for standalone usage without builder integration.
+- Fix `SwarmPromptSection.contribute()` return type to `@Nullable
+  String` to match existing implementation behavior. The coordinator's
+  `assembleCoordinatorPrompt()` already null-checks the return.
 - Builder creates three instances (one per signature) and wires them
   to the appropriate prompt sites.
 - Team formation: instance added to `additionalSections` passed to
