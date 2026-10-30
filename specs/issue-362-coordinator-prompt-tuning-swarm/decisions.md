@@ -12,17 +12,17 @@
 **Exploration:** quick
 **Status:** captured
 
-## D2: Overall approach — direct wiring via CDI observer
+## D2: Overall approach — direct wiring with decorator-based outcome recording
 
-**Choice:** Direct wiring following the proven routing prompt optimisation pattern. SystemPromptCustomiser on all three sites, CDI observer for outcome recording, evolution loop types.
+**Choice:** Direct wiring following the proven routing prompt optimisation pattern. SystemPromptCustomiser on all three sites, decorator-based outcome recording on termination condition, evolution loop types.
 **Alternatives:**
 - Event-driven pipeline (EventStreamBus + SummarisationRunner) — adds unnecessary windowed aggregation complexity for a simple write
 - Deferred batch-only (scan historical events) — requires persistence layer that doesn't exist for swarm events
-**Rationale:** The routing prompt optimisation already proves this exact pattern works. Approach matches existing code structure and keeps the implementation straightforward.
-**Trade-offs:** CDI observer coupling — outcome recording only works within a CDI container. Acceptable because swarm coordination already requires CDI.
+**Rationale:** The routing prompt optimisation already proves this exact pattern works. Approach matches existing code structure and keeps the implementation straightforward. Decorator on `TerminationCondition` captures outcomes at the exact termination point without modifying the event hierarchy.
+**Trade-offs:** Decorator pattern requires `LlmSwarmCoordinator` to accept `TerminationCondition<SwarmContext>` interface instead of the concrete `SwarmConvergenceTermination`. This is the right design — the coordinator should not be coupled to a specific termination implementation.
 **Sources:** `OptimisedFewShotSection.java`, `VariantAwareSystemPromptCustomiser.java`, `PromptOptimisationBatch.java`
 **Exploration:** quick
-**Status:** captured
+**Status:** revised — R1-04: fixed misleading "CDI observer" description to match actual decorator design
 
 ## D3: Outcome recorder location — swarm/prompt/ package
 
@@ -58,5 +58,18 @@
 **Trade-offs:** Can't independently A/B test team formation vs reasoning vs provisioning prompts. Acceptable for now — cross-site correlation is more valuable than per-site granularity when tuning a coordinated system.
 **Depends on:** D1 (all three sites in scope)
 **Sources:** `SwarmCoordinatorBuilder.java`, `VariantSelector.java`
+**Exploration:** quick
+**Status:** captured
+
+## D6: Outcome metric — single SwarmOutcomeMetric for all signatures
+
+**Choice:** Use `SwarmOutcomeMetric` (convergence-based scoring) for all three prompt signatures. No per-signature metrics.
+**Alternatives:**
+- Per-signature metrics (team utilisation for formation, synthesis quality for reasoning, accuracy for provisioning) — more precise causal attribution per site
+- Composite metric weighting per-site sub-metrics — comprehensive but requires defining sub-metric weights with no data to calibrate them
+**Rationale:** The variant slot is shared across all three sites (D5). The optimisation loop tunes the entire configuration, not individual sites. End-to-end convergence outcome is the right signal: "did this prompt variant configuration lead to better swarm outcomes?" Per-site metrics would require isolating each site's contribution, which the shared-slot design deliberately avoids.
+**Trade-offs:** Cannot distinguish whether poor convergence was caused by bad team formation, bad reasoning, or bad provisioning. Acceptable for initial tuning — if the signal proves insufficient, per-site metrics can be layered on without changing the recording infrastructure.
+**Depends on:** D5 (shared variant slot)
+**Sources:** `SwarmOutcomeMetric.java`
 **Exploration:** quick
 **Status:** captured
