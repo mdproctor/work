@@ -13,3 +13,13 @@ flyway-next-v:
 
 ## Queue
 - [ ] casehubio/agency#362 — Issue #362 ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: Add SystemPromptCustomiser to SwarmRoutingStrategy
+    - [ ] Task 2: Widen LlmSwarmCoordinator to TerminationCondition
+    - [ ] Task 3: Add setVariantSlot to SwarmOptimisedFewShotSection
+  - [ ] Batch 2: Outcome recording
+    - [ ] Task 4: SwarmOutcomeRecorder termination decorator
+    - [ ] Task 5: SwarmPromptOutcomeProvider CDI aggregation
+    - [ ] Task 6: Wire SwarmCoordinatorBuilder
+  - [ ] Batch 3: Evolution loop
+    - [ ] Task 7: Proposal source + regression + category + conflict
