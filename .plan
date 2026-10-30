@@ -10,7 +10,7 @@ covers: 373
 design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
-
 evidence-era: true
+
 ## Queue
-- [ ] casehubio/agency#373 — Issue #373 ← active
+- [x] casehubio/agency#373 — Issue #373
