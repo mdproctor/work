@@ -23,6 +23,7 @@ Run `work start #367` to begin.
 ## Cross-Module
 
 - **engine#1259** — SwarmCoordinationListener impl needed for real lifecycle events (blocks full swarm event flow)
+- **connectors#188** — `SherpaVoicePlatform` adapter added to `speech-sherpa` (commit `b743520b` on main). Bridges agency `SpeechToTextService`/`TextToSpeechService` to connectors `VoicePlatform` SPI. Depends on `casehub-connectors-voice-spi` 0.4-SNAPSHOT.
 
 ## References
 
