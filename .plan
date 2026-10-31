@@ -1,8 +1,8 @@
-# Work Plan — issue-373-remove-playbook-evaluator-api
+# Work Plan — issue-375-swarm-coordination-listener-bridge
 
 ## State
-branch: issue-373-remove-playbook-evaluator-api
-state: drained
+branch: issue-375-swarm-coordination-listener-bridge
+state: scaffolded
 project-sha: 
 date: 
 issue-repo: casehubio/agency
@@ -10,7 +10,6 @@ covers: 373
 design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
-evidence-era: true
 
 ## Queue
-- [x] casehubio/agency#373 — Issue #373
+- [ ] casehubio/agency#375 — Issue #375 ← active
