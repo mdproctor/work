@@ -13,3 +13,5 @@ flyway-next-v: unknown
 
 ## Queue
 - [ ] casehubio/agency#375 — Issue #375 ← active
+  - [x] Batch 1: SwarmCoordinationListenerBridge
+    - [x] Task 1: Bridge implementation with tests
