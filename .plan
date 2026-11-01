@@ -1,0 +1,15 @@
+# Work Plan — issue-376-wire-swarm-event-context
+
+## State
+branch: issue-376-wire-swarm-event-context
+state: scaffolded
+project-sha: 
+date: 
+issue-repo: casehubio/agency
+covers: 376
+design-repo: project
+design-section-hashes: 
+flyway-next-v: unknown
+
+## Queue
+- [ ] casehubio/agency#376 — Issue #376 ← active
