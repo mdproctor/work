@@ -54,13 +54,14 @@ configurations:
 ```java
 public class TopologyBuilder {
 
-    // Core: loop descriptors + executor + optional degradation
+    // Core: loop descriptors + executor + optional degradation + optional feedback
     static CoordinationTopology create(
             TopologyType type,
             Map<String, AgentRole> agentRoles,
             LoopPlanner planner,
             DecisionOutcomeExecutor executor,
-            @Nullable DegradationCascade cascade);
+            @Nullable DegradationCascadeFactory cascadeFactory,
+            @Nullable FeedbackHandler feedbackHandler);
 
     // Factory methods for well-known configurations
     static CoordinationTopology hive(
@@ -111,14 +112,19 @@ Each topology factory provides its own LoopPlanner:
 
 ### 3.4 DegradationCascade
 
-Extracted from the 4× copy-pasted `onDegradation()` code:
+Extracted from the 4× copy-pasted `onDegradation()` code. Built at
+`configure()` time (not construction time) because it depends on
+configure-time data: `CascadeThreshold` from `DegradationPolicy`,
+loop priorities from the `LoopPlan`, and `CascadeDegradationTrigger`
+instances shared with the `LoopPlanner`.
 
 ```java
 class DegradationCascade {
 
     @FunctionalInterface
     interface CascadeBreachHandler {
-        void onBreach(Set<String> degradedLoops);
+        void onBreach(Set<String> degradedLoops,
+                      List<CascadeDegradationTrigger> triggers);
     }
 
     DegradationCascade(
@@ -129,13 +135,51 @@ class DegradationCascade {
 
     void onDegradation(SwarmDegradedEvent event);
 }
+
+@FunctionalInterface
+interface DegradationCascadeFactory {
+    DegradationCascade create(
+            DegradationPolicy policy,
+            LoopPlan plan,
+            List<CascadeDegradationTrigger> sharedTriggers);
+}
 ```
 
-The `CascadeBreachHandler` callback accommodates divergent cascade responses:
-- Hive/Hierarchical/Hybrid: activate `CascadeDegradationTrigger` instances
-- Graduated: force scope reduction via `GraduationState` transition
+**Construction timing**: `ComposableTopology.configure()` calls
+`LoopPlanner.plan()` first (which creates `CascadeDegradationTrigger`
+instances inside its trigger map), then passes those same trigger
+instances to `DegradationCascadeFactory.create()`. This resolves the
+circular dependency — the planner creates the shared objects, the
+cascade receives them.
 
-DistributedTopology has no cascade and passes `null`.
+The `CascadeBreachHandler` callback accommodates divergent cascade
+responses:
+- Hive: switch `OrchestrationPatternExecutor.patternType` (DEBATE→VOTING→
+  SUPERVISOR) AND activate all `CascadeDegradationTrigger` instances.
+  Both operations must happen atomically via the handler.
+- Hierarchical/Hybrid: activate `CascadeDegradationTrigger` instances
+- Graduated: force scope reduction via `GraduationState` transition
+  (does NOT activate CascadeDegradationTrigger)
+
+DistributedTopology has no cascade — passes `null` for cascadeFactory.
+
+### 3.4.1 FeedbackHandler
+
+```java
+@FunctionalInterface
+interface FeedbackHandler {
+    void onFeedback(CoordinationFeedback feedback);
+}
+```
+
+Accommodates topology-specific feedback processing:
+- Graduated: `graduationState.recordFeedback()` for sliding-window
+  scope adjustment (80% success → upgrade, 50% failure → downgrade,
+  immediate downgrade on SCOPE_VIOLATION). This is the graduated
+  topology's core behavioral differentiator.
+- Hive: delegates to `OrchestrationPatternExecutor.onFeedback()`
+  (currently no-op, becomes real when pattern execution is implemented)
+- Other topologies: `null` (no feedback processing)
 
 ### 3.5 Concrete topology: ComposableTopology
 
@@ -148,19 +192,37 @@ class ComposableTopology implements CoordinationTopology {
     private final Map<String, AgentRole> agentRoles;
     private final LoopPlanner planner;
     private final DecisionOutcomeExecutor executor;
-    private final @Nullable DegradationCascade cascade;
+    private final @Nullable DegradationCascadeFactory cascadeFactory;
+    private final @Nullable FeedbackHandler feedbackHandler;
+
+    // Built at configure() time, not construction time
+    private volatile @Nullable DegradationCascade cascade;
 
     @Override
     public TopologyDescriptor describeTopology(UUID caseId) { ... }
 
     @Override
-    public CoordinationPlan configure(TopologyContext context) { ... }
+    public CoordinationPlan configure(TopologyContext context) {
+        var plan = planner.plan(context);
+        var pool = new AutonomyBudgetPool(
+            context.budgetPolicy(), context.caseId() + "-" + type.name());
+        if (cascadeFactory != null) {
+            var sharedTriggers = extractCascadeTriggers(plan.triggers());
+            this.cascade = cascadeFactory.create(
+                context.degradationPolicy(), plan, sharedTriggers);
+        }
+        return new CoordinationPlan(
+            plan.descriptors(), executor, pool,
+            plan.triggers(), plan.heuristics());
+    }
 
     @Override
     public void onSwarmEvent(SwarmCoordinationEvent event) { }
 
     @Override
-    public void onFeedback(CoordinationFeedback feedback) { }
+    public void onFeedback(CoordinationFeedback feedback) {
+        if (feedbackHandler != null) feedbackHandler.onFeedback(feedback);
+    }
 
     @Override
     public void onDegradation(SwarmDegradedEvent event) {
@@ -352,6 +414,7 @@ class BottomUpFormationOrchestrator {
     CompletionStage<FormationResult> propose(
             CoalitionProposal proposal,
             CoalitionContext context,
+            String specId,
             String tenancyId) {
         // 1. Evaluate coalition viability
         CoalitionScore score = evaluator.evaluate(proposal, context);
@@ -376,11 +439,9 @@ CoalitionProposal's model (taskId, requiredCapabilities, proposedMembers)
 must be translated to GroupLifecycleService's model (specId, tenancyId,
 proposerAgentId):
 - `specId`: the OrganizationalUnit specId that declares the group template
-  this coalition is forming under. Passed as a parameter to `propose()` —
-  the caller determines which org unit spec governs this formation (e.g.,
-  a "dev-guild" or "ops-squad" spec from the YAML seed). If no spec exists
-  (ad-hoc formation), the orchestrator creates a default spec with the
-  coalition's required capabilities as role obligations.
+  this coalition is forming under. Passed explicitly as a parameter to
+  `propose()` — the caller determines which org unit spec governs this
+  formation (e.g., a "dev-guild" or "ops-squad" spec from the YAML seed).
 - `tenancyId`: from TopologyContext (D4) or passed explicitly
 - `proposerAgentId`: the first member in `CoalitionProposal.proposedMembers()`
   that initiated the proposal
@@ -454,7 +515,21 @@ class TopologyFactory {
 }
 ```
 
-Registered as a step in `PatternCompiler`.
+Registered as a step in the agentic-yaml compilation pipeline (greenfield —
+the registration point will be designed during implementation).
+
+**YAML coverage**: Hierarchical, Hybrid, and Graduated topologies have no
+YAML representation. This is intentional — these topologies require
+structural configuration (parent maps, phase definitions) that doesn't
+map cleanly to simple YAML fields. They remain programmatic-only.
+
+**Swarm vs Mesh**: Both currently map to `TopologyBuilder.distributed()`.
+The design spec distinguishes them by runtime primitives (Swarm →
+stigmergy signal filtering, Mesh → Qhorus peer messaging). This
+distinction is not yet reflected in `TopologyBuilder` — Swarm and Mesh
+produce identical `DistributedTopology` instances. Differentiating their
+runtime behavior is tracked by the design spec's engine#1284 (TopologyProvider
+SPI), not this epic.
 
 ## 9. Implementation Sequence (D9)
 
