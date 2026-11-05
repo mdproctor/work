@@ -219,14 +219,18 @@ class OrchestrationPatternExecutor implements DecisionOutcomeExecutor {
 }
 ```
 
-Each pattern method builds and executes the corresponding orchestration pattern:
-- **SUPERVISOR**: builds via `SupervisorBuilder`, routes the outcome to the
-  supervisor agent (coordinator from TopologyContext), gets approval via
-  AgentProvider invocation, returns feedback
-- **DEBATE**: builds via `DebateBuilder`, runs round-robin debate among
-  agents about the outcome, returns consensus feedback
-- **VOTING**: builds via `VotingBuilder`, collects votes on the outcome,
-  returns majority decision as feedback
+Each pattern method uses the pattern builders' SPI components (routing
+strategies, aggregation strategies, termination conditions) to govern how
+the outcome is processed. The executor does NOT build a full
+`ExecutionModel<T>` and run it through `OrchestratedDriver` — that level
+of machinery is for multi-step workflows, not single-outcome governance.
+Instead, it composes the relevant strategies directly:
+- **SUPERVISOR**: uses `LlmSelectedRouting` (via AgentProvider) to select
+  which agent handles the outcome, invokes that agent, returns feedback
+- **DEBATE**: uses `RoundRobinRouting` among participant agents, iterates
+  until `JudgeConvergence` or max rounds, returns consensus feedback
+- **VOTING**: routes outcome to all evaluator agents via broadcast routing,
+  aggregates via `MajorityVote`, returns the aggregate decision as feedback
 
 The `patternType` field is `volatile` — the hive degradation cascade can
 atomically switch it (DEBATE → VOTING → SUPERVISOR) at runtime.
@@ -371,10 +375,15 @@ class BottomUpFormationOrchestrator {
 CoalitionProposal's model (taskId, requiredCapabilities, proposedMembers)
 must be translated to GroupLifecycleService's model (specId, tenancyId,
 proposerAgentId):
-- `specId`: derived from the coalition's task context (the OrganizationalUnit
-  spec that defines the group structure)
+- `specId`: the OrganizationalUnit specId that declares the group template
+  this coalition is forming under. Passed as a parameter to `propose()` —
+  the caller determines which org unit spec governs this formation (e.g.,
+  a "dev-guild" or "ops-squad" spec from the YAML seed). If no spec exists
+  (ad-hoc formation), the orchestrator creates a default spec with the
+  coalition's required capabilities as role obligations.
 - `tenancyId`: from TopologyContext (D4) or passed explicitly
-- `proposerAgentId`: the agent that initiated the CoalitionProposal
+- `proposerAgentId`: the first member in `CoalitionProposal.proposedMembers()`
+  that initiated the proposal
 
 ### 7.4 FormationResult
 
@@ -410,7 +419,7 @@ class TopologyFactory {
 
     private final RolePolicyCompiler rolePolicyCompiler;
 
-    CoordinationTopology create(TopologySpec spec, TopologyContext context) {
+    CoordinationTopology create(TopologySpec spec) {
         return switch (spec) {
             case TopologySpec.Swarm s -> TopologyBuilder.distributed(
                     resolveRoles(s));
@@ -423,6 +432,8 @@ class TopologyFactory {
                     Map.of());
         };
     }
+    // TopologyContext is NOT available at factory time — the returned
+    // CoordinationTopology receives it later via configure(TopologyContext)
 
     private Map<String, AgentRole> compileRoles(TopologySpec.Hive hive) {
         // Uses rolePolicyCompiler to compile RolePolicySpec → RoleSpec
