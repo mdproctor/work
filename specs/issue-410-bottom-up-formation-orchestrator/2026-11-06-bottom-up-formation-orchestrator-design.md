@@ -41,6 +41,7 @@ Plain class, not CDI-managed. Consumer constructs with domain-specific dependenc
 | `observerRegistrar` | `MessageObserverRegistrar` | Register observer for channel messages |
 | `specId` | `String` | Group spec governing formation target |
 | `tenancyId` | `String` | Tenancy context |
+| `acceptancePolicy` | `AcceptancePolicy` | Negotiation quorum (default: `UnanimousAcceptance`) |
 | `timeout` | `Duration` | Negotiation deadline |
 
 **API:**
@@ -65,7 +66,8 @@ propose(proposal, context)
   │
   ├─ 3. ChannelObserver<NegotiationState> wrapping NegotiationProjection
   │     ├─ parties = proposedMembers names (Set<String>)
-  │     ├─ acceptancePolicy = UnanimousAcceptance (default)
+  │     ├─ acceptancePolicy = constructor-injected (default: UnanimousAcceptance)
+  │     ├─ single subscriber only (orchestrator is sole consumer)
   │     └─ register via observerRegistrar.register(observer)
   │
   ├─ 4. messageDispatcher.dispatch(PROPOSE message)
