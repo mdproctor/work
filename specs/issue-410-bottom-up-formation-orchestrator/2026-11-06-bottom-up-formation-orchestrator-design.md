@@ -16,7 +16,12 @@ Wire `CoalitionProposal` → `NegotiationProtocol` → `GroupLifecycleService` i
 4. `CoalitionProposal` cleanup — add `proposer` field, remove `coveredCapabilities()`
 5. New dependency: `casehub-eidos-org-api` (provided) in agency-core
 
-Out of scope: top-down formation, emergence-based formation, `FormationRules` enforcement (caller responsibility), JointIntention role adoption post-formation.
+Out of scope:
+- Top-down formation, emergence-based formation
+- `FormationRules` enforcement (caller responsibility — caller checks `FormationRules.allowedPaths` before calling `propose()`)
+- selfDetermination gate (caller responsibility — caller checks `selfDetermination >= 0.5` on parent group before calling `propose()`)
+- JointIntention role adoption post-formation (group returned in FORMING state; caller transitions to ACTIVE)
+- Concurrent proposal guards (overlapping member detection across parallel proposals — tracked separately)
 
 ## Package
 
@@ -58,11 +63,15 @@ propose(proposal, context)
   ├─ 1. evaluator.evaluate(proposal, context)
   │     └─ not viable? → FormationResult.rejected(reason)
   │
-  ├─ 2. channelManager.findOrCreate(request)
-  │     ├─ protocol: "NEGOTIATION"
-  │     ├─ parties: proposal.proposedMembers().map(AgentRef::name)
-  │     ├─ name: "formation:<taskId>:<proposer.name()>"
-  │     └─ boundGroupId: null (group doesn't exist yet)
+  ├─ 2. channelManager.findOrCreate(ChannelCreateRequest.builder(channelName)
+  │     │     .protocols(List.of("NEGOTIATION"))
+  │     │     .protocolParticipants(memberNames)
+  │     │     .allowedWriters(memberNames)
+  │     │     .tenancyId(tenancyId)
+  │     │     .build())
+  │     ├─ channelName: "formation:<taskId>:<proposer.name()>"
+  │     ├─ memberNames: proposal.proposedMembers().stream().map(AgentRef::name).toList()
+  │     └─ includes proposer in both protocolParticipants and allowedWriters
   │
   ├─ 3. ChannelObserver<NegotiationState> wrapping NegotiationProjection
   │     ├─ parties = proposedMembers names (Set<String>)
@@ -70,19 +79,34 @@ propose(proposal, context)
   │     ├─ single subscriber only (orchestrator is sole consumer)
   │     └─ register via observerRegistrar.register(observer)
   │
-  ├─ 4. messageDispatcher.dispatch(PROPOSE message)
-  │     ├─ sender: proposal.proposer().name()
-  │     ├─ content: proposal.taskId() + required capabilities
-  │     └─ channelId: from step 2
+  ├─ 4. messageDispatcher.dispatch(MessageDispatch.builder()
+  │     │     .channelId(channelId)
+  │     │     .sender(proposal.proposer().name())
+  │     │     .messageType(MessageType.PROPOSE)
+  │     │     .correlationId(proposal.taskId())
+  │     │     .actorType(ActorType.AGENT)
+  │     │     .tenancyId(tenancyId)
+  │     │     .content(proposal description + required capabilities)
+  │     │     .build())
+  │     ├─ correlationId = taskId (used by NegotiationProjection as proposalId)
+  │     └─ members respond with DONE (accept) or DECLINE (reject) using same correlationId
   │
-  ├─ 5. Uni bridge: subscribe to observer events
-  │     ├─ on terminal outcome → emit result
+  ├─ 5. Uni bridge via Uni.createFrom().emitter():
+  │     ├─ subscribe to observer — on terminal outcome, emit result
+  │     ├─ first-wins: emitter.complete() is idempotent — timeout and
+  │     │   observer callback race harmlessly (whoever calls first wins)
   │     ├─ timeout: Uni.ifNoItem().after(timeout)
+  │     │   └─ on timeout, check observer.currentState() — if terminal
+  │     │     in the meantime, use that outcome instead of Timeout
   │     └─ cleanup via emitter.onTermination()
   │
-  ├─ 6a. AGREED → groupLifecycle.proposeGroup(specId, tenancyId, proposer.name())
-  │       └─ groupLifecycle.approveProposal(instanceId, tenancyId)
-  │           └─ FormationResult.accepted(instanceId)
+  ├─ 6a. AGREED →
+  │       ├─ groupLifecycle.proposeGroup(specId, tenancyId, proposer.name())
+  │       ├─ groupLifecycle.approveProposal(instanceId, tenancyId)
+  │       ├─ for each member: groupLifecycle.joinGroup(instanceId, member.name(), tenancyId)
+  │       └─ FormationResult.accepted(instanceId)
+  │           (group is in FORMING state with all members enrolled;
+  │            caller transitions to ACTIVE via JointIntention)
   │
   ├─ 6b. DEADLOCKED/WITHDRAWN → FormationResult.negotiationFailed(reason)
   │
@@ -100,17 +124,19 @@ Sealed interface in `deliberation.coalition.formation`:
 
 ```java
 sealed interface FormationResult {
-    record Accepted(UUID groupInstanceId) implements FormationResult {}
+    record Accepted(String groupInstanceId) implements FormationResult {}
     record Rejected(String reason) implements FormationResult {}
     record NegotiationFailed(String reason) implements FormationResult {}
     record Timeout() implements FormationResult {}
 
-    static FormationResult accepted(UUID id) { return new Accepted(id); }
+    static FormationResult accepted(String id) { return new Accepted(id); }
     static FormationResult rejected(String reason) { return new Rejected(reason); }
     static FormationResult negotiationFailed(String reason) { return new NegotiationFailed(reason); }
     static FormationResult timeout() { return new Timeout(); }
 }
 ```
+
+`groupInstanceId` is `String` — matching `GroupInstance.instanceId` in eidos-org-api.
 
 ### MessageObserverRegistrar
 
@@ -119,11 +145,13 @@ Functional interface in `deliberation.coalition.formation`:
 ```java
 @FunctionalInterface
 interface MessageObserverRegistrar {
-    EventSource.Cancellation register(MessageObserver observer);
+    Runnable register(MessageObserver observer);
 }
 ```
 
-The orchestrator calls `registrar.register(observer)` during `propose()`. The CDI wiring layer in the consuming application provides the implementation. The returned `Cancellation` is used during cleanup (step 7).
+Returns a `Runnable` that cancels the registration when called. Avoids a package dependency on `EventSource.Cancellation` from `orchestration.execution` — the concepts are different (registration cancellation vs event-source cancellation).
+
+The orchestrator calls `registrar.register(observer)` during `propose()`. The CDI wiring layer in the consuming application provides the implementation that plugs into `MessageObserverDispatcher`.
 
 ### CoalitionProposal Changes
 
@@ -159,9 +187,13 @@ After terminal outcome (or timeout), the orchestrator:
 
 All cleanup runs via `emitter.onTermination()`, which fires on normal completion, timeout, and external Uni cancellation.
 
-### Timeout
+### Timeout and Race Resolution
 
-Uni-native: `Uni.ifNoItem().after(timeout).recoverWithItem(FormationResult.timeout())`. The timeout duration is constructor-injected. Before emitting a timeout result, the orchestrator checks observer state — a negotiation could reach terminal state simultaneously with the timeout firing.
+Timeout uses `Uni.ifNoItem().after(timeout)`. The timeout duration is constructor-injected.
+
+Both the observer callback (terminal negotiation outcome) and the timeout handler funnel through a single `UniEmitter`. Mutiny's emitter is thread-safe — the first call to `emitter.complete(result)` wins, subsequent calls are no-ops. This eliminates the TOCTOU race between timeout and observer threads.
+
+The timeout recovery path checks `observer.currentState()` before emitting `FormationResult.timeout()` — if the negotiation reached a terminal outcome between the timeout firing and the check, the actual outcome is used instead.
 
 ## Type Bridge
 
@@ -174,8 +206,11 @@ The orchestrator bridges agency-layer types to eidos-layer operations:
 | `tenancyId` (constructor param) | Tenancy context |
 | `FormationOrigin.PROPOSAL` | Bottom-up formation origin |
 | Negotiation AGREED | `approveProposal(instanceId, tenancyId)` |
+| `proposal.proposedMembers()` | `joinGroup(instanceId, member.name(), tenancyId)` per member |
 
 Cross-layer parameters (`specId`, `tenancyId`) are constructor-injected, not carried on `CoalitionProposal`. The coalition domain is tenancy-agnostic.
+
+**Return type note:** The parent hardening spec uses `CompletionStage<FormationResult>`. This spec uses `Uni<FormationResult>` for consistency with `ConversationOrchestrator` (the other orchestrator in agency-core) and for Mutiny-native timeout support. `io.smallrye.mutiny` is already a provided-scope dependency of agency-core.
 
 ## Dependencies
 
@@ -209,6 +244,10 @@ Plain JUnit 5 with Mockito (no CDI container). Mock `GroupLifecycleService`, `Ch
 | Proposer identity | PROPOSE message sender matches `proposal.proposer().name()` |
 | CoalitionProposal proposer | Explicit proposer field used correctly |
 | CoalitionProposal no coveredCapabilities | Method removed, evaluator uses CoalitionContext |
+| Member enrollment | All proposed members enrolled via `joinGroup()` after approval |
+| Timeout race | Observer reaches terminal state during timeout → actual outcome used |
+| PROPOSE message fields | correlationId, actorType, tenancyId set correctly |
+| Viability check | `CoalitionScore.isViable()` determines rejection (all-or-nothing) |
 
 ## References
 
