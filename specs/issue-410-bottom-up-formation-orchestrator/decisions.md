@@ -37,11 +37,11 @@
 
 ## D4: Plain class architecture with async observation bridge
 
-**Choice:** Plain class (not CDI-managed), constructor-injected dependencies, `Uni<FormationResult>` return type. Uses ChannelObserver subscription (D5) to bridge the async negotiation wait to a Uni emitter.
+**Choice:** Plain class (not CDI-managed), constructor-injected dependencies, `Uni<FormationResult>` return type. Uses ChannelObserver subscription (D5) to bridge the async negotiation wait to a Uni emitter. Cleanup on all exit paths (terminal outcome, timeout, and Uni cancellation) via `emitter.onTermination()`.
 **Alternatives:**
 - ChoreographedDriver — event-driven via EventSource. Provides multi-iteration execution loop with routing, activation, aggregation, and termination SPIs. Overkill: the formation flow has one async wait point, not a multi-iteration agent execution loop.
 - `CompletionStage<FormationResult>` — works but diverges from ConversationOrchestrator's Uni convention.
-**Rationale:** The formation flow is mostly sequential (evaluate → create channel → send PROPOSE → **wait** → handle outcome → create group) with one genuinely async step: waiting for negotiation responses from autonomous agents. This does not require the full execution driver machinery. A thin async bridge (`ChannelObserver.subscribe() → Uni.createFrom().emitter()`) handles the wait cleanly. `Uni` provides consistency with ConversationOrchestrator and Mutiny-native timeout support (D7).
+**Rationale:** The formation flow is mostly sequential (evaluate → create channel → send PROPOSE → **wait** → handle outcome → create group) with one genuinely async step: waiting for negotiation responses from autonomous agents. This does not require the full execution driver machinery. A thin async bridge (`ChannelObserver.subscribe() → Uni.createFrom().emitter()`) handles the wait cleanly. `Uni` provides consistency with ConversationOrchestrator and Mutiny-native timeout support (D7). The `emitter.onTermination()` callback ensures D3's cleanup (cancel observer subscription, pause channel) runs on all exit paths — including Uni cancellation from a higher-level caller timeout or application shutdown — not only on negotiation terminal outcomes.
 **Trade-offs:** Not CDI-discoverable — consumers construct explicitly. Does not leverage ChoreographedDriver's multi-iteration loop or termination SPI — these are not needed for a single-proposal flow.
 **Sources:** ConversationOrchestrator.java (`Uni<ConversationOutcome>`), ChannelObserver.java, ChoreographedDriver.java
 **Exploration:** quick
@@ -49,16 +49,24 @@
 
 ## D5: Negotiation observation via ChannelObserver\<NegotiationState\>
 
-**Choice:** Use `ChannelObserver<NegotiationState>` wrapping `NegotiationProjection` to observe negotiation completion. The observer projects state atomically via `AtomicReference`, implements `MessageObserver` for channel-scoped message filtering, and implements `EventSource` for push-based notification. The orchestrator subscribes via `observer.subscribe()` and checks `observer.currentState().outcome().isTerminal()` on each event.
+**Choice:** Use `ChannelObserver<NegotiationState>` wrapping `NegotiationProjection` to observe negotiation completion. The observer projects state atomically via `AtomicReference`, implements `MessageObserver` for channel-scoped message filtering, and implements `EventSource` for push-based notification. The orchestrator subscribes via `observer.subscribe()` and checks `observer.currentState().outcome().isTerminal()` on each event. Registration with the qhorus message dispatch infrastructure is via a constructor-injected `MessageObserverRegistrar` functional interface:
+```java
+@FunctionalInterface
+interface MessageObserverRegistrar {
+    EventSource.Cancellation register(MessageObserver observer);
+}
+```
+The orchestrator calls `registrar.register(observer)` during `propose()`, receiving a `Cancellation` for lifecycle management. The CDI wiring layer (in the consuming application) provides the implementation that plugs the observer into `MessageObserverDispatcher`'s discovery mechanism.
 **Alternatives:**
 - Direct ChannelProjection polling — pull-based, no existing polling support in the platform (channels are push-oriented)
 - NegotiationProtocol (ChannelProtocol) — evaluates on message dispatch, returns `List<DispatchAdvisory>` to the dispatcher, not callbacks to external consumers
 - Custom MessageObserver — reinvents ChannelObserver without the projection management, EventSource integration, or AtomicReference safety
-**Rationale:** ChannelObserver is purpose-built for exactly this pattern. It wraps a projection, maintains state atomically, implements MessageObserver for channel filtering, and pushes events to subscribers. The NegotiationProjection's party set is constructed from the coalition proposal members' `AgentRef.name()` values, ensuring identity consistency with D1's sender contract.
-**Trade-offs:** ChannelObserver supports only one subscriber (throws `IllegalStateException` on duplicate subscription). The formation orchestrator is the sole consumer — correct for this use case. The observer must be registered with the qhorus MessageObserver infrastructure to receive channel messages.
-**Sources:** ChannelObserver.java, NegotiationProjection.java, ChannelObserverIntegrationTest.java, EventSource.java
+- Self-registration via CDI `Instance<MessageObserver>` — impossible; the observer is dynamically created at runtime by a non-CDI class, not CDI-discoverable
+**Rationale:** ChannelObserver is purpose-built for exactly this pattern. It wraps a projection, maintains state atomically, implements MessageObserver for channel filtering, and pushes events to subscribers. The NegotiationProjection's party set is constructed from the coalition proposal members' `AgentRef.name()` values, ensuring identity consistency with D1's sender contract. The `MessageObserverRegistrar` follows the same constructor-injection pattern as the rest of D4's design — the orchestrator doesn't know HOW observers are registered, only that registration returns a `Cancellation`. The registration `Cancellation` is a separate concern from the `ChannelObserver.subscribe()` cancellation — both must be cancelled during cleanup (D3).
+**Trade-offs:** ChannelObserver supports only one subscriber (throws `IllegalStateException` on duplicate subscription). The formation orchestrator is the sole consumer — correct for this use case. The `MessageObserverRegistrar` adds one more constructor parameter. The registrar interface lives in `agency-core` (alongside ChannelObserver) but its implementation lives in the CDI wiring layer.
+**Sources:** ChannelObserver.java, NegotiationProjection.java, ChannelObserverIntegrationTest.java, EventSource.java, MessageObserverDispatcher (qhorus — CDI `Instance<MessageObserver>` discovery)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised
 
 ## D6: Type bridge — CoalitionProposal to GroupLifecycleService
 
@@ -91,18 +99,20 @@
 **Exploration:** quick
 **Status:** captured
 
-## D8: Package location — deliberation.coalition.formation
+## D8: Package and module location — deliberation.coalition.formation in agency-core
 
-**Choice:** `io.casehub.agency.deliberation.coalition.formation`
+**Choice:** Package `io.casehub.agency.deliberation.coalition.formation` in the `agency-core` module. Add `casehub-eidos-org-api` as a `provided`-scope dependency to `agency-core/pom.xml`.
 **Alternatives:**
 - `deliberation.coalition.orchestration` — mirrors `conversation.orchestration` but "formation" is more descriptive of the domain operation
 - `deliberation.formation` — too broad, loses the coalition context (formation could also be top-down, which doesn't go through coalition evaluation)
 - `deliberation.coalition` (flat) — pollutes the coalition package with formation-specific types (FormationResult, FormationOrchestrator)
-**Rationale:** Formation is a specific operation within the coalition domain. The sub-package mirrors `deliberation.conversation.orchestration` but uses the domain-specific term. `agency-core` already depends on `eidos-org-api`, so the `GroupLifecycleService` dependency is not a new module concern.
-**Trade-offs:** Deeper package nesting. Acceptable for domain clarity.
-**Sources:** deliberation.conversation.orchestration (ConversationOrchestrator), deliberation.coalition (CoalitionProposal, CoalitionEvaluator)
+- Place in `agency` module (CDI layer) — wrong: the orchestrator is non-CDI (D4). Placing a plain POJO class in the CDI module because of a dependency concern inverts the layering.
+- New `agency-formation` module — premature: one orchestrator class doesn't justify a new module
+**Rationale:** Formation is a specific operation within the coalition domain. The sub-package mirrors `deliberation.conversation.orchestration` but uses the domain-specific term. `agency-core` currently depends on `casehub-eidos-api` (agent descriptors, capabilities) but NOT on `casehub-eidos-org-api` (organisational structure: formations, groups). Adding `eidos-org-api` at `provided` scope is a new dependency — it introduces organisational model types to agency-core. This is architecturally appropriate because: (a) the coalition domain inherently touches organisational structure (forming groups IS organising agents), (b) `eidos-org-api` is pure POJOs with no framework dependency, consistent with agency-core's "zero CDI, zero Spring" principle, (c) `provided` scope ensures downstream consumers don't transitively inherit the dependency — the same pattern used for `casehub-platform-api`, `casehub-engine-ledger`, and `casehub-neocortex-*` in agency-core's pom.xml.
+**Trade-offs:** Deeper package nesting. The `eidos-org-api` dependency is new and widens agency-core's domain surface. Acceptable: the `provided` scope limits the blast radius, and the coalition-to-organisation bridge is an inherent concern of bottom-up formation.
+**Sources:** agency-core/pom.xml (current dependencies), deliberation.conversation.orchestration (ConversationOrchestrator), deliberation.coalition (CoalitionProposal, CoalitionEvaluator), agentic-yaml/pom.xml (existing `eidos-org-api` consumer in the agency project)
 **Exploration:** quick
-**Status:** captured
+**Status:** revised
 
 ## D9: Idempotent proposal via findOrCreate
 
