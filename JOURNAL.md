@@ -1,1 +1,1 @@
-# Design Journal — issue-125-round-listener-spi
+# Design Journal — issue-416-society-path-maturity
