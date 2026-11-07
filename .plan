@@ -14,6 +14,9 @@ flyway-next-v: none
 ## Queue
 - [x] casehubio/agency#416 — Issue #416
 - [ ] casehubio/agency#417 — FORMING-ACTIVE-transition-via-JointIntention ← active
+  - [ ] Batch 1: Activator
+    - [ ] Task 1: ActivationResult sealed type
+    - [ ] Task 2: FormationActivator with tests
 - [ ] casehubio/agency#418 — HiveTopologyCompiler-deployment-wiring
 - [ ] casehubio/agency#419 — TopologyContext-groupId-tenancyId-consumption
 - [ ] casehubio/agency#420 — selfDetermination-gate-on-BottomUpFormation
