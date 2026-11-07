@@ -1,0 +1,21 @@
+# Work Plan — issue-416-society-path-maturity
+
+## State
+branch: issue-416-society-path-maturity
+state: active
+project-sha: 
+date: 
+issue-repo: casehubio/agency
+covers: 416
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
+
+## Queue
+- [ ] casehubio/agency#416 — Issue #416 ← active
+- [ ] casehubio/agency#417 — FORMING-ACTIVE-transition-via-JointIntention
+- [ ] casehubio/agency#418 — HiveTopologyCompiler-deployment-wiring
+- [ ] casehubio/agency#419 — TopologyContext-groupId-tenancyId-consumption
+- [ ] casehubio/agency#420 — selfDetermination-gate-on-BottomUpFormation
+- [ ] casehubio/agency#421 — Role-incompatibility-field-on-RolePolicySpec
+- [ ] casehubio/agency#422 — PatternCompiler-resolveTopology-dead-code-cleanup
