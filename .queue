@@ -14,11 +14,8 @@ flyway-next-v: none
 ## Queue
 - [x] casehubio/agency#416 — Issue #416
 - [x] casehubio/agency#417 — FORMING-ACTIVE-transition-via-JointIntention
-- [ ] casehubio/agency#418 — HiveTopologyCompiler-deployment-wiring ← active
-  - [ ] Batch 1: Deployment
-    - [ ] Task 1: TopologyBuildItem + extraction with test
-    - [ ] Task 2: Recorder + registration build step
-- [ ] casehubio/agency#419 — TopologyContext-groupId-tenancyId-consumption
+- [x] casehubio/agency#418 — HiveTopologyCompiler-deployment-wiring
+- [ ] casehubio/agency#419 — TopologyContext-groupId-tenancyId-consumption ← active
 - [ ] casehubio/agency#420 — selfDetermination-gate-on-BottomUpFormation
 - [ ] casehubio/agency#421 — Role-incompatibility-field-on-RolePolicySpec
 - [ ] casehubio/agency#422 — PatternCompiler-resolveTopology-dead-code-cleanup
