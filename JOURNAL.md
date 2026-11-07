@@ -1,1 +1,1 @@
-# Design Journal — issue-416-society-path-maturity
+# Design Journal — issue-376-wire-member-provisioning-events
