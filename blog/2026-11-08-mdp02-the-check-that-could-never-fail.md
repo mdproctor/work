@@ -76,4 +76,4 @@ The interesting thing about these bugs is that they're invisible to component te
 
 I think of these as composition bugs. They emerge from the interaction between components, not from any single component's behaviour. They survive code review because each line looks correct. They survive component tests because each unit produces correct output for its inputs. They only surface when you test the system as its consumer uses it: build a topology, register swarms, publish contradictory findings, check what comes out.
 
-The fix for the conflict detection was six lines. The fix for the escalation gate was twelve. The behavioral tests that caught them took a day to write. The component tests that missed them have been green for weeks.
+The fix for the conflict detection was six lines. The fix for the escalation gate was twelve. The behavioral tests that caught them took a day to write. The component tests that missed them have been green for weeks.I
