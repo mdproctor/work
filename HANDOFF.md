@@ -2,34 +2,35 @@
 
 ## Last Session
 
-Completed agency#365 — wired engine EvolutionTicker into the cognitive agent's tick cycle. Four new types in `io.casehub.agency.social.cognition.evolution`: `EvolutionTickBridge` (@FunctionalInterface SPI), `CognitiveEvolutionConfig` (curiosity thresholds), `CircuitBreakerMoodMapper` (TickTrace gate → MoodSignal.DirectShift), `CognitiveEvolutionAdapter` (composition root with CURIOSITY-modulated tick frequency). `CognitionAvatarAdapter` gained a backward-compatible four-arg constructor that calls the adapter after `core.tick()`. 15 tests, landed as `af4d1947` on main, issue closed.
+Implemented #423 — 24 behavioral e2e tests for multi-swarm coordination across
+6 scenarios (consumer setup, signal lifecycle, convergence, dynamic membership,
+strategy switching, error paths). Exercises public API only. Landed on main as
+`6c865717`, issue closed.
 
-Also completed agency#366 — prompt optimisation as an evolution loop participant. Five new types in `io.casehub.agency.optimisation.prompt.evolution`. Landed as `6181a111`.
+Key finding: AGM belief revision makes CONFLICT notifications and escalation
+gates dead code. `revise()` restores consistency by construction — the
+post-revision check can never fire. BJT scoring sensitive to Jaccard overlap
+below ~0.33 (tests use high-overlap capabilities). Pre-existing dependency fix:
+`casehub-neocortex-inference-bayes` needed rebuild for `getInstanceSnapshot()`.
 
-Filed agency#367 — memory hygiene as the second evolution loop participant. Builds directly on #365 and #366.
+Started #424 (multi-swarm review findings — 12 findings epic). Branch created,
+no implementation yet.
 
-Published 4 blog entries (2 from Oct 25, 2 from Oct 26) to personal-notes and casehub-notes.
+## Queue Repair Needed
 
-## Immediate Next Step
+`.queue` was reset during #424 start. Shows #376/#361/#363 as unchecked — all
+done. #423/#424 missing. Fix: check off completed items, add #424 as active.
 
-Start agency#367 — wire `MemoryHygieneOrchestrator` as an evolution loop participant. Follow the pattern established by `PromptOptimisationProposalSource` (#366). New types needed:
-- `ImprovementProposalSource` impl proposing retention/consolidation/scoring adjustments
-- `RegressionEvaluator` impl monitoring memory quality metrics
-- `ImprovementCategoryProvider` for memory-hygiene tuning category
-- Wiring into `MemoryHygieneScheduler.maintain()` tick
+## Active Branch
 
-Run `work start #367` to begin.
-
-## Cross-Module
-
-- **engine#1259** — SwarmCoordinationListener impl needed for real lifecycle events (blocks full swarm event flow)
-- **connectors#188** — `SherpaVoicePlatform` adapter added to `speech-sherpa` (commit `b743520b` on main). Bridges agency `SpeechToTextService`/`TextToSpeechService` to connectors `VoicePlatform` SPI. Depends on `casehub-connectors-voice-spi` 0.4-SNAPSHOT.
+`issue-424-multi-swarm-review-findings` — project and workspace.
 
 ## References
 
-- New package: `agency-core/.../social/cognition/evolution/` (#365 — landed)
-- New package: `agency-core/.../optimisation/prompt/evolution/` (#366 — pattern to follow for #367)
-- `MemoryHygieneOrchestrator` — `agency-core/.../social/memory/`
-- `MemoryHygieneScheduler` — `agency-core/.../social/memory/`
-- Engine evolution SPIs: `ImprovementProposalSource`, `RegressionEvaluator`, `ImprovementCategoryProvider` — `engine-api`
-- Engine evolution: `engine/runtime-core/.../improvement/EvolutionTicker.java`
+| Artifact | Path |
+|----------|------|
+| Behavioral tests | `agency-core/src/test/.../multiswarm/MultiSwarmBehavioralTest.java` |
+| Design spec | `specs/issue-423-behavioral-e2e-multi-swarm/2026-11-08-*-design.md` |
+| Blog | `blog/2026-11-08-mdp01-when-all-the-tests-pass-and-half-the-system-is-dead.md` |
+| Plan | `plans/2026-11-08-behavioral-e2e-multi-swarm.md` |
+| Issue #424 body | 12 findings: F1 pipeline wiring, F2 concurrency, F3 lifecycle, F4-F12 quality |
