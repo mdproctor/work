@@ -26,9 +26,14 @@ A `BudgetGatedConflictMediator` decorator composes them.
 ```java
 @FunctionalInterface
 public interface ConflictMediator {
-    CompletionStage<MediationResult> mediate(ConflictContext context);
+    MediationResult mediate(ConflictContext context);
 }
 ```
+
+**Synchronous by design:** `StructuredAgentInvoker` methods (`invokeRaw`,
+`invokeText`, `invoke`) are synchronous — they block internally on the Mutiny
+stream and return results directly. The SPI follows this convention. Callers
+that need async execution use `CompletableFuture.supplyAsync()` externally.
 
 The SPI is intentionally simple — a future channel-based mediator (backed by
 `NegotiationProtocol`) implements the same interface, replacing the one-shot
@@ -114,10 +119,14 @@ public class LlmConflictMediator implements ConflictMediator {
     private final AgentProvider agentProvider;
 
     @Override
-    public CompletionStage<MediationResult> mediate(ConflictContext context) {
-        var prompt = buildPrompt(context);
-        var result = StructuredAgentInvoker.invokeRaw(agentProvider, prompt);
-        return result.thenApply(this::parseResult);
+    public MediationResult mediate(ConflictContext context) {
+        var config = buildPrompt(context);
+        var result = StructuredAgentInvoker.invokeRaw(agentProvider, config);
+        return switch (result) {
+            case InvocationResult.Success<JsonNode> s -> parseResolution(s.value(), context);
+            case InvocationResult.ParseError<JsonNode> p -> throw new MediationException(p.parseError());
+            case InvocationResult.AgentError<JsonNode> e -> throw new MediationException(e.reason());
+        };
     }
 }
 ```
@@ -143,8 +152,8 @@ public class LlmConflictMediator implements ConflictMediator {
   Should the handoff proceed? {proceed, modifications, justification}."
 
 **Error handling:** Any LLM invocation error (parse failure, timeout, refusal)
-returns a failed `CompletionStage` — the `BudgetGatedConflictMediator` catches
-this and falls back to heuristic.
+throws `MediationException` (unchecked) — the `BudgetGatedConflictMediator`
+catches this and falls back to heuristic.
 
 ### HeuristicConflictMediator
 
@@ -152,15 +161,16 @@ Implements the spec's fallback table. No LLM calls. Deterministic.
 
 ```java
 public class HeuristicConflictMediator implements ConflictMediator {
+    private final ConcurrentHashMap<String, AtomicInteger> handoffAttempts = new ConcurrentHashMap<>();
+
     @Override
-    public CompletionStage<MediationResult> mediate(ConflictContext context) {
-        var result = switch (context.notification().type()) {
-            case CONFLICT       -> resolveConflictHeuristic(context);
+    public MediationResult mediate(ConflictContext context) {
+        return switch (context.notification().type()) {
+            case CONFLICT            -> resolveConflictHeuristic(context);
             case RESOURCE_CONTENTION -> resolveResourceHeuristic(context);
-            case DEPENDENCY     -> resolveDependencyHeuristic(context);
-            case HANDOFF        -> resolveHandoffHeuristic(context);
+            case DEPENDENCY          -> resolveDependencyHeuristic(context);
+            case HANDOFF             -> resolveHandoffHeuristic(context);
         };
-        return CompletableFuture.completedFuture(result);
     }
 }
 ```
@@ -170,7 +180,7 @@ public class HeuristicConflictMediator implements ConflictMediator {
 | `resolveConflictHeuristic` | Both conclusions retained. Add metadata `disputed=true` to both beliefs. Create notification to both swarms with DISPUTED status. Return `FallbackApplied("disputed_tag")`. |
 | `resolveResourceHeuristic` | Compare `resourceClaims` timestamps or arrival order — first claimer wins. Notify losing swarm with remaining capabilities. Return `FallbackApplied("first_claimer_wins")`. |
 | `resolveDependencyHeuristic` | Compare `SwarmProgress.consensusScore()` — defer to higher score. Lower-scoring swarm receives decision as external constraint via notification. Return `FallbackApplied("consensus_delegation")`. |
-| `resolveHandoffHeuristic` | If handoff notification has `confidence > 0.5`, accept handoff as-is. Otherwise return `Escalated("handoff_low_confidence")`. |
+| `resolveHandoffHeuristic` | Track attempt count per handoff (keyed by source+domain). Retry with exponential backoff on low-confidence matches. After 3 failures, return `Escalated("handoff_blocked")` with notification to both swarms. Uses `ConcurrentHashMap<String, AtomicInteger>` for stateful tracking. |
 
 ### BudgetGatedConflictMediator
 
@@ -180,20 +190,36 @@ Decorator composing LLM + heuristic.
 public class BudgetGatedConflictMediator implements ConflictMediator {
     private final ConflictMediator primary;      // LlmConflictMediator
     private final ConflictMediator fallback;     // HeuristicConflictMediator
-    private final AutonomyBudgetPool budgetPool;
-    private final String agentId;
+    private volatile @Nullable AgentBudgetView budgetView;
+
+    void bindPool(AutonomyBudgetPool pool) {
+        this.budgetView = pool.createView("l3-mediator", BudgetPriority.RESERVED);
+    }
 
     @Override
-    public CompletionStage<MediationResult> mediate(ConflictContext context) {
-        var grant = budgetPool.acquire(agentId, BudgetPriority.RESERVED, 1);
+    public MediationResult mediate(ConflictContext context) {
+        var view = this.budgetView;
+        if (view == null) return fallback.mediate(context);
+
+        var grant = view.tryAcquire();
         return switch (grant) {
-            case BudgetGrant.Granted g -> primary.mediate(context)
-                    .exceptionally(error -> fallbackWith(context, error));
+            case BudgetGrant.Granted g -> {
+                try {
+                    yield primary.mediate(context);
+                } catch (Exception e) {
+                    yield fallback.mediate(context);
+                }
+            }
             case BudgetGrant.Denied d  -> fallback.mediate(context);
         };
     }
 }
 ```
+
+Uses `AgentBudgetView` (created via `pool.createView()`) for per-agent
+call/token tracking. The view is bound via `bindPool()` when `configure()`
+creates the `AutonomyBudgetPool`. Before binding, all mediation falls back
+to heuristic (safe default).
 
 **Budget priority:** `RESERVED` — consistent with the meta-coordinator's
 priority level (spec §MultiSwarmTopology.configure).
@@ -256,18 +282,17 @@ private void processResourceClaim(MultiSwarmSignal.ResourceClaim claim) {
 ### Conflict resolution method
 
 ```java
-public CompletionStage<List<MediationResult>> resolveConflicts() {
-    if (conflictMediator == null) return CompletableFuture.completedFuture(List.of());
+public List<MediationResult> resolveConflicts() {
+    if (conflictMediator == null) return List.of();
 
-    var contexts = new ArrayList<ConflictContext>();
+    var results = new ArrayList<MediationResult>();
     ConflictContext ctx;
     while ((ctx = pendingConflicts.poll()) != null) {
-        contexts.add(ctx);
+        var result = conflictMediator.mediate(ctx);
+        applyResult(result);  // update BeliefSet, forward notifications
+        results.add(result);
     }
-    if (contexts.isEmpty()) return CompletableFuture.completedFuture(List.of());
-
-    // Process sequentially — each resolution may affect BeliefSet for the next
-    return processSequentially(contexts);
+    return List.copyOf(results);
 }
 ```
 
@@ -337,7 +362,7 @@ do {
 
 | Failure | Behaviour |
 |---------|-----------|
-| LLM parse error | `BudgetGatedConflictMediator.exceptionally()` → heuristic |
+| LLM parse error | `LlmConflictMediator` throws `MediationException` → `BudgetGatedConflictMediator` catches → heuristic |
 | LLM timeout | Same as parse error |
 | Budget denied | `BudgetGrant.Denied` → heuristic directly |
 | Heuristic error | Log + `MediationResult.Escalated` |
@@ -371,6 +396,7 @@ do {
 | `LlmConflictMediator` | `multiswarm` | LLM-backed via StructuredAgentInvoker |
 | `HeuristicConflictMediator` | `multiswarm` | Deterministic fallback table |
 | `BudgetGatedConflictMediator` | `multiswarm` | Decorator: LLM → heuristic |
+| `MediationException` | `multiswarm` | Unchecked exception for LLM invocation failures |
 
 ## Changes to Existing Types
 
