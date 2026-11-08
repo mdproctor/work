@@ -1,7 +1,7 @@
 # Work Plan — issue-376-wire-member-provisioning-events
 
 ## State
-branch: issue-424-multi-swarm-review-findings
+branch: 
 status: active
 project-sha: 
 date: 
@@ -12,6 +12,8 @@ design-section-hashes:
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/agency#376 — Issue #376 ← active
-- [ ] casehubio/agency#361 — distributed-per-agent-LLM-coordination
-- [ ] casehubio/agency#363 — multi-swarm-coordination
+- [x] casehubio/agency#376 — Issue #376
+- [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
+- [x] casehubio/agency#363 — multi-swarm-coordination
+- [ ] casehubio/agency#441 — fix-conflict-notifications ← active
+- [ ] casehubio/agency#442 — fix-escalation-gate-inputs
