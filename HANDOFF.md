@@ -2,35 +2,31 @@
 
 ## Last Session
 
-Implemented #423 — 24 behavioral e2e tests for multi-swarm coordination across
-6 scenarios (consumer setup, signal lifecycle, convergence, dynamic membership,
-strategy switching, error paths). Exercises public API only. Landed on main as
-`6c865717`, issue closed.
+Fixed two multi-swarm coordination bugs from the #424 findings epic:
 
-Key finding: AGM belief revision makes CONFLICT notifications and escalation
-gates dead code. `revise()` restores consistency by construction — the
-post-revision check can never fire. BJT scoring sensitive to Jaccard overlap
-below ~0.33 (tests use high-overlap capabilities). Pre-existing dependency fix:
-`casehub-neocortex-inference-bayes` needed rebuild for `getInstanceSnapshot()`.
+**#441 — CONFLICT notifications never produced.** The consistency check
+in `processL2Finding()` was after `BeliefSet.revise()`, which restores
+consistency by construction. Moved the check to before revision using
+`expand()` to detect contradictions, then revise unconditionally. Landed
+as `6593768f`.
 
-Started #424 (multi-swarm review findings — 12 findings epic). Branch created,
-no implementation yet.
+**#442 — Escalation gate inputs always zero.** `ResourceClaim` signals
+were received but not processed (empty match arm), and
+`resourceContention` was hardcoded to `0.0`. Now tracks per-swarm
+resource claims and computes Jaccard overlap as contention input.
+Combined with #441, all three gate inputs are live. Landed as
+`a7aa8638`.
 
-## Queue Repair Needed
-
-`.queue` was reset during #424 start. Shows #376/#361/#363 as unchecked — all
-done. #423/#424 missing. Fix: check off completed items, add #424 as active.
+Queue (#441, #442) drained. Epic complete.
 
 ## Active Branch
 
 `issue-424-multi-swarm-review-findings` — project and workspace.
+Ready for `work end`.
 
 ## References
 
 | Artifact | Path |
 |----------|------|
 | Behavioral tests | `agency-core/src/test/.../multiswarm/MultiSwarmBehavioralTest.java` |
-| Design spec | `specs/issue-423-behavioral-e2e-multi-swarm/2026-11-08-*-design.md` |
-| Blog | `blog/2026-11-08-mdp01-when-all-the-tests-pass-and-half-the-system-is-dead.md` |
-| Plan | `plans/2026-11-08-behavioral-e2e-multi-swarm.md` |
-| Issue #424 body | 12 findings: F1 pipeline wiring, F2 concurrency, F3 lifecycle, F4-F12 quality |
+| MultiSwarmTopology | `agency-core/src/main/.../multiswarm/MultiSwarmTopology.java` |

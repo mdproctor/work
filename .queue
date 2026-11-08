@@ -15,5 +15,5 @@ flyway-next-v: none
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
-- [ ] casehubio/agency#441 — fix-conflict-notifications ← active
-- [ ] casehubio/agency#442 — fix-escalation-gate-inputs
+- [x] casehubio/agency#441 — fix-conflict-notifications
+- [x] casehubio/agency#442 — fix-escalation-gate-inputs
