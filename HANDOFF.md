@@ -2,31 +2,29 @@
 
 ## Last Session
 
-Fixed two multi-swarm coordination bugs from the #424 findings epic:
-
-**#441 — CONFLICT notifications never produced.** The consistency check
-in `processL2Finding()` was after `BeliefSet.revise()`, which restores
-consistency by construction. Moved the check to before revision using
-`expand()` to detect contradictions, then revise unconditionally. Landed
-as `6593768f`.
-
-**#442 — Escalation gate inputs always zero.** `ResourceClaim` signals
-were received but not processed (empty match arm), and
-`resourceContention` was hardcoded to `0.0`. Now tracks per-swarm
-resource claims and computes Jaccard overlap as contention input.
-Combined with #441, all three gate inputs are live. Landed as
-`a7aa8638`.
-
-Queue (#441, #442) drained. Epic complete.
+Closed branch `issue-424-multi-swarm-review-findings`. All work landed
+on main (#441, #442 fixes). Blog artifacts promoted. Issues closed.
 
 ## Active Branch
 
-`issue-424-multi-swarm-review-findings` — project and workspace.
-Ready for `work end`.
+`issue-443-process-completion-handoff-signals` — starting now.
+
+**Issue #443:** `MultiSwarmTopology.processSignal()` has empty match
+arms for `Completion` and `Handoff` signals. Need to:
+- Track completed domains, skip escalation for them, feed into convergence
+- Route handoffs to capable swarms, produce HANDOFF notifications, transfer context
+
+## Queue (epic #364)
+
+- [x] #376, #361, #363, #441, #442
+- [ ] **#443** — process Completion and Handoff signals (active)
+- [ ] #439 — VocabularyRegistry ConsistencyChecker
+- [ ] #438 — L3 LLM-mediated conflict resolution
+- [ ] #440 — counterfactual learning multi-swarm
 
 ## References
 
 | Artifact | Path |
 |----------|------|
-| Behavioral tests | `agency-core/src/test/.../multiswarm/MultiSwarmBehavioralTest.java` |
 | MultiSwarmTopology | `agency-core/src/main/.../multiswarm/MultiSwarmTopology.java` |
+| Behavioral tests | `agency-core/src/test/.../multiswarm/MultiSwarmBehavioralTest.java` |
