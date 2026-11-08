@@ -1,15 +1,15 @@
-# Work Plan — issue-376-wire-member-provisioning-events
+# Work Plan — issue-424-multi-swarm-review-findings
 
 ## State
-branch: issue-376-wire-member-provisioning-events
-state: active
+branch: issue-424-multi-swarm-review-findings
+state: scaffolded
 project-sha: 
 date: 
 issue-repo: casehubio/agency
-covers: 376
+covers: 364
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/agency#376 — Issue #376 ← active
+- [ ] casehubio/agency#424 — Issue #424 ← active

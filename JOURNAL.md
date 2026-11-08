@@ -1,1 +1,1 @@
-# Design Journal — issue-376-wire-member-provisioning-events
+# Design Journal — issue-424-multi-swarm-review-findings
