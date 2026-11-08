@@ -17,3 +17,7 @@ flyway-next-v: none
 - [x] casehubio/agency#363 — multi-swarm-coordination
 - [x] casehubio/agency#441 — fix-conflict-notifications
 - [x] casehubio/agency#442 — fix-escalation-gate-inputs
+- [ ] casehubio/agency#443 — process-Completion-and-Handoff-signals
+- [ ] casehubio/agency#439 — VocabularyRegistry-ConsistencyChecker
+- [ ] casehubio/agency#438 — L3-LLM-mediated-conflict-resolution
+- [ ] casehubio/agency#440 — counterfactual-learning-multi-swarm
