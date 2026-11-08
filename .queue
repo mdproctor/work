@@ -20,4 +20,12 @@ flyway-next-v: none
 - [x] casehubio/agency#443 — process-Completion-and-Handoff-signals
 - [x] casehubio/agency#439 — VocabularyRegistry-ConsistencyChecker
 - [ ] casehubio/agency#438 — L3-LLM-mediated-conflict-resolution ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: SPI-types
+    - [ ] Task 2: HeuristicMediator
+  - [ ] Batch 2: LLM-Budget
+    - [ ] Task 3: LlmMediator
+    - [ ] Task 4: BudgetGatedMediator
+  - [ ] Batch 3: Integration
+    - [ ] Task 5: TopologyWiring
 - [ ] casehubio/agency#440 — counterfactual-learning-multi-swarm
