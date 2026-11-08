@@ -1,8 +1,12 @@
 ---
-title: The Signals Nobody Handled
+layout: post
+title: "The Signals Nobody Handled"
 date: 2026-11-08
 sequence: mdp03
-tags: [multi-agent, coordination, signal-processing, domain-lifecycle]
+entry_type: article
+subtype: explanation
+projects: [casehubio/agency]
+tags: [multi-agent, coordination, signal-processing, domain-lifecycle, multi-swarm, exhaustive-matching]
 ---
 
 # The Signals Nobody Handled
