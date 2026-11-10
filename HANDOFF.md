@@ -2,15 +2,20 @@
 
 ## Last Session
 
-Migrated speech-sherpa from agency to connectors voice-sherpa (connectors#204,
-agency#446). 133 Java files + 5 native modules moved. Both landed on main,
-issues closed. Filed agency#447 (cognitive code migration to neocortex),
-agency#448 (speech-demo LLM modernisation).
+Working on agency#454 epic (avatar speech pipeline — production-ready).
+Started child issue #451 (Qwen3-TTS multi-voice server).
 
-Patched CuriosityDrive constructor in AgencyBeans.java for neocortex API
-change (#447) — placeholder, proper fix needs cognitive migration.
+### Connectors repo commits (on main)
 
-Blog written: `docs/blog/2026-11-10-mdp01-the-code-that-lived-in-the-wrong-repo.md`
+- `ba445d18` — feat: add Qwen3VoicePool — pooled multi-voice .qvoice server
+  management. New files: `Qwen3VoicePool.java`, `Qwen3VoicePoolConfig.java`,
+  `Qwen3ClonedVoice.java`. Modified: `Qwen3TextToSpeech.java` (null speaker
+  handling). Tests: `Qwen3VoicePoolTest.java` (8 tests).
+
+### Agency repo (branch: issue-451-qwen3-tts-multi-voice-server)
+
+- `86c262bc` — feat: register Qwen3-TTS cloned voices from voice pool in demo.
+  Modified: `SpeechProducers.java` (added cloned voice pool registration).
 
 ## Next Session — connectors voice work
 
