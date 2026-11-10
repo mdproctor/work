@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-438-l3-conflict-resolution
+branch: issue-451-qwen3-tts-multi-voice-server
 issue-repo: casehubio/agency
 status: active
-covers: 364
+covers: 451
 project-sha: 
 date: 
 design-repo: 
@@ -19,13 +19,10 @@ flyway-next-v: none
 - [x] casehubio/agency#442 — fix-escalation-gate-inputs
 - [x] casehubio/agency#443 — process-Completion-and-Handoff-signals
 - [x] casehubio/agency#439 — VocabularyRegistry-ConsistencyChecker
-- [ ] casehubio/agency#438 — L3-LLM-mediated-conflict-resolution ← active
-  - [x] Batch 1: Foundation
-    - [x] Task 1: SPI-types
-    - [x] Task 2: HeuristicMediator
-  - [x] Batch 2: LLM-Budget
-    - [x] Task 3: LlmMediator
-    - [x] Task 4: BudgetGatedMediator
-  - [x] Batch 3: Integration
-    - [x] Task 5: TopologyWiring
-- [ ] casehubio/agency#440 — counterfactual-learning-multi-swarm
+- [x] casehubio/agency#438 — L3-LLM-mediated-conflict-resolution
+- [x] casehubio/agency#440 — counterfactual-learning-multi-swarm
+- [ ] casehubio/agency#451 — Qwen3-TTS-multi-voice-server ← active
+- [ ] casehubio/agency#453 — Panama-FFM-shared-library-integration
+- [ ] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
+- [ ] casehubio/agency#452 — Kokoro-voice-distillation
+- [ ] casehubio/agency#449 — Avatar-reusable-mosaic-component
