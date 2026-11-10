@@ -1,7 +1,7 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-451-qwen3-tts-multi-voice-server
+branch: 
 issue-repo: casehubio/agency
 status: active
 covers: 451
@@ -21,13 +21,8 @@ flyway-next-v: none
 - [x] casehubio/agency#439 — VocabularyRegistry-ConsistencyChecker
 - [x] casehubio/agency#438 — L3-LLM-mediated-conflict-resolution
 - [x] casehubio/agency#440 — counterfactual-learning-multi-swarm
-- [ ] casehubio/agency#451 — Qwen3-TTS-multi-voice-server ← active
-  - [x] Batch 1: VoicePool
-    - [x] Task 1: Qwen3VoicePool-core
-    - [x] Task 2: Qwen3ClonedVoice-delegate
-  - [x] Batch 2: DemoIntegration
-    - [x] Task 3: Register-cloned-voices
-- [ ] casehubio/agency#453 — Panama-FFM-shared-library-integration
+- [x] casehubio/agency#451 — Qwen3-TTS-multi-voice-server
+- [ ] casehubio/agency#453 — Panama-FFM-shared-library-integration ← active
 - [ ] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
 - [ ] casehubio/agency#452 — Kokoro-voice-distillation
 - [ ] casehubio/agency#449 — Avatar-reusable-mosaic-component
