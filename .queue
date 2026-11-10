@@ -22,6 +22,11 @@ flyway-next-v: none
 - [x] casehubio/agency#438 — L3-LLM-mediated-conflict-resolution
 - [x] casehubio/agency#440 — counterfactual-learning-multi-swarm
 - [ ] casehubio/agency#451 — Qwen3-TTS-multi-voice-server ← active
+  - [ ] Batch 1: VoicePool
+    - [ ] Task 1: Qwen3VoicePool-core
+    - [ ] Task 2: Qwen3ClonedVoice-delegate
+  - [ ] Batch 2: DemoIntegration
+    - [ ] Task 3: Register-cloned-voices
 - [ ] casehubio/agency#453 — Panama-FFM-shared-library-integration
 - [ ] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
 - [ ] casehubio/agency#452 — Kokoro-voice-distillation
