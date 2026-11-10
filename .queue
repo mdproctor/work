@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: 
+branch: issue-453-panama-ffm-shared-library-integration
 issue-repo: casehubio/agency
 status: active
-covers: 451
+covers: 453
 project-sha: 
 date: 
 design-repo: 
@@ -23,6 +23,16 @@ flyway-next-v: none
 - [x] casehubio/agency#440 — counterfactual-learning-multi-swarm
 - [x] casehubio/agency#451 — Qwen3-TTS-multi-voice-server
 - [ ] casehubio/agency#453 — Panama-FFM-shared-library-integration ← active
+  - [ ] Batch 1: FFM Foundation
+    - [ ] Task 1: Qwen3Layouts struct offsets
+    - [ ] Task 2: Qwen3Library FFM binding
+  - [ ] Batch 2: Provisioner
+    - [ ] Task 3: Shared lib + GGUF provisioning
+  - [ ] Batch 3: TTS Rewrite
+    - [ ] Task 4: Rewrite Qwen3TextToSpeech
+    - [ ] Task 5: Simplify VoicePool + ClonedVoice
+  - [ ] Batch 4: Consumer
+    - [ ] Task 6: Update speech-demo
 - [ ] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
 - [ ] casehubio/agency#452 — Kokoro-voice-distillation
 - [ ] casehubio/agency#449 — Avatar-reusable-mosaic-component
