@@ -52,3 +52,5 @@ health_check=done
 load_context_attempt=1
 load_context=done
 load_context_produced=0
+_exec_ok:sync_queue_branch=yes
+sync_queue_branch=done

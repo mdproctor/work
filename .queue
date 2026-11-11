@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-450-mixamo-avatar-animation
+branch: issue-455-cc0-motion-base-tagged-animation-library
 issue-repo: casehubio/agency
 status: active
-covers: 450
+covers: 455
 project-sha: 
 date: 
 design-repo: 
@@ -24,12 +24,6 @@ flyway-next-v: none
 - [x] casehubio/agency#451 — Qwen3-TTS-multi-voice-server
 - [x] casehubio/agency#453 — Panama-FFM-shared-library-integration
 - [x] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
-- [ ] casehubio/agency#452 — Kokoro-voice-distillation ← active
-  - [x] Batch 1: Protocol
-    - [x] Task 1: Add AvatarMessage.Animation + MessageCodec
-  - [x] Batch 2: Resources
-    - [x] Task 2: Source and bundle Mixamo FBX animations
-  - [x] Batch 3: Client
-    - [x] Task 3: Replace playGesture with Mixamo animation system
-- [ ] casehubio/agency#449 — Avatar-reusable-mosaic-component
-- [ ] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
+- [x] casehubio/agency#452 — Kokoro-voice-distillation
+- [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
+- [ ] casehubio/agency#455 — CC0-motion-base-tagged-animation-library ← active
