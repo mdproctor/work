@@ -25,10 +25,10 @@ flyway-next-v: none
 - [x] casehubio/agency#453 — Panama-FFM-shared-library-integration
 - [x] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
 - [ ] casehubio/agency#452 — Kokoro-voice-distillation ← active
-  - [ ] Batch 1: Protocol
-    - [ ] Task 1: Add AvatarMessage.Animation + MessageCodec
-  - [ ] Batch 2: Resources
-    - [ ] Task 2: Source and bundle Mixamo FBX animations
-  - [ ] Batch 3: Client
-    - [ ] Task 3: Replace playGesture with Mixamo animation system
+  - [x] Batch 1: Protocol
+    - [x] Task 1: Add AvatarMessage.Animation + MessageCodec
+  - [x] Batch 2: Resources
+    - [x] Task 2: Source and bundle Mixamo FBX animations
+  - [x] Batch 3: Client
+    - [x] Task 3: Replace playGesture with Mixamo animation system
 - [ ] casehubio/agency#449 — Avatar-reusable-mosaic-component
