@@ -12,3 +12,4 @@ workspace_coherence:
 workspace_robustness:
 workspace_crosscutting:
 workspace_decision:
+note: UniMate spike complete — generates valid Mixamo skeleton motion from text prompts. Next: convert .npy output to GLB animation for avatar playback.
