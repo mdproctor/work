@@ -2,79 +2,64 @@
 
 ## Last Session
 
-Completed agency#451 (Qwen3-TTS multi-voice server) from epic #454.
-Issue closed and landed on main.
+Completed agency#450 (Richer avatar body animation via Mixamo FBX).
+Issue closed and landed on main. CC0 motion base work begun, tracked in #455.
 
 ### What was built
 
-**Qwen3VoicePool** — pooled multi-voice .qvoice server management in
-connectors-voice-sherpa. The `qwen_tts` binary only loads one .qvoice
-per server instance, so the pool manages multiple server processes with
-LRU eviction (max 3 active, ~850MB each). Voices start lazily on first
-request (~2s cold start).
+**Animation system** — full body animation pipeline for the speech demo avatar:
+- `AvatarMessage.Animation` sealed record in speech-ws protocol (server-side animation cues)
+- Client-side keyword classifier replaces 3 `playGesture` calls with 10-category animation system
+- Context-dependent layering — body animations play alongside lip-sync visemes, exclusive flag for full-body animations
+- Idle animation loop with 5-8s jitter
+- Animation picker UI for manual triggering
+- Animation state reset after playback (`setTimeout` to clear `currentAnimation` and `animationExclusive`)
 
-Key classes (all in `connectors-voice-sherpa`):
-- `Qwen3VoicePool` — pool manager with LRU eviction, health recovery
-- `Qwen3VoicePoolConfig` — config record (voiceDir, modelVariant, maxActive, basePort)
-- `Qwen3ClonedVoice` — `StreamingTextToSpeech` delegate to pool
-- `Qwen3TextToSpeech` — fixed null speaker handling for cloned voices
+**CC0 animation sourcing (in progress → #455):**
+- Mesh2Motion (mesh2motion.org) identified as primary CC0 source — 178 animations, CC0 1.0 / MIT
+- 24 conversational animations selected and downloaded via their retarget tool
+- Retarget bone roll bug: arms contorted on Mixamo-rigged avatars — filed as Mesh2Motion/mesh2motion-app#159
+- `@three-ws/retarget` npm library bundled (retarget.mjs) for runtime bone correction — partially working
+- cc0-preview.html wired up for testing all 24 CC0 animations
+- UniMate (text-to-motion) identified as alternative path — cloned at /tmp/unimate, miniconda installed
 
-Demo integration: `SpeechProducers.java` creates a pool and registers
-all discovered voices as `qwen3:clone:<name>`. HTML dropdown updated
-with 10 cloned voice options.
+**Taxonomy defined for #455:**
+- 23 animations across 11 categories with 3 emotional registers (composed/warm/enthusiastic)
+- Sub-categories needed: e.g., agreement-enthusiastic vs agreement-reluctant vs agreement-neutral
+- Context tags per animation (children, formal, clinical, casual, etc.)
 
-### Connectors repo commits (on main)
+### Key files changed
 
-- `ba445d18` — feat: add Qwen3VoicePool
-- `a33dae03` — fix: use 'clone' label in log messages
+| File | What |
+|------|------|
+| `speech-ws/.../AvatarMessage.java` | Added `Animation` record |
+| `speech-ws/.../MessageCodec.java` | Encode for Animation |
+| `speech-demo/.../index.html` | Animation system (classifier, idle loop, picker, layering) |
+| `speech-demo/.../animations/cc0-animations.glb` | Mesh2Motion CC0 retargeted GLB (24 clips, bone roll issue) |
+| `speech-demo/.../animations/cc0-animations-v2.glb` | Same with different correction attempt |
+| `speech-demo/.../animations/retarget.mjs` | Bundled @three-ws/retarget |
+| `speech-demo/.../cc0-preview.html` | Preview page for CC0 animations |
+| `speech-demo/.../animations/convert-blend-to-glb.py` | Blender batch conversion script |
 
-### Agency repo (landed on main)
+### What's next — #455 CC0 motion base
 
-- `e9856366` — feat: register cloned voices from voice pool in demo
-- `45fab5a1` — feat: add cloned voice options to demo dropdown
+Two viable paths (try in order):
 
-### Next session — #453 Panama/FFM shared library integration
+1. **Wait for Mesh2Motion fix** — mesh2motion-app#159 filed. If Scott fixes the Mixamo retarget bone roll, re-download and it should work.
 
-This is L scale / High complexity. Replace the HTTP subprocess
-architecture in `Qwen3TextToSpeech` with native FFM/Panama bindings
-to the `qwen_tts` C library. The binary's help output and API
-endpoints are documented in the spec at
-`specs/issue-451-qwen3-tts-multi-voice-server/`.
+2. **UniMate offline generation** — generate animations directly on Mixamo skeleton from text prompts. No retargeting needed.
+   - Repo cloned at `/tmp/unimate`
+   - Miniconda installed, conda env `unimate` created with Python 3.10
+   - PyTorch CPU installed (no CUDA on macOS — MPS might work)
+   - Still needs: remaining deps (`pip install -r requirements.txt` modified for non-CUDA), model checkpoint download (~2GB from HuggingFace)
+   - Key command: `python -m unimate.inference.sample --exp_dir outputs/unimate_uniml3d_f60_v3 --asset mixamo --prompt "An object waves hello."`
 
-Remaining epic #454 queue: #453, #450, #452, #449.
+### Installed tools
 
-## Next Session — connectors voice work
+- Blender 5.3.0 at `/opt/homebrew/bin/blender`
+- Miniconda with `unimate` conda env (Python 3.10, PyTorch CPU)
+- Mesh2Motion assets cloned at `/tmp/mesh2motion-assets`
 
-Priority: finish connectors#187 (epic) and #202 (manifest discovery).
+### Blog
 
-### connectors#202 — Voice manifest discovery
-
-Current state: loads a single hardcoded classpath resource instead of scanning
-`META-INF/voice-catalog.yaml` across all provider modules. Seed catalog is in
-voice-spi where it shouldn't be.
-
-What to do:
-1. Move seed catalog from voice-spi to voice-sherpa (or voice-ref)
-2. Implement META-INF/voice-catalog.yaml scanning across provider JARs
-3. Each provider module declares its own catalog entries
-
-### connectors#187 — remaining children
-
-| Child | Scale | What |
-|-------|-------|------|
-| voice-whisper | M | OpenAI Whisper cloud API STT (separate from local whisper.cpp in voice-sherpa) |
-| voice-tts | M | OpenAI TTS / Google Cloud TTS cloud providers |
-| MCP tools | S | `voice_transcribe`, `voice_speak` tools |
-| GraphQL wiring | S | ConnectorVoiceApi |
-| Per-provider split | L | Optional — split voice-sherpa into per-engine modules |
-
-### After connectors voice work
-
-- agency#448 — speech-demo: replace hand-rolled Vertex with agent-config manifest
-- agency#447 — cognitive code migration to neocortex (L/High)
-
-## Queue (epic #364)
-
-- [x] #376, #361, #363, #441, #442, #443, #439
-- [ ] #438 — L3 LLM-mediated conflict resolution
-- [ ] #440 — counterfactual learning multi-swarm
+- `blog/2026-11-11-mdp01-the-body-language-problem.md` — diary entry covering the animation work, Mixamo limitations, CC0 landscape, retargeting challenge, and motion base taxonomy
