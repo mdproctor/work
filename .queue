@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-453-panama-ffm-shared-library-integration
+branch: issue-450-mixamo-avatar-animation
 issue-repo: casehubio/agency
 status: active
-covers: 453
+covers: 450
 project-sha: 
 date: 
 design-repo: 
@@ -22,17 +22,13 @@ flyway-next-v: none
 - [x] casehubio/agency#438 — L3-LLM-mediated-conflict-resolution
 - [x] casehubio/agency#440 — counterfactual-learning-multi-swarm
 - [x] casehubio/agency#451 — Qwen3-TTS-multi-voice-server
-- [ ] casehubio/agency#453 — Panama-FFM-shared-library-integration ← active
-  - [x] Batch 1: FFM Foundation
-    - [x] Task 1: Qwen3Layouts struct offsets
-    - [x] Task 2: Qwen3Library FFM binding
-  - [x] Batch 2: Provisioner
-    - [x] Task 3: Shared lib + GGUF provisioning
-  - [x] Batch 3: TTS Rewrite
-    - [x] Task 4: Rewrite Qwen3TextToSpeech
-    - [x] Task 5: Simplify VoicePool + ClonedVoice
-  - [x] Batch 4: Consumer
-    - [x] Task 6: Update speech-demo
-- [ ] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
-- [ ] casehubio/agency#452 — Kokoro-voice-distillation
+- [x] casehubio/agency#453 — Panama-FFM-shared-library-integration
+- [x] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
+- [ ] casehubio/agency#452 — Kokoro-voice-distillation ← active
+  - [ ] Batch 1: Protocol
+    - [ ] Task 1: Add AvatarMessage.Animation + MessageCodec
+  - [ ] Batch 2: Resources
+    - [ ] Task 2: Source and bundle Mixamo FBX animations
+  - [ ] Batch 3: Client
+    - [ ] Task 3: Replace playGesture with Mixamo animation system
 - [ ] casehubio/agency#449 — Avatar-reusable-mosaic-component
