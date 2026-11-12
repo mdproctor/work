@@ -1,65 +1,53 @@
 # HANDOFF — casehub-agency (slot 223)
 
-## Last Session
+## Active Issue — #455 CC0 motion base
 
-Completed agency#450 (Richer avatar body animation via Mixamo FBX).
-Issue closed and landed on main. CC0 motion base work begun, tracked in #455.
+### Current state
 
-### What was built
+24 CC0 animations from Mesh2Motion exist in `cc0-animations.glb` with correct Mixamo bone names. They are contorted on the avatar because the keyframe rotations are in Mesh2Motion's bone axis space, not the avatar's. The Blender retarget that produced the GLB renamed bones and set rest poses but did NOT re-express keyframes in the new axes.
 
-**Animation system** — full body animation pipeline for the speech demo avatar:
-- `AvatarMessage.Animation` sealed record in speech-ws protocol (server-side animation cues)
-- Client-side keyword classifier replaces 3 `playGesture` calls with 10-category animation system
-- Context-dependent layering — body animations play alongside lip-sync visemes, exclusive flag for full-body animations
-- Idle animation loop with 5-8s jitter
-- Animation picker UI for manual triggering
-- Animation state reset after playback (`setTimeout` to clear `currentAnimation` and `animationExclusive`)
+### What to do next — T-pose delta retarget
 
-**CC0 animation sourcing (in progress → #455):**
-- Mesh2Motion (mesh2motion.org) identified as primary CC0 source — 178 animations, CC0 1.0 / MIT
-- 24 conversational animations selected and downloaded via their retarget tool
-- Retarget bone roll bug: arms contorted on Mixamo-rigged avatars — filed as Mesh2Motion/mesh2motion-app#159
-- `@three-ws/retarget` npm library bundled (retarget.mjs) for runtime bone correction — partially working
-- cc0-preview.html wired up for testing all 24 CC0 animations
-- UniMate (text-to-motion) identified as alternative path — cloned at /tmp/unimate, miniconda installed
+**Read issue #455 comments before doing anything.** The issue body has a "What NOT to Do" section.
 
-**Taxonomy defined for #455:**
-- 23 animations across 11 categories with 3 emotional registers (composed/warm/enthusiastic)
-- Sub-categories needed: e.g., agreement-enthusiastic vs agreement-reluctant vs agreement-neutral
-- Context tags per animation (children, formal, clinical, casual, etc.)
+The keyframe values at a neutral-pose frame (e.g., frame 0 of `Idle_Subtle_RT`) encode the original Mesh2Motion rest rotations. Use them as the source rest:
 
-### Key files changed
+```
+source_rest = keyframe_values_at_neutral_frame   // Mesh2Motion's axes
+delta = inverse(source_rest) × keyframe_at_frame_N
+corrected = target_rest × delta                   // avatar's axes
+```
+
+Apply per-bone, per-frame. Test with Greeting and Idle_Talking first — arms should bend forward.
+
+### What NOT to do
+
+- ❌ Generate UniMate animations — quality too poor, already tested and rejected
+- ❌ Delete cc0-animations.glb or cc0-animations.fbx
+- ❌ Download new animations from Mesh2Motion web tool — same bone roll bug
+- ❌ Try to fix retarget.mjs bind corrections — they're correct, the input data is wrong
+
+### Pending external
+
+Mesh2Motion/mesh2motion-app#159 — replied to Scott with avatar bone rest rotations, awaiting response. He may fix the tool or explain the rig convention.
+
+## Previous work (complete)
+
+- #450 Animation system — protocol, classifier, picker, layering. Closed.
+- UniMate pipeline — conda env at `/tmp/unimate`, converter `unimate2glb.py`. Works but motion quality insufficient. Infrastructure only.
+- `retarget.mjs` — runtime retarget library, handles bone name canonicalization and bind corrections. Working correctly.
+
+## Key files
 
 | File | What |
 |------|------|
-| `speech-ws/.../AvatarMessage.java` | Added `Animation` record |
-| `speech-ws/.../MessageCodec.java` | Encode for Animation |
-| `speech-demo/.../index.html` | Animation system (classifier, idle loop, picker, layering) |
-| `speech-demo/.../animations/cc0-animations.glb` | Mesh2Motion CC0 retargeted GLB (24 clips, bone roll issue) |
-| `speech-demo/.../animations/cc0-animations-v2.glb` | Same with different correction attempt |
-| `speech-demo/.../animations/retarget.mjs` | Bundled @three-ws/retarget |
-| `speech-demo/.../cc0-preview.html` | Preview page for CC0 animations |
-| `speech-demo/.../animations/convert-blend-to-glb.py` | Blender batch conversion script |
+| `speech-demo/.../animations/cc0-animations.glb` | 24 CC0 clips, Mixamo names, axis error in keyframes |
+| `speech-demo/.../animations/cc0-animations-v2.glb` | Same animations, different export (THREE.GLTFExporter) |
+| `speech-demo/.../animations/cc0-animations.fbx` | FBX version of same |
+| `speech-demo/.../animations/retarget.mjs` | Runtime retarget library |
+| `speech-demo/.../animations/unimate2glb.py` | UniMate .npy → GLB converter (infrastructure) |
+| `speech-demo/.../index.html` | Speech demo with animation system |
 
-### What's next — #455 CC0 motion base
+## Blog
 
-Two viable paths (try in order):
-
-1. **Wait for Mesh2Motion fix** — mesh2motion-app#159 filed. If Scott fixes the Mixamo retarget bone roll, re-download and it should work.
-
-2. **UniMate offline generation** — generate animations directly on Mixamo skeleton from text prompts. No retargeting needed.
-   - Repo cloned at `/tmp/unimate`
-   - Miniconda installed, conda env `unimate` created with Python 3.10
-   - PyTorch CPU installed (no CUDA on macOS — MPS might work)
-   - Still needs: remaining deps (`pip install -r requirements.txt` modified for non-CUDA), model checkpoint download (~2GB from HuggingFace)
-   - Key command: `python -m unimate.inference.sample --exp_dir outputs/unimate_uniml3d_f60_v3 --asset mixamo --prompt "An object waves hello."`
-
-### Installed tools
-
-- Blender 5.3.0 at `/opt/homebrew/bin/blender`
-- Miniconda with `unimate` conda env (Python 3.10, PyTorch CPU)
-- Mesh2Motion assets cloned at `/tmp/mesh2motion-assets`
-
-### Blog
-
-- `blog/2026-11-11-mdp01-the-body-language-problem.md` — diary entry covering the animation work, Mixamo limitations, CC0 landscape, retargeting challenge, and motion base taxonomy
+- `blog/2026-11-11-mdp01-the-body-language-problem.md` — animation work diary
