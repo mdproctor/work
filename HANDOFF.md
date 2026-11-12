@@ -2,62 +2,67 @@
 
 ## Active Issue — #455 CC0 motion base
 
-### Current state
+### Current state — retarget approaches exhausted
 
-24 CC0 animations from Mesh2Motion exist in `cc0-animations-v2.glb` with correct Mixamo bone names. Keyframe rotations are in Mesh2Motion's bone axis space. The Blender retarget renamed bones and set rest poses but only partially converted keyframes: **Hips keyframes were converted to avatar space, child bone keyframes were NOT.**
+24 CC0 animations from Mesh2Motion exist in `cc0-animations-v2.glb`. Every runtime retarget approach produces systematically wrong arm angles and hand twists. The fundamental problem: the Blender retarget that produced this GLB renamed bones and partially converted rest poses but did NOT properly convert keyframe axis space. We don't have the M2M rig's Python driver pipeline to re-export correctly.
 
-### What to do next — fix specific bone twists
+### What was tried (2026-11-12 sessions)
 
-The full L/R retarget using `retargetClipToObject` with M2M world rests computed from Idle_Subtle frame 0 (the "v4 approach" from the 2026-11-12 session) produced **mostly correct results**: Greeting showed a natural wave, Idle Talking had expressive gestures. The remaining issue was **specific bone twist errors** — notably one hand twisted 180° in Head Nod.
+**Five retarget approaches, none acceptable:**
 
-**Strategy: go back to v4 and fix just the twisted bones.**
+| Approach | Result |
+|----------|--------|
+| v4: Idle_Subtle frame 0 as M2M rest, full L/R corrections | Arms 45° too high (Greeting reaches ceiling), left hand 180° twist in Head Nod |
+| Hybrid: frame 0 local rest + GLB world rest | Arm ANGLE correct but hand orientation 90° off (palm down instead of forward) |
+| GLB node.quaternion as M2M rest | Near-zero corrections (GLB rest ≈ avatar rest), raw uncorrected keyframes |
+| Blender-extracted M2M rest for all bones | Completely broken — different coordinate space from GLB keyframes |
+| Two-pass premultiply (cc0-preview.html approach) | Arms twist behind back — local-only correction can't handle world rest differences |
 
-1. Start from the v4 approach: extract M2M rest from Idle_Subtle_RT frame 0, compute world rests through the bone hierarchy, apply full L/R bind corrections (M2M→CANONICAL), then `retargetClipToObject` (CANONICAL→avatar).
+**Root cause**: the v4 L/R correction formula (`L = Rt × Wt⁻¹ × Ws × Rs⁻¹`, `R = Ws⁻¹ × Wt`) is mathematically correct but the source rest (Rs, Ws) is wrong. Idle_Subtle frame 0 has 74° of asymmetric idle animation baked in. The Blender-extracted rest is in a different coordinate frame. The GLB node.rotation is too close to avatar rest (produces identity corrections).
 
-2. Identify which specific bones have twist errors by visual inspection (likely LeftHand, RightHand, or specific forearm bones).
+**Blender re-export attempted**: loaded M2M rig + animation .blend files, stripped control rig bones, exported clean GLB. Result was upside down — the M2M deformation bones are driven by Python drivers in the control rig, and without those drivers the animation doesn't transfer to the deformation skeleton. The cc0-animations-v2.glb IS the output of those drivers — it can't be recreated from the raw .blend files.
 
-3. For those bones only, override the Idle_Subtle-derived rest with the Blender-extracted M2M rest values (from `/tmp/mesh2motion-assets/rigs/human/animation-human-rest-pose.blend`). The Blender rest is reliable for ALL bones; the issue was only with the world rest computation and root chain, not the local rest values.
+### What to do next — author animations directly
 
-4. The fix is surgical — don't rework the entire retarget pipeline. Just correct the source rest for the ~3-5 bones that have visible twist issues.
+**Recommended path: hand-author keyframe animations for the canonical skeleton.**
 
-### Key findings from 2026-11-12 session
+TalkingHead proved this works — it has ~10 poses and ~8 gestures, all hand-authored as Euler rotation dictionaries for the Mixamo skeleton. No retargeting needed because the animations are authored for the target skeleton.
 
-1. **Hips keyframes already converted**: Bow frame 0 Hips = `[-0.030, 0, 0, 0.9996]` (= avatar rest). Blender retarget converted Hips but not children.
+For CaseHub, we need 10-15 conversational animations (greeting, head nod, idle variations, confused, happy, angry, fold arms, pointing, etc.). Each is 3-6 keyframes over 1-4 seconds.
 
-2. **Frame 0 varies per clip**: LeftHand frame 0 quaternion is different in every animation — frame 0 is NOT a reliable "rest pose" for all bones. Use Blender-extracted rest as fallback for unreliable bones.
+Reference renders exist at `/tmp/m2m-refs/` (14 animations rendered from M2M Blender files at mid-frame) and are served at `http://localhost:8099/m2m-refs.html`. Use these as visual targets for the hand-authored poses.
 
-3. **M2M rig uses drivers, not constraints**: `bpy.ops.nla.bake(visual_keying=True)` doesn't capture deformation bone animation because M2M drives them via Python drivers, not bone constraints. Raw M2M blend files can't be cleanly re-exported.
-
-4. **M2M source rest rotations available**: Extracted from `animation-human-rest-pose.blend` via Blender glTF export. Values are in `/tmp/m2m_canonical_rest.json`. The M2M rest differs dramatically from the avatar rest (e.g., M2M LeftArm: `[0.192, 0.661, -0.268, 0.675]` vs avatar LeftArm: `[0.385, 0.069, 0.038, 0.920]`).
-
-5. **M2M root bone**: The M2M skeleton has a `root` bone with `-90° X rotation` (Z-to-Y conversion) as parent of `pelvis` (Hips). This was folded into the Hips keyframes by the Blender retarget.
-
-6. **Test page**: `cc0-retarget-test.html` serves as the iteration testbed. HTTP server: `python3 -m http.server 8099 --directory speech-demo/src/main/resources/META-INF/resources`
+**Alternative paths:**
+- **Motion2MixamoRig** (github.com/MaxLiu22/Motion2MixamoRig) — video→Mixamo retarget via neural pose estimation. Could feed M2M animation renders as video input. Needs ~5GB weights, untested.
+- **Ask Scott** (mesh2motion-app#159) — he has the rig pipeline and could provide correctly converted exports
+- **Mixamo clips** — work perfectly but not redistributable
 
 ### What NOT to do
 
-- ❌ Generate UniMate animations — quality too poor, already tested and rejected
-- ❌ Delete cc0-animations.glb or cc0-animations.fbx
-- ❌ Download new animations from Mesh2Motion web tool — same bone roll bug
-- ❌ Try full L/R retarget without `retargetClipToObject` — the two-pass approach (M2M→CANONICAL + CANONICAL→avatar) is the correct architecture
-- ❌ Use the Blender rest-pose file's Hips value as source rest — Hips keyframes are already converted, skip Hips in the pre-correction
+- ❌ Try more runtime retarget approaches on cc0-animations-v2.glb — the source data is fundamentally incomplete (partial axis conversion)
+- ❌ Use Blender-extracted M2M rest (`/tmp/m2m_canonical_rest.json`) as source rest — different coordinate space from GLB keyframes
 - ❌ Try to bake from raw M2M blend files — drivers aren't captured by visual keying
+- ❌ Generate UniMate animations — quality too poor
+- ❌ Delete cc0-animations.glb or cc0-animations.fbx
+
+### Key findings
+
+1. **TalkingHead has no retarget** — its animations are hand-authored Euler poses for the Mixamo skeleton, interpolated procedurally. No M2M source, no clip files.
+2. **M2M rig uses Python drivers** — deformation bones are computed from control bones via drivers. `nla.bake(visual_keying=True)` doesn't capture them. Can't re-export without the driver pipeline.
+3. **cc0-animations-v2.glb is the best M2M output we have** — produced by M2M's own conversion (which ran the drivers). Can't be recreated.
+4. **Blender rest vs GLB rest vs frame 0**: three different coordinate spaces. None can be substituted for the others in the retarget formula.
+5. **The asymmetric idle animation** causes the left hand 180° twist: LeftArm and RightArm at Idle_Subtle frame 0 differ by 31° when mirrored. Mirroring LeftArm from RightArm fixes the twist but doesn't fix the systematic arm angle offset.
+6. **M2M reference renders**: 14 animations rendered from Blender source at `/tmp/m2m-refs/`. Gallery at `m2m-refs.html`. Bow, Salute, Cheer, Help, Insult are NOT in the CC0 pack (web-tool generated, no .blend source).
 
 ### Pending external
 
-Mesh2Motion/mesh2motion-app#159 — replied to Scott with avatar bone rest rotations, awaiting response. He may fix the tool or explain the rig convention.
-
-### Alternative CC0 sources (investigated, not tried)
-
-- **Quaternius** — 250+ CC0 animations, Blender-style bone names (needs mapping), combat/locomotion focused, few conversational gestures
-- **KayKit** — 161 CC0 animations, own rig, low-poly focused
-- **Mixamo** — 2000+ animations with correct bone names, works perfectly but NOT redistributable (can't include in git)
+Mesh2Motion/mesh2motion-app#159 — awaiting response from Scott.
 
 ## Previous work (complete)
 
 - #450 Animation system — protocol, classifier, picker, layering. Closed.
-- UniMate pipeline — conda env at `/tmp/unimate`, converter `unimate2glb.py`. Works but motion quality insufficient. Infrastructure only.
-- `retarget.mjs` — runtime retarget library, handles bone name canonicalization and bind corrections. Working correctly.
+- UniMate pipeline — conda env at `/tmp/unimate`, converter `unimate2glb.py`. Works but motion quality insufficient.
+- `retarget.mjs` — runtime retarget library, handles bone name canonicalization and bind corrections. Working correctly for properly-sourced animations.
 
 ## Key files
 
@@ -65,12 +70,11 @@ Mesh2Motion/mesh2motion-app#159 — replied to Scott with avatar bone rest rotat
 |------|------|
 | `speech-demo/.../animations/cc0-animations.glb` | 24 CC0 clips, Mixamo names, axis error in keyframes |
 | `speech-demo/.../animations/cc0-animations-v2.glb` | Same animations, different export (THREE.GLTFExporter) |
-| `speech-demo/.../animations/cc0-animations.fbx` | FBX version of same |
 | `speech-demo/.../animations/retarget.mjs` | Runtime retarget library |
-| `speech-demo/.../cc0-retarget-test.html` | Test page for iterating on retarget corrections |
-| `speech-demo/.../cc0-preview.html` | TalkingHead-based preview (broken playback binding) |
+| `speech-demo/.../cc0-retarget-test.html` | Test page with v4/hybrid/GLB toggle |
+| `speech-demo/.../m2m-refs.html` | M2M reference render gallery |
 | `/tmp/mesh2motion-assets/rigs/human/` | Raw M2M blend files with original skeleton |
-| `/tmp/m2m_canonical_rest.json` | M2M bone rest rotations mapped to canonical names |
+| `/tmp/m2m_canonical_rest.json` | M2M bone rest rotations (Blender coordinate space — NOT compatible with GLB keyframes) |
 
 ## Blog
 
