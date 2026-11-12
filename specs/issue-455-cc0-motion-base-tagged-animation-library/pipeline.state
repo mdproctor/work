@@ -1,7 +1,7 @@
 format_version: 1
-state: APPROACH_EXPLORATION
+state: SPEC_SELF_REVIEW
 entered: 2026-11-12T00:00:00Z
-decision_count: 0
+decision_count: 1
 dimensions_completed: 0
 dimensions_total: 0
 ordered: false
@@ -12,4 +12,4 @@ workspace_coherence:
 workspace_robustness:
 workspace_crosscutting:
 workspace_decision:
-note: M2M retarget fix — swing-twist doesn't handle bone roll differences between source/target skeletons
+note: Spec written — bind correction retarget fix for M2M
