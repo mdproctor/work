@@ -6,21 +6,25 @@
 
 M2M CC0 animations can't be runtime-retargeted — the GLB has partially-converted keyframes and we don't have the M2M Python driver pipeline to re-export. Five retarget approaches tried, none acceptable. TalkingHead doesn't retarget either — it hand-authors poses for the canonical skeleton.
 
-### What to do next
+### What to do next — fix M2M's export tool
 
-**Hand-author keyframe animations directly for the canonical Mixamo skeleton.**
+**Primary path: find and fix the retarget bug in mesh2motion-app.**
 
-1. Define 10-15 conversational animation clips as multi-keyframe THREE.AnimationClip data
-2. Author bone rotations using the M2M reference renders as visual targets (`/tmp/m2m-refs/`, served at `m2m-refs.html`)
-3. No retargeting needed — animations are authored for the target skeleton
-4. `retargetClipToObject` handles canonical→avatar mapping (this path is well-tested and works)
+The M2M export tool already produces 90% correct output — bones renamed, Hips converted, mesh skinned. The bug is specific: it converts Hips keyframes to avatar space but skips child bones. This is likely a one-line fix in a retarget loop.
 
-**For complex motions, cherry-pick CMU MoCap BVH:**
-- Import BVH into Blender → retarget to Mixamo skeleton → export GLB
-- CMU has: wave (106_16), shrug (111_25), pointing (139_25), happy/laughing (79_69), surprised (79_73), thinking (74_12), bow (111_02)
-- License: permissive (free for commercial use, no resale of raw data — retargeted clips in a product repo is fine)
+**Dedicated session plan:**
+1. Clone `mesh2motion-app`, find the export/retarget code
+2. Identify the loop that converts Hips but skips children
+3. Fix it, test against M2M reference renders at `/tmp/m2m-refs/`
+4. Re-export all 220+ CC0 animations with the fix
+5. PR the fix back to M2M — benefits the whole community
 
-**Alternative:** Motion2MixamoRig (github.com/MaxLiu22/Motion2MixamoRig) — video→Mixamo via neural pose estimation. Could feed M2M reference renders as video. Untested, needs ~5GB weights.
+**Fallback if codebase is too complex:** write a standalone ~50-line Blender Python script that reads deformation bone transforms per frame (`scene.frame_set(N)` evaluates all drivers automatically — no `nla.bake()` needed) and exports clean GLB with Mixamo bone names.
+
+**Additional sources for gap-filling:**
+- CMU MoCap BVH for complex motions: shrug (111_25), pointing (139_25), happy (79_69), surprised (79_73), thinking (74_12)
+- Hand-author simple pose-holds (thumbs-up, hands-on-hips, salute) directly for the canonical skeleton
+- Motion2MixamoRig (video→Mixamo) as a last resort
 
 ### CC0 animation library survey (2026-11-12)
 
