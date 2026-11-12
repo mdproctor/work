@@ -27,9 +27,9 @@ flyway-next-v: none
 - [x] casehubio/agency#452 — Kokoro-voice-distillation
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [ ] casehubio/agency#455 — CC0-motion-base-tagged-animation-library ← active
-  - [ ] Batch 1: Bind correction
-    - [ ] Task 1: BindCorrectionRetargeter
-  - [ ] Batch 2: Wire export
-    - [ ] Task 2: Replace swing-twist in AnimationRetargetService
-  - [ ] Batch 3: PR
-    - [ ] Task 3: Branch lint and PR to M2M
+  - [x] Batch 1: Bind correction
+    - [x] Task 1: BindCorrectionRetargeter
+  - [x] Batch 2: Wire export
+    - [x] Task 2: Replace swing-twist in AnimationRetargetService
+  - [x] Batch 3: PR
+    - [x] Task 3: Branch lint and PR to M2M
