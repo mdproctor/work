@@ -2,9 +2,11 @@
 
 ## Active Issue — #455 CC0 motion base
 
-### Current state — Arms still too wide; three approaches tested, none sufficient
+### Current state — Retarget working, PR updated, waiting on fable refinements
 
-Body/legs retarget correctly. Arms remain "too wide" across all three approaches tested. The retarget path has been **restored to swing-twist Retargeter** (HumanClipRetargeter) with shoulders added to arm chains.
+Retarget is working. `PoseAlignedRetargeter` aligns bone directions, captures pure-twist offsets, then per-frame `target_world = source_world × twist_offset`. `LimbProportionCorrector` does per-frame IK to prevent body penetration from skeleton proportion differences. PR #160 updated. Fable Claude made the proportion fix (IK hinge solve) and caught a Phase 1 chest alignment bug. More fable refinements expected in ~2 hours.
+
+**Next:** Add retargeted animations to the avatar demo (speech-demo), then expand facial animation set (winking, smiling, head tilt + expression combos).
 
 ### What was tried this session
 
