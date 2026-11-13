@@ -2,86 +2,89 @@
 
 ## Active Issue — #455 CC0 motion base
 
-### Current state — M2M retarget fix: dynamic approach failed, hardcoded approach next
+### Current state — M2M retarget: body/legs fixed, arms still wrong
 
-We cloned mesh2motion-app, found the retarget bug (swing-twist decomposition can't handle bone roll differences), wrote a bind correction fix, and PR'd it. Visual testing with Playwright showed the fix partially works (arms forward instead of behind back) but fails on hands and elbows. **Dynamic rest-pose computation from the skeleton doesn't converge** — M2M's skeleton structure (root bone, Z-up, 90°-rotated fingers) makes each fix break something else.
+The bind correction retarget now produces correct body posture (upright standing), correct leg positions (both feet planted), and correct hip scaling. **The fundamental coordinate space issue is solved.** Arms are in the right general direction (forward, not behind) but arm orientations are still wrong — arms stretch too wide and pass through the body during clapping-type animations.
 
-### What to do next — port the hardcoded canonical rest approach
+### What was fixed this session
 
-**The retarget.mjs approach works because it uses hardcoded `CANONICAL_REST` values, not dynamically computed ones.** Port this into M2M's `BindCorrectionRetargeter`.
+**Root cause found and fixed: coordinate space mismatch in world quaternion computation.**
 
-Specifically:
-1. Extract `CANONICAL_REST` and `CANONICAL_REST_WORLD` from `retarget.mjs` (lines 714-821) — these are the M2M source skeleton's rest-pose quaternions in canonical (Mixamo) bone names
-2. In `BindCorrectionRetargeter.compute_bind_corrections()`, use these hardcoded values as `Rs`/`Ws` instead of reading from the source skeleton's bones
-3. Compute `Rt`/`Wt` from the uploaded target skeleton at runtime (this part works — retarget.mjs does exactly this via `canonicalRestMapFromObject` and `canonicalWorldRestMapFromObject`)
-4. The L/R formula is the same: `L = Rt × Wt⁻¹ × Ws × Rs⁻¹`, `R = Ws⁻¹ × Wt`
-5. Position track needs root bone's -90° X rotation applied (Z-up → Y-up conversion)
-6. Hip scale = `targetHipY / sourceHipY` using canonical rest position data
+The `mapped_world_quat()` function excluded unmapped bones (M2M's `root` bone with -90° X rotation) from the source world quaternion. This left source world quaternions in Z-up space while target was in Y-up, creating near-180° corrections for leg bones that caused them to flip unpredictably.
 
-### Why dynamic computation fails
+**Fix:** changed to `world_quat()` which walks ALL bone ancestors including the unmapped root. The root bone's Z-up→Y-up rotation converts source world quaternions to Y-up (same as target). The L correction absorbs the coordinate transform; R corrections become small and stable.
 
-M2M's skeleton has:
-- A `root` bone above `pelvis` with quaternion `[-0.707, 0, 0, 0.707]` (-90° X, Z-up → Y-up)
-- This bone is NOT in the bone mapping — no RPM equivalent exists
-- Finger bones with 90° Y rotations (`index_01_l: [0, 0.707, 0, 0.707]`) vs RPM near-identity
-- Walking the hierarchy through mapped-only ancestors fixes some issues but introduces others
+Also added target-rest hemisphere correction: after applying L × Q × R, the output quaternion's dot product with the target rest quaternion is checked. If negative (wrong hemisphere), the quaternion is negated to prevent slerp taking the long path.
 
-Three fixes attempted, each broke something:
-1. `getWorldQuaternion()` — includes root bone rotation, contaminates all corrections with 90° X
-2. `mapped_world_quat()` (walk only mapped ancestors) — skips root correctly for torso but finger world quaternions still wrong
-3. Hemisphere normalization — fixes some hand flips but breaks others mid-animation
+### What was disproved this session
 
-### Why hardcoded values work
+**The canonical REST approach is WRONG for M2M's animation library.** The previous handover said to use `CANONICAL_REST` from retarget.mjs as source rest. This was tested and failed completely (avatar floating, rotated, limbs contorted).
 
-retarget.mjs's `CANONICAL_REST` values were captured from a specific known-good M2M→Mixamo configuration. They represent what M2M's bone rotations look like AFTER proper conversion to the canonical Mixamo coordinate space. By using frozen constants:
-- No root bone to worry about (already factored out)
-- No hierarchy walk (world quats pre-computed)  
-- No hemisphere ambiguity (values are stable)
-- Same formula, just better inputs
+**Proof:** M2M animation keyframe values are in M2M skeleton rest space, NOT Mixamo canonical space:
+```
+pelvis keyframe frame0: [0.783, 0, 0, 0.622]  ← matches M2M rest [0.790, 0, 0, 0.613]
+Canonical Hips rest:    [0.001, 0, 0, 1.000]  ← completely different
+```
 
-### Key insight for the next session
+retarget.mjs works because its source animations (`cc0-animations.glb` in speech-demo) ARE in Mixamo space. M2M's animation library files are authored on the M2M skeleton and use M2M-space keyframe values.
 
-The bind correction formula `L = Rt × Wt⁻¹ × Ws × Rs⁻¹` is correct. The unit tests pass. The integration test with real skeleton data passes. The issue is exclusively in how `Rs` and `Ws` (source rest poses) are obtained. Replace dynamic computation with the hardcoded `CANONICAL_REST`/`CANONICAL_REST_WORLD` constants from retarget.mjs and the fix works.
+### What to do next — fix arm retarget quality
+
+Body and legs retarget correctly. Arms are in the right general direction but rotations are wrong — arms stretch too wide and penetrate the body during animations with arm movement (clapping, victory).
+
+Investigation approach:
+1. Compare arm correction values (L, R for LeftArm/LeftForeArm/LeftHand) with what retarget.mjs produces for the same RPM target
+2. The issue might be in how the M2M arm bones' rest rotations map to RPM — the shoulder/arm chain has different orientations between rigs
+3. Check if the M2M source skeleton's arm bones have correct parent chains when extracted via `create_skeleton_from_group_object`
+4. Consider whether `AnimationUtility.clean_track_data()` (called before retarget) modifies arm tracks in ways that affect retargeting
+
+The M2M source armature is also still visible in the scene during animation playback — it should be hidden. This is in `StepLoadSourceSkeleton.add_skeleton_and_helper_to_scene()` line 155.
 
 ### What exists
 
 | Item | Where | Status |
 |------|-------|--------|
-| Draft PR #160 | Mesh2Motion/mesh2motion-app#160 | Draft — dynamic approach, doesn't converge |
-| BindCorrectionRetargeter.ts | `/tmp/mesh2motion-app/src/retarget/human-retargeting/` | Has correct formula + tests, wrong rest-pose source |
-| BindCorrectionRetargeter.test.ts | Same dir | 9 tests pass (including real M2M→RPM integration test) |
-| AnimationRetargetService.ts | `/tmp/mesh2motion-app/src/retarget/` | Modified to use BindCorrectionRetargeter |
+| Draft PR #160 | Mesh2Motion/mesh2motion-app#160 | Draft — body/legs work, arms need fixing |
+| BindCorrectionRetargeter.ts | `/tmp/mesh2motion-app/src/retarget/human-retargeting/` | `world_quat` (all ancestors) + hemisphere correction |
+| BindCorrectionRetargeter.test.ts | Same dir | 9 tests pass (including M2M→RPM integration) |
+| AnimationRetargetService.ts | `/tmp/mesh2motion-app/src/retarget/` | Uses BindCorrectionRetargeter with root bone position correction |
 | Fork | mdproctor/mesh2motion-app branch `fix/bind-correction-retarget` | All commits pushed |
-| M2M clone | `/tmp/mesh2motion-app` | Branch `fix/bind-correction-retarget`, npm installed, vitest passing |
-| RPM avatar in M2M test files | `/tmp/mesh2motion-app/static/test-files/retarget testing/rpm-avatar.glb` | For Playwright testing |
-| Canonical rest values | `retarget.mjs` lines 714-929 | `CANONICAL_REST`, `CANONICAL_REST_WORLD`, `CANONICAL_REST_POSITION`, `CANONICAL_PARENT` |
-| Spec | `wsp-casehub-blocks/specs/issue-455-.../2026-11-12-m2m-retarget-bind-correction-design.md` | Needs updating for hardcoded approach |
-| Plan | `wsp-casehub-blocks/plans/2026-11-12-m2m-retarget-bind-correction.md` | Needs rewriting for hardcoded approach |
+| M2M clone | `/tmp/mesh2motion-app` | Branch `fix/bind-correction-retarget`, 146 tests passing |
+| RPM avatar | `/tmp/mesh2motion-app/static/test-files/retarget testing/rpm-avatar.glb` | For Playwright testing |
+| RPM avatar (Playwright copy) | `agency/.playwright-mcp/rpm-avatar.glb` | Playwright sandbox-safe copy |
+| Debug hook | `StepLoadSourceSkeleton.ts` line 170 | `window.__m2m_scene` and `__m2m_source_armature` exposed for console debugging |
+
+### Key insights for the next session
+
+1. **Animation keyframes are in M2M rest space** — source rest MUST come from M2M skeleton, not canonical constants
+2. **Root bone MUST be included** in source world quaternion — it converts Z-up to Y-up, matching the target's coordinate space
+3. **The formula is correct** — L × Q × R round-trips rest-pose keyframes perfectly. The remaining arm issue is about animated (non-rest) keyframes
+4. **M2M source armature is visible** in the scene alongside the target avatar — creates confusing "two figures" visual. Hide it during animation playback
+5. **retarget.mjs bindCorrections (line 1034)** is the reference — compare its output for the RPM avatar with our BindCorrectionRetargeter output to find the arm divergence
 
 ### What NOT to do
 
-- ❌ Compute source rest poses from the M2M skeleton at runtime — doesn't work
-- ❌ Walk the bone hierarchy to derive world quaternions — root bone contaminates
-- ❌ Use `getWorldQuaternion()` on detached skeletons — parent chain is incomplete
-- ❌ Apply hemisphere normalization to corrected keyframe output — breaks mid-animation values
+- Do NOT use `CANONICAL_REST` from retarget.mjs as source rest — M2M animations are NOT in canonical space
+- Do NOT exclude unmapped bones from source world quaternion — creates Z-up/Y-up mismatch
+- Do NOT apply root bone quaternion to position tracks when using canonical rest — but DO apply it when using dynamic M2M rest (positions are in root-local Z-up space)
 
 ### Upstream context
 
 - Mesh2Motion/mesh2motion-app#159 — original bug report (arms twisted behind back)
-- Mesh2Motion/mesh2motion-app#160 — draft PR with comment explaining the dynamic approach failure
+- Mesh2Motion/mesh2motion-app#160 — draft PR
 - M2M dev server: `cd /tmp/mesh2motion-app && npx vite --port 5174`
-- Playwright testing: upload avatar.glb → Auto-Map → Continue → filter "clap" → Play
+- Playwright testing: upload rpm-avatar.glb → Auto-Map → Continue → filter animation → Play
 
 ## Previous work (complete)
 
 - #450 Animation system — protocol, classifier, picker, layering. Closed.
-- `retarget.mjs` — runtime retarget library with hardcoded canonical rest. Works correctly.
+- `retarget.mjs` — runtime retarget library with hardcoded canonical rest (works for cc0-animations.glb, NOT for M2M library animations)
 
 ## Key files
 
 | File | What |
 |------|------|
-| `speech-demo/.../animations/retarget.mjs` | Working retarget with hardcoded CANONICAL_REST — the reference implementation |
-| `speech-demo/.../animations/cc0-animations.glb` | 24 CC0 clips from M2M (need re-export with fixed retarget) |
-| `speech-demo/.../cc0-retarget-test.html` | Test page using retarget.mjs (working comparison baseline) |
+| `speech-demo/.../animations/retarget.mjs` | Working retarget for cc0 animations (different keyframe space than M2M library) |
+| `speech-demo/.../animations/cc0-animations.glb` | 24 CC0 clips — in Mixamo space, works with retarget.mjs |
+| `speech-demo/.../cc0-retarget-test.html` | Test page using retarget.mjs |
 | `speech-demo/.../avatar.glb` | RPM avatar for testing |
