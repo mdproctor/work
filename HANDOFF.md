@@ -1,12 +1,48 @@
 # HANDOFF — casehub-agency (slot 223)
 
-## Active Issue — #455 CC0 motion base
+## Active Issue — #457 Avatar demo animation integration
 
-### Current state — Retarget working, PR updated, waiting on fable refinements
+### Current state — Retarget done, ready to integrate into avatar demo
 
-Retarget is working. `PoseAlignedRetargeter` aligns bone directions, captures pure-twist offsets, then per-frame `target_world = source_world × twist_offset`. `LimbProportionCorrector` does per-frame IK to prevent body penetration from skeleton proportion differences. PR #160 updated. Fable Claude made the proportion fix (IK hinge solve) and caught a Phase 1 chest alignment bug. More fable refinements expected in ~2 hours.
+**Retarget (M2M → RPM) is complete.** `PoseAlignedRetargeter` + `LimbProportionCorrector` + body clearance detection. PR Mesh2Motion/mesh2motion-app#160 ready (181 tests passing). Fork: `mdproctor/mesh2motion-app` branch `fix/bind-correction-retarget`.
 
-**Next:** Add retargeted animations to the avatar demo (speech-demo), then expand facial animation set (winking, smiling, head tilt + expression combos).
+### What to do next — issue #457
+
+**1. Retarget selected M2M animations onto RPM avatar**
+Use the M2M app (`/tmp/mesh2motion-app`, dev server port 5176) to retarget and export the animations listed in #457. Bundle as GLB in `speech-demo/src/main/resources/META-INF/resources/animations/`.
+
+**2. Wire idle cycle in speech-demo**
+- Weighted random picker from idle animation pool (idle-a, idle-subtle, idle-foldarms, meditate, guitar-playing, drumming, confused, etc.)
+- Crossfade between poses every 5-15 seconds via THREE.js AnimationMixer
+- Trigger when LLM is not sending — avatar looks alive during downtime
+- Include occasional "personality" animations (moonwalk, ninja sequence, dance) at low probability
+
+**3. Wire LLM gesture tags**
+- LLM emits `[gesture:dab]`, `[gesture:bow]`, `[gesture:confused]` etc. inline with speech text
+- Parse tags before sending to TTS, trigger corresponding animation
+- Animation crossfades from current pose, returns to idle when done
+
+**4. Maximise TalkingHead facial expressions**
+- TalkingHead already supports moods (neutral/happy/angry/sad/fear/disgust/love/sleep) via `setMood()`
+- Already does lip sync via visemes and automatic blinks
+- Wire mood changes to conversation context (LLM response sentiment)
+- Author combo gestures: wink+smile+head-tilt as coordinated morph target + bone tracks (~3-4 keyframes, ~0.5s clips)
+- Layer facial expressions on top of body animations (blendshapes don't conflict with bone tracks)
+
+**5. Combine body with head movements**
+- TalkingHead drives head/eye gaze (`lookAt()`, `lookAtCamera()`)
+- Body animations drive torso/arms/legs
+- Ensure head bone tracks from body animations don't override TalkingHead's gaze
+- May need to mask head/neck bones from body animation clips and let TalkingHead own them
+
+### Key files
+| File | What |
+|------|------|
+| `speech-demo/.../animations/retarget.mjs` | Existing retarget for cc0 animations (Mixamo-space) |
+| `speech-demo/.../animations/cc0-animations.glb` | Current 24 CC0 clips |
+| `/tmp/mesh2motion-app` | M2M app with retarget fix, dev server port 5176 |
+| `casehub-mosaic/node_modules/talkinghead/modules/talkinghead.mjs` | TalkingHead — moods, gestures, lip sync |
+| #450 animation system | Tagged classifier + picker (done) |
 
 ### What was tried this session
 
