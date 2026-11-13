@@ -2,94 +2,86 @@
 
 ## Active Issue — #455 CC0 motion base
 
-### Current state — pivot from retarget to authoring
+### Current state — M2M retarget fix: dynamic approach failed, hardcoded approach next
 
-M2M CC0 animations can't be runtime-retargeted — the GLB has partially-converted keyframes and we don't have the M2M Python driver pipeline to re-export. Five retarget approaches tried, none acceptable. TalkingHead doesn't retarget either — it hand-authors poses for the canonical skeleton.
+We cloned mesh2motion-app, found the retarget bug (swing-twist decomposition can't handle bone roll differences), wrote a bind correction fix, and PR'd it. Visual testing with Playwright showed the fix partially works (arms forward instead of behind back) but fails on hands and elbows. **Dynamic rest-pose computation from the skeleton doesn't converge** — M2M's skeleton structure (root bone, Z-up, 90°-rotated fingers) makes each fix break something else.
 
-### What to do next — fix M2M's export tool
+### What to do next — port the hardcoded canonical rest approach
 
-**Primary path: find and fix the retarget bug in mesh2motion-app.**
+**The retarget.mjs approach works because it uses hardcoded `CANONICAL_REST` values, not dynamically computed ones.** Port this into M2M's `BindCorrectionRetargeter`.
 
-The M2M export tool already produces 90% correct output — bones renamed, Hips converted, mesh skinned. The bug is specific: it converts Hips keyframes to avatar space but skips child bones. This is likely a one-line fix in a retarget loop.
+Specifically:
+1. Extract `CANONICAL_REST` and `CANONICAL_REST_WORLD` from `retarget.mjs` (lines 714-821) — these are the M2M source skeleton's rest-pose quaternions in canonical (Mixamo) bone names
+2. In `BindCorrectionRetargeter.compute_bind_corrections()`, use these hardcoded values as `Rs`/`Ws` instead of reading from the source skeleton's bones
+3. Compute `Rt`/`Wt` from the uploaded target skeleton at runtime (this part works — retarget.mjs does exactly this via `canonicalRestMapFromObject` and `canonicalWorldRestMapFromObject`)
+4. The L/R formula is the same: `L = Rt × Wt⁻¹ × Ws × Rs⁻¹`, `R = Ws⁻¹ × Wt`
+5. Position track needs root bone's -90° X rotation applied (Z-up → Y-up conversion)
+6. Hip scale = `targetHipY / sourceHipY` using canonical rest position data
 
-**Dedicated session plan:**
-1. Clone `mesh2motion-app`, find the export/retarget code
-2. Identify the loop that converts Hips but skips children
-3. Fix it, test against M2M reference renders at `/tmp/m2m-refs/`
-4. Re-export all 220+ CC0 animations with the fix
-5. PR the fix back to M2M — benefits the whole community
+### Why dynamic computation fails
 
-**Fallback if codebase is too complex:** write a standalone ~50-line Blender Python script that reads deformation bone transforms per frame (`scene.frame_set(N)` evaluates all drivers automatically — no `nla.bake()` needed) and exports clean GLB with Mixamo bone names.
+M2M's skeleton has:
+- A `root` bone above `pelvis` with quaternion `[-0.707, 0, 0, 0.707]` (-90° X, Z-up → Y-up)
+- This bone is NOT in the bone mapping — no RPM equivalent exists
+- Finger bones with 90° Y rotations (`index_01_l: [0, 0.707, 0, 0.707]`) vs RPM near-identity
+- Walking the hierarchy through mapped-only ancestors fixes some issues but introduces others
 
-**Additional sources for gap-filling:**
-- CMU MoCap BVH for complex motions: shrug (111_25), pointing (139_25), happy (79_69), surprised (79_73), thinking (74_12)
-- Hand-author simple pose-holds (thumbs-up, hands-on-hips, salute) directly for the canonical skeleton
-- Motion2MixamoRig (video→Mixamo) as a last resort
+Three fixes attempted, each broke something:
+1. `getWorldQuaternion()` — includes root bone rotation, contaminates all corrections with 90° X
+2. `mapped_world_quat()` (walk only mapped ancestors) — skips root correctly for torso but finger world quaternions still wrong
+3. Hemisphere normalization — fixes some hand flips but breaks others mid-animation
 
-### CC0 animation library survey (2026-11-12)
+### Why hardcoded values work
 
-| Source | License | Count | Useful for us? |
-|--------|---------|-------|----------------|
-| ~~Mesh2Motion~~ | CC0 | 220+ | **Unusable** — retarget proven broken, 5 approaches failed |
-| **CMU MoCap** | Permissive | 2,605 | Cherry-pick specific clips, heavy retarget |
-| **KayKit** | CC0 | 161 | Wave, cheer, sit. Missing emotions/gestures |
-| **Quaternius** | CC0 | ~45 | M2M is a superset |
-| **KinemIQ** | CC0+CC-BY | 460 | Mostly locomotion |
-| **Motifect** | Unclear | 30 | Perfect content — contact author re: redistribution |
-| Rokoko | No redistribution | 263 | Cannot include in git |
-| Mixamo | No redistribution | 2000+ | Works perfectly but can't distribute |
+retarget.mjs's `CANONICAL_REST` values were captured from a specific known-good M2M→Mixamo configuration. They represent what M2M's bone rotations look like AFTER proper conversion to the canonical Mixamo coordinate space. By using frozen constants:
+- No root bone to worry about (already factored out)
+- No hierarchy walk (world quats pre-computed)  
+- No hemisphere ambiguity (values are stable)
+- Same formula, just better inputs
 
-### Gap analysis (M2M coverage)
+### Key insight for the next session
 
-**M2M has (14):** greeting, head-nod, yes, angry, confused, clapping, victory, victory-fist-pump, bow, reject, idle-subtle, idle-talking, idle-listening, idle-foldarms
+The bind correction formula `L = Rt × Wt⁻¹ × Ws × Rs⁻¹` is correct. The unit tests pass. The integration test with real skeleton data passes. The issue is exclusively in how `Rs` and `Ws` (source rest poses) are obtained. Replace dynamic computation with the hardcoded `CANONICAL_REST`/`CANONICAL_REST_WORLD` constants from retarget.mjs and the fix works.
 
-**Missing (8):** shrug, pointing, happy, surprised, thinking, hands-on-hips, thumbs-up, salute — author these or cherry-pick from CMU MoCap
+### What exists
 
-### Why retarget failed
-
-The cc0-animations-v2.glb was produced by M2M's Blender retarget which:
-1. Renamed M2M bones to Mixamo names
-2. Set rest poses to an intermediate state (not M2M rest, not avatar rest)
-3. Converted Hips keyframes to avatar space
-4. Did NOT convert child bone keyframes — they're still in M2M axis space
-5. The M2M deformation bones are computed by Python drivers — can't re-export without the driver pipeline
-
-Five runtime correction approaches all fail because:
-- Frame 0 rest: 74° of asymmetric idle animation baked in → arms 45° too high
-- GLB node.rotation: too close to avatar rest → near-zero corrections
-- Blender-extracted M2M rest: different coordinate space from GLB keyframes
-- Hybrid (frame0 local + GLB world): arm angle OK but hand orientation 90° off
-- Two-pass premultiply: can't handle world rest differences → arms behind back
+| Item | Where | Status |
+|------|-------|--------|
+| Draft PR #160 | Mesh2Motion/mesh2motion-app#160 | Draft — dynamic approach, doesn't converge |
+| BindCorrectionRetargeter.ts | `/tmp/mesh2motion-app/src/retarget/human-retargeting/` | Has correct formula + tests, wrong rest-pose source |
+| BindCorrectionRetargeter.test.ts | Same dir | 9 tests pass (including real M2M→RPM integration test) |
+| AnimationRetargetService.ts | `/tmp/mesh2motion-app/src/retarget/` | Modified to use BindCorrectionRetargeter |
+| Fork | mdproctor/mesh2motion-app branch `fix/bind-correction-retarget` | All commits pushed |
+| M2M clone | `/tmp/mesh2motion-app` | Branch `fix/bind-correction-retarget`, npm installed, vitest passing |
+| RPM avatar in M2M test files | `/tmp/mesh2motion-app/static/test-files/retarget testing/rpm-avatar.glb` | For Playwright testing |
+| Canonical rest values | `retarget.mjs` lines 714-929 | `CANONICAL_REST`, `CANONICAL_REST_WORLD`, `CANONICAL_REST_POSITION`, `CANONICAL_PARENT` |
+| Spec | `wsp-casehub-blocks/specs/issue-455-.../2026-11-12-m2m-retarget-bind-correction-design.md` | Needs updating for hardcoded approach |
+| Plan | `wsp-casehub-blocks/plans/2026-11-12-m2m-retarget-bind-correction.md` | Needs rewriting for hardcoded approach |
 
 ### What NOT to do
 
-- ❌ More runtime retarget approaches on cc0-animations-v2.glb
-- ❌ Blender re-export from raw M2M .blend files (drivers not captured)
-- ❌ Use Blender-extracted rest as source rest (wrong coordinate space)
-- ❌ Rokoko free clips (no redistribution rights)
-- ❌ Mixamo clips in git (no redistribution rights)
+- ❌ Compute source rest poses from the M2M skeleton at runtime — doesn't work
+- ❌ Walk the bone hierarchy to derive world quaternions — root bone contaminates
+- ❌ Use `getWorldQuaternion()` on detached skeletons — parent chain is incomplete
+- ❌ Apply hemisphere normalization to corrected keyframe output — breaks mid-animation values
 
-### Pending external
+### Upstream context
 
-- Mesh2Motion/mesh2motion-app#159 — awaiting response from Scott re: bone axis convention
-- Could contact Motifect re: redistribution rights for their 30 emote/social clips
+- Mesh2Motion/mesh2motion-app#159 — original bug report (arms twisted behind back)
+- Mesh2Motion/mesh2motion-app#160 — draft PR with comment explaining the dynamic approach failure
+- M2M dev server: `cd /tmp/mesh2motion-app && npx vite --port 5174`
+- Playwright testing: upload avatar.glb → Auto-Map → Continue → filter "clap" → Play
 
 ## Previous work (complete)
 
 - #450 Animation system — protocol, classifier, picker, layering. Closed.
-- `retarget.mjs` — runtime retarget library. Works correctly for properly-sourced animations.
+- `retarget.mjs` — runtime retarget library with hardcoded canonical rest. Works correctly.
 
 ## Key files
 
 | File | What |
 |------|------|
-| `speech-demo/.../animations/cc0-animations-v2.glb` | 24 CC0 clips — unusable due to axis conversion bug |
-| `speech-demo/.../animations/retarget.mjs` | Runtime retarget library (working) |
-| `speech-demo/.../cc0-retarget-test.html` | Test page with v4/hybrid/GLB toggle |
-| `speech-demo/.../m2m-refs.html` | M2M reference render gallery (14 animations) |
-| `/tmp/mesh2motion-assets/rigs/human/` | Raw M2M blend files |
-| `/tmp/m2m-refs/` | Rendered reference frames from M2M source |
-
-## Blog
-
-- `blog/2026-11-11-mdp01-the-body-language-problem.md` — animation work diary
+| `speech-demo/.../animations/retarget.mjs` | Working retarget with hardcoded CANONICAL_REST — the reference implementation |
+| `speech-demo/.../animations/cc0-animations.glb` | 24 CC0 clips from M2M (need re-export with fixed retarget) |
+| `speech-demo/.../cc0-retarget-test.html` | Test page using retarget.mjs (working comparison baseline) |
+| `speech-demo/.../avatar.glb` | RPM avatar for testing |
