@@ -1,10 +1,10 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-455-cc0-motion-base-tagged-animation-library
+branch: issue-458-author-23-conversational-body-poses
 issue-repo: casehubio/agency
 status: active
-covers: 455
+covers: 458
 project-sha: 
 date: 
 design-repo: 
@@ -26,10 +26,5 @@ flyway-next-v: none
 - [x] casehubio/agency#450 — Richer-avatar-body-animation-via-Mixamo-FBX
 - [x] casehubio/agency#452 — Kokoro-voice-distillation
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
-- [ ] casehubio/agency#455 — CC0-motion-base-tagged-animation-library ← active
-  - [x] Batch 1: Bind correction
-    - [x] Task 1: BindCorrectionRetargeter
-  - [x] Batch 2: Wire export
-    - [x] Task 2: Replace swing-twist in AnimationRetargetService
-  - [x] Batch 3: PR
-    - [x] Task 3: Branch lint and PR to M2M
+- [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
+- [ ] casehubio/agency#458 — Author-23-conversational-body-poses ← active
