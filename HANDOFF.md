@@ -2,63 +2,72 @@
 
 ## Active Issue — #455 CC0 motion base
 
-### Current state — M2M retarget: body/legs fixed, arm R-correction dropped for T→A-pose
+### Current state — Arms still too wide; three approaches tested, none sufficient
 
-The bind correction retarget now produces correct body posture, legs, and hip scaling. **Arms have been fixed by dropping the R post-multiply correction for bones where R > 60°.** This preserves the source's world-space bone direction exactly (0° error) instead of the previous constant 54° offset from the A-pose starting position. Trade-off: arm rest-pose output is T-pose (matches M2M source) instead of A-pose (RPM native), but during animation every frame matches the source's world direction. Needs visual verification in the browser.
+Body/legs retarget correctly. Arms remain "too wide" across all three approaches tested. The retarget path has been **restored to swing-twist Retargeter** (HumanClipRetargeter) with shoulders added to arm chains.
 
-### What was fixed this session (current)
+### What was tried this session
 
-**Root cause: RPM avatar is A-pose, M2M is T-pose — 54° arm direction difference.**
+**Root cause identified: RPM avatar is A-pose (arms 54° below horizontal), M2M is T-pose.**
 
-The RPM avatar's LeftArm bone direction in world space is (0.577, -0.816, -0.042) — pointing left AND down (A-pose). M2M's upperarm_l direction is (1.000, -0.005, -0.026) — pointing pure left (T-pose). This 54° bone direction difference made R = Ws⁻¹ × Wt = 103°, decomposing into 54° swing + 89° twist.
+The R post-multiply = 103°, decomposing into 54° swing (genuine arm direction difference) + 89° twist (bone axis convention). Three approaches tested visually in Playwright:
 
-The L×Q×R formula is algebraically correct (world-frame delta preservation proven). But the 54° A-pose offset means "swing inward for clap" on T-pose becomes "swing inward from a different starting position" on A-pose — the arm doesn't reach center, appearing "too wide."
+| Approach | Rest pose | Animation motion | Visual result |
+|----------|-----------|-----------------|---------------|
+| **Bind correction (L×Q×R)** | Correct (A-pose) | 54° constant world-direction offset | Arms too wide — don't reach center for clap |
+| **L-only (drop R)** | Wrong (T-pose bones, 103° from bind) | 0° world-direction error | Severe mesh distortion — worse than original |
+| **Swing-twist Retargeter** | Correct (respects neutral pose) | Matches source swing/twist vectors | Arms still too wide — similar to bind correction |
 
-**Fix:** Drop R for bones where R > 60° (`BindCorrectionRetargeter.ts`). L-only preserves the source's world-space bone direction exactly (0° error at every frame). Spine/leg bones (R < 15°) keep full L×Q×R.
-
-Diagnostic tests in `arm-correction-diagnostic.test.ts` and `swing-r-diagnostic.test.ts` prove:
-- Full R: constant 54.4° bone direction offset (arms stay wide)
-- Swing-only R: 42-96° (WORSE for inward motions)
-- L-only (this fix): 0.0° direction match at every frame
+**Swing-twist producing similar results to bind correction is unexpected.** Possible causes:
+1. The swing/twist axis definitions in `RigItem` default to Z-swing/Y-twist — may not match M2M's actual bone axes
+2. The shoulder was missing from the arm chain (fixed: added `clavicle_l`/`clavicle_r` to `armL`/`armR` in `HumanChainConfig`) — adding it didn't fix the width issue
+3. The `applyChain()` method uses `getWorldQuaternion()` on the source skeleton — this might not account for the animation mixer's bone-local application correctly
 
 ### What was fixed previously
 
 **Coordinate space mismatch** (prior session): `world_quat()` now walks ALL bone ancestors including M2M root bone's Z-up→Y-up rotation. **Canonical REST disproved**: M2M animation keyframes are in M2M skeleton rest space, not Mixamo canonical space.
 
-### What to do next — visual verification
+### What to investigate next
 
-1. **Test the arm fix visually in the browser** — load RPM avatar, retarget a clapping or victory animation, verify arms come together correctly. The arms will start in T-pose (not A-pose) which may slightly distort the shoulder mesh.
-2. **If T-pose rest looks bad**: consider a hybrid approach — apply the R correction ONLY to the first/last keyframes to blend the rest pose, while keeping L-only for animated frames. Or switch to the existing `Retargeter` swing-twist approach which handles T→A-pose natively.
-3. **Hide M2M source armature** during playback — `StepLoadSourceSkeleton.add_skeleton_and_helper_to_scene()` line 155.
-4. **Consider the full swing-twist Retargeter** as the long-term solution — it already exists in the codebase and correctly handles arbitrary rest-pose differences via per-bone swing/twist axis definitions.
+1. **Check RigItem swing/twist axis definitions** — the defaults (swing=Z, twist=Y) may be wrong for M2M's Blender-convention bones. Inspect `Rig.fromConfig()` → `fromJoint()` to see what axes are actually computed for arm bones.
+2. **Verify the source animation mixer is driving bones correctly** — add debug logging to `Retargeter.applyChain()` to dump source world quaternions during clapping and compare with expected arm positions.
+3. **Compare with retarget.mjs** — retarget.mjs produces correct arm retarget for cc0-animations.glb (Mixamo-space) on the same RPM avatar. The key difference is that cc0 animations match the RPM A-pose convention; M2M animations are T-pose.
+4. **Consider T-pose normalization** — convert the RPM avatar to T-pose before retargeting (rotate the arm bones to match M2M's T-pose), then the bind correction R values become small and the formula works correctly.
 
 ### What exists
 
 | Item | Where | Status |
 |------|-------|--------|
 | Draft PR #160 | Mesh2Motion/mesh2motion-app#160 | Draft — body/legs work, arms need fixing |
-| BindCorrectionRetargeter.ts | `/tmp/mesh2motion-app/src/retarget/human-retargeting/` | `world_quat` (all ancestors) + hemisphere correction |
+| BindCorrectionRetargeter.ts | `/tmp/mesh2motion-app/src/retarget/human-retargeting/` | `world_quat` (all ancestors) + hemisphere correction. NOT currently wired — kept for reference |
 | BindCorrectionRetargeter.test.ts | Same dir | 9 tests pass (including M2M→RPM integration) |
-| AnimationRetargetService.ts | `/tmp/mesh2motion-app/src/retarget/` | Uses BindCorrectionRetargeter with root bone position correction |
+| arm-correction-diagnostic.test.ts | Same dir | Dumps L/R corrections and bone direction tracking for M2M→RPM vs canonical→RPM |
+| swing-r-diagnostic.test.ts | Same dir | Compares full R, swing-only R, and L-only bone direction tracking |
+| AnimationRetargetService.ts | `/tmp/mesh2motion-app/src/retarget/` | NOW uses HumanClipRetargeter (swing-twist Retargeter) |
+| HumanChainConfig.ts | Same dir | Arm chains now include clavicle/shoulder bones |
 | Fork | mdproctor/mesh2motion-app branch `fix/bind-correction-retarget` | All commits pushed |
 | M2M clone | `/tmp/mesh2motion-app` | Branch `fix/bind-correction-retarget`, 146 tests passing |
 | RPM avatar | `/tmp/mesh2motion-app/static/test-files/retarget testing/rpm-avatar.glb` | For Playwright testing |
 | RPM avatar (Playwright copy) | `agency/.playwright-mcp/rpm-avatar.glb` | Playwright sandbox-safe copy |
 | Debug hook | `StepLoadSourceSkeleton.ts` line 170 | `window.__m2m_scene` and `__m2m_source_armature` exposed for console debugging |
 
-### Key insights for the next session
+### Key insights (cumulative)
 
 1. **Animation keyframes are in M2M rest space** — source rest MUST come from M2M skeleton, not canonical constants
-2. **Root bone MUST be included** in source world quaternion — it converts Z-up to Y-up, matching the target's coordinate space
-3. **The formula is correct** — L × Q × R round-trips rest-pose keyframes perfectly. The remaining arm issue is about animated (non-rest) keyframes
-4. **M2M source armature is visible** in the scene alongside the target avatar — creates confusing "two figures" visual. Hide it during animation playback
-5. **retarget.mjs bindCorrections (line 1034)** is the reference — compare its output for the RPM avatar with our BindCorrectionRetargeter output to find the arm divergence
+2. **Root bone MUST be included** in source world quaternion — converts Z-up to Y-up
+3. **L×Q×R is algebraically correct** — preserves world-frame deltas (proven). But world-frame delta preservation ≠ visually correct when rest poses differ by 54° (T-pose vs A-pose)
+4. **R decomposes into 54° swing + 89° twist** — the twist is the bone axis convention difference between Blender (M2M) and Mixamo (RPM)
+5. **Dropping R distorts mesh** — the RPM mesh is skinned in A-pose; forcing T-pose bones (103° off bind) causes severe mesh distortion
+6. **Swing-only R is WORSE** than full R for inward motions (42-96° error vs 54° constant)
+7. **retarget.mjs works** because its cc0 animations match the RPM A-pose convention — same skeleton family, small R values
+8. **M2M source armature is visible** in the scene — hide via `StepLoadSourceSkeleton` line 155
 
 ### What NOT to do
 
 - Do NOT use `CANONICAL_REST` from retarget.mjs as source rest — M2M animations are NOT in canonical space
 - Do NOT exclude unmapped bones from source world quaternion — creates Z-up/Y-up mismatch
-- Do NOT apply root bone quaternion to position tracks when using canonical rest — but DO apply it when using dynamic M2M rest (positions are in root-local Z-up space)
+- Do NOT drop R for arm bones — causes severe mesh distortion (103° from bind pose)
+- Do NOT use swing-only R — produces worse errors than full R for inward motions
 
 ### Upstream context
 
