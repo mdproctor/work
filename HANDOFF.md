@@ -2,43 +2,35 @@
 
 ## Active Issue — #455 CC0 motion base
 
-### Current state — M2M retarget: body/legs fixed, arms still wrong
+### Current state — M2M retarget: body/legs fixed, arm R-correction dropped for T→A-pose
 
-The bind correction retarget now produces correct body posture (upright standing), correct leg positions (both feet planted), and correct hip scaling. **The fundamental coordinate space issue is solved.** Arms are in the right general direction (forward, not behind) but arm orientations are still wrong — arms stretch too wide and pass through the body during clapping-type animations.
+The bind correction retarget now produces correct body posture, legs, and hip scaling. **Arms have been fixed by dropping the R post-multiply correction for bones where R > 60°.** This preserves the source's world-space bone direction exactly (0° error) instead of the previous constant 54° offset from the A-pose starting position. Trade-off: arm rest-pose output is T-pose (matches M2M source) instead of A-pose (RPM native), but during animation every frame matches the source's world direction. Needs visual verification in the browser.
 
-### What was fixed this session
+### What was fixed this session (current)
 
-**Root cause found and fixed: coordinate space mismatch in world quaternion computation.**
+**Root cause: RPM avatar is A-pose, M2M is T-pose — 54° arm direction difference.**
 
-The `mapped_world_quat()` function excluded unmapped bones (M2M's `root` bone with -90° X rotation) from the source world quaternion. This left source world quaternions in Z-up space while target was in Y-up, creating near-180° corrections for leg bones that caused them to flip unpredictably.
+The RPM avatar's LeftArm bone direction in world space is (0.577, -0.816, -0.042) — pointing left AND down (A-pose). M2M's upperarm_l direction is (1.000, -0.005, -0.026) — pointing pure left (T-pose). This 54° bone direction difference made R = Ws⁻¹ × Wt = 103°, decomposing into 54° swing + 89° twist.
 
-**Fix:** changed to `world_quat()` which walks ALL bone ancestors including the unmapped root. The root bone's Z-up→Y-up rotation converts source world quaternions to Y-up (same as target). The L correction absorbs the coordinate transform; R corrections become small and stable.
+The L×Q×R formula is algebraically correct (world-frame delta preservation proven). But the 54° A-pose offset means "swing inward for clap" on T-pose becomes "swing inward from a different starting position" on A-pose — the arm doesn't reach center, appearing "too wide."
 
-Also added target-rest hemisphere correction: after applying L × Q × R, the output quaternion's dot product with the target rest quaternion is checked. If negative (wrong hemisphere), the quaternion is negated to prevent slerp taking the long path.
+**Fix:** Drop R for bones where R > 60° (`BindCorrectionRetargeter.ts`). L-only preserves the source's world-space bone direction exactly (0° error at every frame). Spine/leg bones (R < 15°) keep full L×Q×R.
 
-### What was disproved this session
+Diagnostic tests in `arm-correction-diagnostic.test.ts` and `swing-r-diagnostic.test.ts` prove:
+- Full R: constant 54.4° bone direction offset (arms stay wide)
+- Swing-only R: 42-96° (WORSE for inward motions)
+- L-only (this fix): 0.0° direction match at every frame
 
-**The canonical REST approach is WRONG for M2M's animation library.** The previous handover said to use `CANONICAL_REST` from retarget.mjs as source rest. This was tested and failed completely (avatar floating, rotated, limbs contorted).
+### What was fixed previously
 
-**Proof:** M2M animation keyframe values are in M2M skeleton rest space, NOT Mixamo canonical space:
-```
-pelvis keyframe frame0: [0.783, 0, 0, 0.622]  ← matches M2M rest [0.790, 0, 0, 0.613]
-Canonical Hips rest:    [0.001, 0, 0, 1.000]  ← completely different
-```
+**Coordinate space mismatch** (prior session): `world_quat()` now walks ALL bone ancestors including M2M root bone's Z-up→Y-up rotation. **Canonical REST disproved**: M2M animation keyframes are in M2M skeleton rest space, not Mixamo canonical space.
 
-retarget.mjs works because its source animations (`cc0-animations.glb` in speech-demo) ARE in Mixamo space. M2M's animation library files are authored on the M2M skeleton and use M2M-space keyframe values.
+### What to do next — visual verification
 
-### What to do next — fix arm retarget quality
-
-Body and legs retarget correctly. Arms are in the right general direction but rotations are wrong — arms stretch too wide and penetrate the body during animations with arm movement (clapping, victory).
-
-Investigation approach:
-1. Compare arm correction values (L, R for LeftArm/LeftForeArm/LeftHand) with what retarget.mjs produces for the same RPM target
-2. The issue might be in how the M2M arm bones' rest rotations map to RPM — the shoulder/arm chain has different orientations between rigs
-3. Check if the M2M source skeleton's arm bones have correct parent chains when extracted via `create_skeleton_from_group_object`
-4. Consider whether `AnimationUtility.clean_track_data()` (called before retarget) modifies arm tracks in ways that affect retargeting
-
-The M2M source armature is also still visible in the scene during animation playback — it should be hidden. This is in `StepLoadSourceSkeleton.add_skeleton_and_helper_to_scene()` line 155.
+1. **Test the arm fix visually in the browser** — load RPM avatar, retarget a clapping or victory animation, verify arms come together correctly. The arms will start in T-pose (not A-pose) which may slightly distort the shoulder mesh.
+2. **If T-pose rest looks bad**: consider a hybrid approach — apply the R correction ONLY to the first/last keyframes to blend the rest pose, while keeping L-only for animated frames. Or switch to the existing `Retargeter` swing-twist approach which handles T→A-pose natively.
+3. **Hide M2M source armature** during playback — `StepLoadSourceSkeleton.add_skeleton_and_helper_to_scene()` line 155.
+4. **Consider the full swing-twist Retargeter** as the long-term solution — it already exists in the codebase and correctly handles arbitrary rest-pose differences via per-bone swing/twist axis definitions.
 
 ### What exists
 
