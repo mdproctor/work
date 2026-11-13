@@ -2,9 +2,15 @@
 
 ## Active Issue — #457 Avatar demo animation integration
 
-### Current state — Retarget done, ready to integrate into avatar demo
+### Current state — Retarget complete, code reviewed, issues filed
 
-**Retarget (M2M → RPM) is complete.** `PoseAlignedRetargeter` + `LimbProportionCorrector` + body clearance detection. PR Mesh2Motion/mesh2motion-app#160 ready (181 tests passing). Fork: `mdproctor/mesh2motion-app` branch `fix/bind-correction-retarget`.
+**Retarget (M2M → RPM) is complete.** `PoseAlignedRetargeter` + `LimbProportionCorrector` + body clearance detection. PR Mesh2Motion/mesh2motion-app#160 updated (181 tests passing). Fork: `mdproctor/mesh2motion-app` branch `fix/bind-correction-retarget`.
+
+**Session wrap completed:**
+- Code review: done (dead code identified — M2M #162, no correctness issues)
+- Blog: `2026-11-13-mdp01-the-retarget-that-looked-right.md`
+- Issues filed: M2M #161-#165 (source armature, dead code, avatar testing, slider, debug hooks)
+- Animation integration: agency #457 (50+ animations across idle/conversation/dance/joke)
 
 ### What to do next — issue #457
 
