@@ -30,14 +30,13 @@ Completed #941 (personality-aware situation classification) — M/High. Implemen
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|------------|
-| #970 | DriveProfileDerivationPhase personality-aware classification | S | Med |
-| #971 | Fix eval test compilation failures from #926 | XS | Low |
-| #972 | Tension threshold sensitivity analysis | S | Med |
-| #973 | CBR disposition filter isolation integration test | XS | Low |
+| #974 | Fix eval test compilation — PipelineCoherenceEvalTest and RegulationFullPipelineEvalTest | XS | Low |
+| #975 | Document CAPS modules and BehavioralSynthesisPhase in contributor guide | S | Low |
+| #976 | DriveProfileDerivationPhase personality-aware classification | M | High |
 
 ### Pre-existing issues noted
 
-- `PipelineCoherenceEvalTest.java` and `RegulationFullPipelineEvalTest.java` don't compile — reference `withSessionPipeline()` removed in #926 test harness unification. Filed as #971.
+- `PipelineCoherenceEvalTest.java` and `RegulationFullPipelineEvalTest.java` don't compile — reference `withSessionPipeline()` removed in #926 test harness unification. Filed as #974.
 
 ## Immediate Next Step
 
@@ -56,4 +55,5 @@ Completed #941 (personality-aware situation classification) — M/High. Implemen
 - **neocortex:** on `main` — all #941 work landed and pushed
 - **Branch `issue-941-personality-situation-classification`:** stamped as closed
 - Blog post written: "The Personality That Saw the Same Thing" (workspace blog/)
-- Research docs updated (post-era6, drive-expression, contributor-guide)
+- Research docs updated (post-era6 Stream 14, drive-expression Journal 5 forward ref)
+- Contributor guide CAPS docs deferred to #975
