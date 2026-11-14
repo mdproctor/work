@@ -1,7 +1,7 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-957-sec-occ-emotion-mapping
+branch: 
 issue-repo: casehubio/neocortex
 status: active
 covers: 841
@@ -11,6 +11,7 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 check: 878
+done: 957
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
@@ -42,8 +43,8 @@ check: 878
 - [x] casehubio/neocortex#939 — CAPS classifier empty-result fallback masks drive discrimination
 - [x] casehubio/neocortex#938 — PipelineCoherenceEvalTest — cross-stage narrative continuity
 - [x] casehubio/neocortex#925 — CAPS consolidation coherence scenario
-- [ ] casehubio/neocortex#926 — unify test harnesses ← active
-- [ ] casehubio/neocortex#941 — Drive profile personality-specific situation reasoning
+- [x] casehubio/neocortex#926 — unify test harnesses
+- [ ] casehubio/neocortex#941 — Drive profile personality-specific situation reasoning ← active
 - [ ] casehubio/neocortex#957 — SEC→OCC emotion mapping arousal and taxonomy gaps
 - [ ] casehubio/neocortex#958 — Drive activation from single-tick appraisal curiosity gap
 - [ ] casehubio/neocortex#959 — Cross-tick trajectory negative attractor lock
