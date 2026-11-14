@@ -2,54 +2,58 @@
 
 ## Last Session
 
-Closed 4 issues: #920 (eval signal review — no RPI evidence), #940 (fragile drive detection fix), #937 (process constraint eval — 10/11 passed), #889 (literature Javadoc citations cherry-picked). Also reconciled local/upstream main divergence from mega-squash issue — canonical main rewritten by fixer slot, local main synced.
+Completed #941 (personality-aware situation classification) — M/High. Implemented dual-level personality influence on the CAPS pipeline: primary appraisal via disposition-aware LLM classification + hybrid A/C prompt routing based on psychological tension scoring. Comprehensive code review found and fixed 3 issues (CBR disposition filter gap, prompt deduplication, topology code extraction). Filed 4 follow-up issues (#970-#973).
 
 ### Issues completed
 
 | # | Title | Scale | Outcome |
 |---|-------|-------|---------|
-| #920 | Eval signal — RPI stale strategy persistence | S | Closed — zero instances in eval traces, existing anti-RPI mechanisms catalogued |
-| #940 | DriveProfilePipelineTest fragile verbatim detection | XS | Landed `de8cb4a2` — replaced verbatim description matching with drive type label detection |
-| #937 | Verify process constraint effectiveness via LLM eval suite | S | Closed — 10/11 passed (91%), gate 80%. Results in `docs/eval/process-constraint-eval-937.json` |
-| #924 | Two-tier CoherenceJudge | — | Closed by another slot |
-| #939 | CAPS classifier empty-result fallback | — | Closed by another slot |
+| #941 | Drive profile personality-specific situation reasoning | M | Landed on main — 9 commits (7 feat + 1 docs + 1 fix) |
 
-### Pending branch
+### What was built
 
-`issue-889-literature-javadoc-cherry` — 6 commits on top of main:
-- 4 cherry-picked Javadoc `@see` literature citation commits (#889)
-- Stream 11 research doc additions (#920, #937 findings)
-- Process constraint findings verification section
+- **DispositionTension** — static tension table scoring 6 conflicting axis pairs (caps-llm-classifier)
+- **PersonalityPromptBuilder** — path A (user prompt suffix) and path C (system prompt personality frame) construction (caps-llm-classifier)
+- **LlmSituationClassifier** — A/C routing: tension > 0.5 triggers path C personality frame; otherwise path A suffix
+- **BehavioralSynthesisPhase** — disposition metadata injection at both classify() call sites via CognitiveDefaultsRegistry
+- **CbrCachingSituationDecorator** — disposition in cache key hash + CBR feature fields + lookup filters
+- **PersonalityClassificationEvalTest** — 4 profiles × 4 observations with inter-profile variance, dual-activation, bias detection
+- Code review fixes: CBR lookup disposition filters, prompt dedup, shared topology node listing extraction
 
-**Needs landing** via work-end when git history is stable.
+### Code review findings (fixed)
 
-### Key findings
+1. **CRITICAL:** CBR lookup missing disposition filters — different personalities could receive each other's cached classifications. Fixed by adding disposition categorical filters to lookupCbr() query.
+2. **WARNING:** Disposition metadata double-appeared in user prompt (raw metadata dump + formatted suffix). Fixed by filtering disposition.* keys from raw metadata output.
+3. **NOTE:** Duplicated topology node listing in PersonalityPromptBuilder and LlmSituationClassifier. Fixed by extracting shared `appendTopologyNodes()` method.
 
-**RPI eval signal (#920):** Current eval suite lacks temporal dimension for RPI detection. All evals test single-turn congruence, not multi-turn strategy persistence under context change. #938 (cross-stage narrative continuity) is the natural surface point for RPI signals.
+### Issues filed
 
-**Process constraints verified (#937):** All three #933 targets passed — cognitive load biases strategy selection, fatigue transitions to AD, per-strategy personality congruence holds. One pre-existing failure (proactive avoidance goals) unrelated to process constraints.
+| # | Title | Scale | Complexity |
+|---|-------|-------|------------|
+| #970 | DriveProfileDerivationPhase personality-aware classification | S | Med |
+| #971 | Fix eval test compilation failures from #926 | XS | Low |
+| #972 | Tension threshold sensitivity analysis | S | Med |
+| #973 | CBR disposition filter isolation integration test | XS | Low |
 
-### Research docs updated
+### Pre-existing issues noted
 
-- `docs/research/2026-11-05-post-era6-regulation-and-identity.md` — added Stream 11 (process constraint verification + RPI eval signal)
-- `docs/research/2026-11-11-process-constraint-regulation-findings.md` — added verification section with eval pass rates
+- `PipelineCoherenceEvalTest.java` and `RegulationFullPipelineEvalTest.java` don't compile — reference `withSessionPipeline()` removed in #926 test harness unification. Filed as #971.
 
 ## Immediate Next Step
 
-`work continue` — next in queue is #938 (PipelineCoherenceEvalTest cross-stage narrative continuity). M/Med.
+`work continue` — next in queue is #957 (SEC→OCC emotion mapping arousal and taxonomy gaps). M/High.
 
 ## Remaining Queue (Epic #841)
 
 | # | Title | Scale | Complexity | Status |
 |---|-------|-------|------------|--------|
-| #938 | PipelineCoherenceEvalTest — cross-stage narrative continuity | M | Med | Active — next |
-| #925 | CAPS consolidation coherence scenario | M | Med | Open |
-| #926 | Unify test harnesses | M | Med | Open |
-| #941 | Drive profile personality-specific situation reasoning | M | High | Open — last |
+| #957 | SEC→OCC emotion mapping arousal and taxonomy gaps | M | High | Active — next |
+| #958 | Drive activation from single-tick appraisal curiosity gap | S | Med | Open |
+| #959 | Cross-tick trajectory negative attractor lock | S | Med | Open |
 
 ## Git State
 
-- **neocortex:** on branch `issue-889-literature-javadoc-cherry` (6 commits ahead of main)
-- **Local main:** synced with upstream/main (`325237ab`)
-- 63 old feature branches are stamped (safe to clean up)
-- `issue-937-process-constraint-eval` and `issue-937-clean` can be deleted (work on main)
+- **neocortex:** on `main` — all #941 work landed and pushed
+- **Branch `issue-941-personality-situation-classification`:** stamped as closed
+- Blog post written: "The Personality That Saw the Same Thing" (workspace blog/)
+- Research docs updated (post-era6, drive-expression, contributor-guide)
