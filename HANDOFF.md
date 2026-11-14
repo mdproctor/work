@@ -2,48 +2,101 @@
 
 ## Active Issue — #458 Author 23 conversational body poses
 
-### Current state — All 23 poses authored and integrated
+### Current state — 4 poses working, pipeline proven
 
-**#458 complete.** 23 conversational body poses authored programmatically via Blender Python scripting on the M2M skeleton, retargeted to RPM via the batch pipeline, bundled into m2m-animations.glb (75 total clips, up from 52). Taxonomy, gesture tags, speaking/idle pools, and keyword fallbacks all updated in body-animations.mjs.
+**Branch:** `issue-458-author-23-conversational-body-poses` (based on #455 tip)
 
-### What was done
+**Working poses (approved by user):**
+- `head-shake` — oscillating head turn, no body masking needed
+- `hand-over-mouth` — right hand at mouth, palm facing face, fingers adducted
+- `hands-over-mouth` — both hands, left slightly forward resting on right
+- `facepalm` — static hand on forehead, both eyes visible
 
-1. Wrote `author-poses.py` — Blender Python script that creates all 23 poses by composing quaternion rotations from calibrated reference poses (idle-breathe, greeting-wave, pointing, sad)
-2. Exported 23 individual GLBs (breathing loops for stances, gesture cycles, oscillations for head-shake/finger-wag, one-shot motions for reactive/emotional)
-3. Added entries to batch-retarget-speech-demo.test.ts and ran the retarget pipeline (M2M → RPM skeleton)
-4. Updated body-animations.mjs: new subcategories (distress), 23 taxonomy entries, 14 new gesture tag mappings, updated pool weights, 4 new keyword fallbacks
+**Approved GLB saved at:** `/tmp/m2m-facepalm-v5.glb` (the current production bundle with all 4 working poses + 52 original clips)
 
-### Issue chain
+### Immediate next task — Animated facepalm
 
-| # | Title | Status | Depends on |
-|---|-------|--------|------------|
-| #457 | Avatar demo animation integration | Paused — resumes after #458 | #458 |
-| #458 | Author 23 conversational body poses | **Done** | — |
-| #459 | Wire speaking-state to audio playback | Open | #458 ✓ |
-| #460 | LLM system prompt for continuous gesture tags | Open | #458 ✓, #459 |
-| #461 | Contribute body animation system to TalkingHead | Open | #458 ✓, #460 |
+The static facepalm is approved. It needs an animation: starts from `idle-talking` pose, hand sweeps up to the approved forehead position. Three failed attempts at this — the issue is extracting start/end poses from the approved GLB and interpolating between them without coordinate corruption.
 
-### Next — resume #457 / start #459
+**What went wrong:**
+1. Re-importing the bundle GLB into Blender corrupts the action data — bone name paths don't match after round-tripping
+2. Binary-level quaternion interpolation (slerp at glTF level) produced a "crumpled into a ball" result — likely wrong slerp across quaternion double-cover boundaries
+3. The approved facepalm end pose must NOT be re-solved via IK — use the exact values from the approved bundle
 
-- Wire speaking-state to audio lifecycle (#459) — now unblocked
-- Add variant depth (3-5 clips per subcategory)
-- LLM gesture density system prompt (#460)
-- Visual testing of all 23 new poses in the browser with TalkingHead
+**Recommended approach for next session:**
+- Extract BOTH poses (idle-talking mid-frame, facepalm mid-frame) from the approved GLB at the binary level
+- Handle quaternion double-cover: ensure dot product > 0 before slerp (negate if needed)
+- Test the interpolation at frame 0 (should match idle-talking exactly) and frame 59 (should match facepalm exactly) before deploying
+- The hold-transition-hold timeline: 0-15 hold idle-talking, 15-40 transition, 40-59 hold facepalm
+
+### Proven pipeline — Blender IK on RPM avatar
+
+The pipeline that works for pose authoring:
+
+```
+1. Import RPM avatar.glb into Blender
+2. Set IK target at desired hand world position
+3. IK constraint on hand bone, chain_count=3
+4. NLA bake (visual_keying=True, clear_constraints=True)
+5. Post-bake adjustments:
+   - Palm rotation: Q((0,1,0), radians(60)) for right hand facing face
+   - Finger adduction: Z-axis rotations (Index1=+15°, Ring1=-15°, Pinky1=-25°)
+   - Shoulder rotation: Q((1,0,0), radians(-5)) to adjust elbow angle
+6. Export as GLB — Blender handles coordinate conversion
+7. Merge into bundle via Python GLB binary merge script
+```
+
+**Key scripts (all in /tmp/):**
+- `author-single-pose-simple.py` — template for single-hand IK poses (hand-over-mouth)
+- `author-hands-over-mouth.py` — two-hand variant
+- `author-facepalm.py` — static facepalm (forehead IK)
+
+**What does NOT work:**
+- Authoring on the Mixamo/CC0 skeleton then retargeting — T-pose vs A-pose rest mismatch
+- Extracting quaternions from Blender and plugging into a Python GLB builder — coordinate space mismatch
+- Slerping between reference clip quaternions at the glTF binary level — unpredictable visual results
+- Re-importing the approved bundle GLB into Blender to extract action data — round-trip corruption
+
+### Testing workflow
+
+```bash
+# Serve static files for testing
+python3 -m http.server 8090 --directory speech-demo/target/classes/META-INF/resources
+
+# Test page with URL bookmarking (clip + camera position in hash)
+http://localhost:8090/animation-test.html#clip=facepalm
+
+# Pose workshop for interactive blending
+http://localhost:8090/pose-workshop.html
+```
+
+The test page strips head bone tracks by default (for TalkingHead compatibility). Head-shake works because the masking was removed in the test page. The `animation-test.html` has URL hash state: `#clip=name&cx=..&cy=..&cz=..&tx=..&ty=..&tz=..` — refreshing preserves both the active clip and camera position.
+
+### Remaining poses (19 of 23)
+
+After facepalm animation, these still need authoring via the Blender IK pipeline:
+
+**Stances (looping):** hands-clasped-front, hands-behind-back, thinker, hands-on-hips, open-palms-presenting
+**Hand gestures (cycling):** hands-base-to-chest, hands-expand, hands-converge, hands-alternating
+**Reactive (one-shot):** finger-wag, shrug, one-hand-raised, finger-pointing-up
+**Emotional (one-shot):** self-hug, arms-wide-open, shocked-recoil, hands-on-head, hands-interlocked-chest
+
+Note: `thumbs-up` is redundant with existing `yes` clip.
 
 ### Key files
 
 | File | What |
 |------|------|
-| `speech-demo/.../animations/m2m-animations.glb` | 75 pre-retargeted clips (10 MB) |
-| `speech-demo/.../animations/body-animations.mjs` | Taxonomy (73 clips), pools, picker, 38 gesture tags |
-| `speech-demo/.../animations/author-poses.py` | Blender authoring script for the 23 poses |
-| `speech-demo/.../index.html` | Integration with TalkingHead + WebSocket |
-| `/tmp/mesh2motion-app/src/retarget/batch-retarget-speech-demo.test.ts` | Batch retarget script (75 entries) |
+| `speech-demo/.../animations/m2m-animations.glb` | Production bundle (75 clips, approved version at `/tmp/m2m-facepalm-v5.glb`) |
+| `speech-demo/.../animations/body-animations.mjs` | Taxonomy, pools, gesture tags (already updated for all 23) |
+| `speech-demo/.../animations/author-poses.py` | Blender authoring script (needs updating per new pipeline) |
+| `speech-demo/.../avatar.glb` | RPM avatar — IK target reference for bone positions |
+| `/tmp/m2m-merged.glb` | Base 52-clip bundle (no new poses) for clean rebuilds |
 
 ### What NOT to do
 
-- Do NOT use TalkingHead's `head.mixer` for body animations — it recreates the mixer per `playAnimation()` call
-- Do NOT animate Head/Neck/Eye bones from body clips — TalkingHead writes them every frame
-- Do NOT ship M2M-space clips to the browser — always pre-retarget to RPM skeleton
+- Do NOT re-import the approved GLB into Blender to extract poses — round-trip corrupts actions
+- Do NOT author on the Mixamo skeleton — always use RPM avatar.glb directly
+- Do NOT guess quaternion axis directions — use IK targets with world coordinates
+- Do NOT claim a pose looks right without taking a screenshot and checking it honestly
 - The "bow" animation in M2M is archery (combat/ranged), not a greeting bow
-- Do NOT edit the 23 authored GLBs manually — re-run author-poses.py and the retarget pipeline instead
