@@ -1,7 +1,7 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: 
+branch: issue-957-sec-occ-emotion-mapping
 issue-repo: casehubio/neocortex
 status: active
 covers: 841
@@ -51,3 +51,7 @@ check: 878
 - [ ] casehubio/neocortex#971 — Fix eval test compilation failures from 926
 - [ ] casehubio/neocortex#972 — Tension threshold sensitivity analysis
 - [ ] casehubio/neocortex#973 — CBR disposition filter isolation test
+- [ ] casehubio/neocortex#983 — SHAME affiliation suppression
+- [ ] casehubio/neocortex#984 — Drive saturation clamping
+- [ ] casehubio/neocortex#985 — Curiosity attentional channel weight
+- [ ] casehubio/neocortex#986 — ATTENDING action tendency channel boost
