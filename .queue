@@ -47,3 +47,7 @@ check: 878
 - [ ] casehubio/neocortex#957 — SEC→OCC emotion mapping arousal and taxonomy gaps
 - [ ] casehubio/neocortex#958 — Drive activation from single-tick appraisal curiosity gap
 - [ ] casehubio/neocortex#959 — Cross-tick trajectory negative attractor lock
+- [ ] casehubio/neocortex#970 — DriveProfileDerivationPhase personality classification
+- [ ] casehubio/neocortex#971 — Fix eval test compilation failures from 926
+- [ ] casehubio/neocortex#972 — Tension threshold sensitivity analysis
+- [ ] casehubio/neocortex#973 — CBR disposition filter isolation test
