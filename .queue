@@ -1,7 +1,7 @@
 # Work Plan — Work Plan —
 
 ## State
-branch: issue-958-drive-activation-curiosity-gap
+branch: 
 issue-repo: casehubio/neocortex
 status: active
 covers: 841
@@ -46,8 +46,8 @@ done: 957
 - [x] casehubio/neocortex#926 — unify test harnesses
 - [x] casehubio/neocortex#941 — Drive profile personality-specific situation reasoning
 - [x] casehubio/neocortex#957 — SEC→OCC emotion mapping arousal and taxonomy gaps
-- [ ] casehubio/neocortex#958 — Drive activation from single-tick appraisal curiosity gap ← active
-- [ ] casehubio/neocortex#959 — Cross-tick trajectory negative attractor lock
+- [x] casehubio/neocortex#958 — Drive activation from single-tick appraisal curiosity gap
+- [ ] casehubio/neocortex#959 — Cross-tick trajectory negative attractor lock ← active
 - [ ] casehubio/neocortex#970 — DriveProfileDerivationPhase personality classification
 - [ ] casehubio/neocortex#971 — Fix eval test compilation failures from 926
 - [ ] casehubio/neocortex#972 — Tension threshold sensitivity analysis
