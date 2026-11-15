@@ -2,38 +2,39 @@
 
 ## Last Session
 
-Completed #958, #959, #970, #971 on branch `issue-958-drive-activation-curiosity-gap`. Three fixes, one verification, one closure of an already-resolved issue.
-
-The session's most significant change: eliminating a double mood bridging bug that caused a negative attractor lock in cross-tick cognitive trajectories. Both `AppraisalTickParticipant.bridgeToMood()` and `CognitionCore.bridgeAppraisalToMood()` fired on the same appraisal result, doubling every mood signal. Combined with observation-primacy framing added to `LlmAppraisalStrategy`, this should break the negative mood basin that scored 2.3 on crossTickTrajectory eval.
+Completed #972 on branch `issue-972-tension-threshold-sensitivity`. Made the tension threshold configurable and ran a sensitivity analysis that revealed the threshold is a formality — binary score distribution makes any value below 0.6 equivalent.
 
 ### Issues completed
 
 | # | Title | Scale | Outcome |
 |---|-------|-------|---------|
-| #958 | Drive activation from single-tick appraisal curiosity gap | S/Low | Tests only — chain works after #957's HOPE rule |
-| #959 | Cross-tick trajectory negative attractor lock | M/High | Removed duplicate mood bridge + observation-primacy framing |
-| #970 | DriveProfileDerivationPhase personality-aware classification | S/Med | Wired disposition metadata, eval test written |
-| #971 | Fix eval test compilation failures from 926 | XS/Low | Already resolved — closed |
+| #972 | Tension threshold sensitivity analysis for A/C prompt routing | S/Med | Threshold configurable, 0.5 confirmed optimal via analytical analysis |
+
+### Issues filed
+
+| # | Title | Scale | Why |
+|---|-------|-------|-----|
+| #989 | Re-run tension threshold LLM eval when Vertex deployment updated | XS/Low | Eval test ready but fable-5-2 model unavailable on Vertex |
+| #990 | LlmSituationClassifier silently degrades on unavailable models | S/Low | Discovered during eval — non-JSON responses produce empty results silently |
 
 ### What was built
 
-- **Double bridge fix** — removed `bridgeToMood(result, context)` from `AppraisalTickParticipant` line 195; `CognitionCore.bridgeAppraisalToMood()` retained as canonical single bridge point. Capacity frustration bridge (line 344) preserved — it handles a separate appraisal result.
-- **Observation-primacy framing** — `LlmAppraisalStrategy.buildUserMessage()` mood injection now labels itself "background — appraise the situation itself, not this mood" instead of raw unlabelled PAD numbers.
-- **HOPE drive verification** — 3 tests: `hopeBoostsCuriosityAboveTriggerThreshold`, `hopeStrongerCuriosityDriverThanJoy`, `highNoveltyAppraisalDrivesCuriosityViaHope` (end-to-end SEC→drive trigger override).
-- **Single-bridge mood test** — `appraisalMoodBridgeProducesProportionalShift` verifies FEAR(0.6) produces mood pleasure between -0.8 and -0.1 (not the -1.0+ from double bridging).
-- **Personality-aware drive derivation** — `DriveProfileDerivationPhase` now accepts `CognitiveDefaultsRegistry`, adds `disposition.*` keys to classifier metadata. `DriveProfilePersonalityEvalTest` (llm-eval) compares personality-aware vs agnostic derivation.
+- **Configurable threshold** — `LlmSituationClassifier` now accepts `tensionThreshold` as a 4th constructor parameter with [0,1] validation. CDI producer wires `casehub.caps.classification.tension-threshold` (default 0.5).
+- **Sensitivity analysis** — all 6 curated tension entries score 0.6–1.0; no scores exist in (0.0, 0.6). Thresholds 0.3 and 0.5 produce identical routing. Threshold 0.7 drops three meaningful tensions. Findings documented in `docs/specs/issue-972-tension-threshold-sensitivity.md`.
+- **Eval test** — `TensionThresholdSensitivityEvalTest` exercises all 6 tension table entries via 7 profiles (6 tension + 1 baseline) across thresholds 0.3/0.5/0.7. Measures inter-profile variance, dual-activation rates, and stability. Zero-vector guard prevents false-positive assertions when LLM is unavailable.
+- **Code review fixes** — import ordering, parameter validation, missing profiles (bold-avoidant and independent-low-autonomy at tension 0.7), false-positive guard on inter-profile variance assertion.
 
 ### Key finding
 
-The double mood bridge was invisible to unit tests because both methods were correct in isolation. The emergent feedback loop — mood→appraisal→emotions→double bridge→worse mood→anchored appraisal — only surfaced through cross-stage pipeline coherence evaluation. This reinforces that cognitive pipeline quality requires evaluation at the trace level, not the component level.
+The tension table is binary by construction — pairs either create a named psychological conflict (scoring 0.6–1.0) or don't (scoring 0.0). There are no borderline entries. The routing threshold is a safety margin between the lowest legitimate score and zero, not a tuning knob. The real control surface for personality-aware classification is the tension table itself — which axis-value pairs get entries and what narratives they carry.
 
 ### Pending verification
 
-- crossTickTrajectory eval score (was 2.3) should improve — needs LLM eval run
-- DriveProfilePersonalityEvalTest needs LLM eval run to decide keep/remove for #970 wiring
+- LLM eval data collection for #972 blocked by Vertex model availability (fable-5-2) — tracked in #989
+- crossTickTrajectory eval score (was 2.3) still needs LLM eval run (from prior session)
+- DriveProfilePersonalityEvalTest needs LLM eval run (from prior session)
 
 ### Next queue items
 
-- #972 — Tension threshold sensitivity analysis (S/Med)
 - #973 — CBR disposition filter isolation test
 - #983 — SHAME affiliation suppression
