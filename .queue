@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-1003-re-run-coherence-eval-suite
+branch: 
 issue-repo: casehubio/neocortex
 status: active
 covers: 841
@@ -11,7 +11,7 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 check: 878
-done: 1001
+done: 1004
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
