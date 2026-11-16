@@ -5,7 +5,7 @@ date: 2026-11-16
 entry_type: article
 subtype: diary
 projects: [casehubio/neocortex]
-tags: [cognition, appraisal, drive-modulation, channel-weighting, coherence, eval, tanh, frijda]
+tags: [cognition, appraisal, drive-modulation, channel-weighting, coherence, eval, tanh, frijda, tangney, diminishing-returns, verification]
 series: cognitive-pipeline
 ---
 
@@ -102,3 +102,45 @@ Unit tests verify that components do what they were designed to do. Coherence ev
 The fifth wasn't even a bug. It was a missing log statement. The system was doing exactly what it was told — returning empty results for a failed backend call. It just wasn't telling anyone.
 
 And the sixth was the reason the eval couldn't run at all. The `LlmSituationClassifier` constructor defaulted to `"haiku"` as the model name. The eval tests hardcoded the same string. When the backend resolved that alias to a model the Vertex deployment didn't serve, every call failed silently — sixty zero-activation results with no warning (until the log fix above). The real fix wasn't waiting for the deployment to add the model. It was making the model nullable. When null, the classifier skips the `.withModel()` override and lets the agent backend use whatever model it's configured with. The eval tests now pass `null`. The classifier works with any deployment.
+
+## The verification that found more
+
+Six fixes landed. The eval ran again. Both pipeline coherence scenarios passed their 4.0 gate — `curiosityExplorationChain` at 4.025, `shameRegulationChain` at 4.025. The tension threshold sensitivity test produced non-empty activation vectors across all seven personality profiles and three thresholds. The fixes worked.
+
+But the coherence judge gave the shame scenario's `full-trace-consistency` transition a 2.8. The raw appraisal and regulation stages scored well — 4.7 and 4.8. The breakdown was in the drive section of the prompt output. AUTONOMY was still at 1.0. AFFILIATION was at 0.1. In a scenario about lying to your closest friend and being confronted publicly.
+
+The per-layer tanh from the earlier fix compressed appraisal deltas from 0.82 to 0.67. That worked. But `DriveComposer` accumulates modulation from three independent sources — mood, personality, and appraisal — and adds them linearly before clamping. Shame produces high arousal (mood pathway adds ~0.17), negative dominance triggers a compensatory autonomy boost (another ~0.15), and the appraisal layer contributes its tanh-compressed 0.67. Total: ~0.99. Clamp at 1.0. Saturated again.
+
+The fix was the same idea applied one level up. Instead of adding mood + personality + appraisal deltas linearly, accumulate them into a single `totalDelta` and apply `Math.tanh()` to the sum before adding to the raw drive intensity. Two moderate sources at 0.4 and 0.5 produce `tanh(0.9) ≈ 0.72`, not 0.9. Three sources at 0.15 + 0.10 + 0.67 produce `tanh(0.92) ≈ 0.73`, not 0.92.
+
+![Cross-layer tanh: three modulation sources compressed before adding to raw intensity](images/cross-layer-tanh.svg)
+
+This means the appraisal layer now passes through tanh twice — once within `AppraisalDriveModulator` (prevents FEAR+SHAME stacking) and once in `DriveComposer` (prevents mood+personality+appraisal overflow). The double compression makes appraisal slightly more conservative than mood or personality modulation. That's the right direction: appraisal is reactive, mood is dispositional, and personality is structural. The transient signal should lose the tiebreak.
+
+## The relational component of shame
+
+The AFFILIATION problem had a different root. `AffiliationDrive` evaluates from `UserModelOrchestrator.activeProfiles()` — it counts how many tracked relationships have been neglected. The eval test had no tracked subjects. Raw affiliation: 0.0. The only contribution came from personality modulation (cooperative disposition added ~0.1). In a scenario saturated with relational content, the drive computation had nothing to compute from.
+
+But even with seeded relationships, the emotion-to-drive mapping had a gap. After the earlier suppression removal, SHAME mapped only to AUTONOMY. The withdrawal tendency is correct — Frijda's action readiness for shame is avoidance. But Tangney and Dearing's research on shame and guilt makes a straightforward case: shame is inherently relational. It arises from social exposure. The self-conscious emotion presupposes an audience — real or imagined — whose judgment triggers the experience.
+
+Adding `AFFILIATION(SECONDARY_BOOST)` to the SHAME mapping captures this. The primary drive is still AUTONOMY (the agent wants to withdraw). The secondary signal is affiliative (the withdrawal is FROM someone, and that someone matters). The combined profile — high autonomy, moderate affiliation — is what you'd expect from someone who wants to run away from the friend they hurt but also desperately wants to repair the relationship.
+
+## Completing the Frijda framework
+
+The earlier session added ATTENDING as the first action tendency mapped to channel weights. `TopologyChannelWeighter` distributes expression weight across somatic, attentional, temporal, and action tendency channels based on CAPS activations. The ATTENDING mapping blends toward an attention-heavy profile when the agent is in focused-attention readiness.
+
+AVOIDANCE and ANTAGONISM are the other two tendencies with clear channel implications from Frijda's framework. Avoidance (withdrawal, escape) is body-level and action-oriented — the somatic and action tendency channels should dominate. Antagonism (attack, assert) is somatic-dominant — the body mobilises for confrontation.
+
+The profiles:
+- **AVOIDANCE** — somatic 0.35, attentional 0.10, temporal 0.15, action tendency 0.40. Matches the threat category profile. The body prepares to flee; attention narrows per Easterbrook.
+- **ANTAGONISM** — somatic 0.40, attentional 0.10, temporal 0.15, action tendency 0.35. Somatic peaks higher than avoidance because fight involves more body activation. Action tendency is slightly lower because the response is more immediate — less planning, more reacting.
+
+The blend order matters. AVOIDANCE and ANTAGONISM apply first (body-level channels). Then ATTENDING can override (attentional focus is a higher-order cognitive process). If the agent is simultaneously avoiding a threat and attending to a specific detail — a reasonable state in hypervigilant scenarios — the attentional boost partially counteracts the avoidance-driven attentional narrowing.
+
+## Fix, verify, fix deeper
+
+The pattern across both sessions: implement against the literature, test the components, discover that composition introduces incoherence the components can't see, fix the composition. Then: verify the composition fixes, discover that the fix addressed one accumulation layer but not the cross-layer interaction, fix the deeper layer.
+
+Each fix was small. Each was visible only from the coherence judge's output, not from unit tests. The `full-trace-consistency` score at 2.8 identified the same structural category as before — drive modulation contradicting the emotional state — but the mechanism was different. The first time it was linear accumulation within the appraisal layer. The second time it was linear accumulation across modulation sources.
+
+The eval didn't just confirm the fixes. It found the next layer of the same problem. That's the value of running a coherence evaluation after every round of changes — not to verify that what you fixed stayed fixed (though it does that), but to surface what the fixes revealed.
