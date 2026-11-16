@@ -38,6 +38,23 @@ Verification and deeper-layer fixes after the previous session's coherence work.
 
 - `blog/2026-11-16-mdp01-the-pipeline-that-argued-with-itself.md` — revised: added verification second act (cross-layer tanh, SHAME→AFFILIATION, AVOIDANCE/ANTAGONISM, double-tanh observation)
 
+### Cross-slot note for slot 196 (regulation/coping)
+
+This session's drive changes alter the baseline regulation operates against:
+- **SHAME now produces AFFILIATION signal** (#1005) — regulation can target AFFILIATION in shame scenarios where it previously saw near-zero
+- **Drive intensities are generally lower** (#1009 cross-layer tanh) — regulation parameters tuned against old drive response curves may need recalibration
+- **Channel weights respond to AVOIDANCE/ANTAGONISM** (#1000) — expression channels shift in threat scenarios, affecting what regulation modifies
+
+These are not bugs — they're the correct direction. But if slot 196 has hardcoded thresholds or tuned parameters, they should be re-evaluated.
+
+### Follow-on issues filed
+
+| # | Title | Scale | Slot |
+|---|-------|-------|------|
+| #1014 | Re-run coherence eval after deeper fixes | XS/Low | 211 (drive transitions) + 196 (regulation transitions) |
+| #1015 | REMORSE→AFFILIATION secondary boost | XS/Low | 211 |
+| #1016 | Remaining action tendency channel mappings | S/Med | 211 |
+
 ### Pending
 
 - **Artifact promotion**: 13 workspace artifacts unpromoted to project repo — sweep script crashes on #1008 (missing verification module). Promotion can happen when #1008 is fixed.
