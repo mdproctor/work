@@ -59,7 +59,6 @@ done: 957
 - [x] casehubio/neocortex#989 — Re-run-tension-threshold-LLM-eval
 - [x] casehubio/neocortex#990 — LlmSituationClassifier-silent-degradation
 - [ ] casehubio/neocortex#1001 — DriveProfilePersonalityEvalTest-compilation-fix
-- [ ] casehubio/neocortex#974 — Fix-eval-test-compilation
 - [ ] casehubio/neocortex#1003 — Re-run-coherence-eval-suite
 - [ ] casehubio/neocortex#1004 — Extract-TopologyChannelWeighter-magic-numbers
 - [ ] casehubio/neocortex#1000 — AVOIDANCE-ANTAGONISM-channel-weights
