@@ -96,7 +96,7 @@ The three failing scenarios should now pass with the mapping fixes. No changes t
 ## Not Changed
 
 - `AlmaPadTable.java` — canonical Mehrabian PAD values preserved
-- `AppraisalDriveModulator.java` — drive mappings already correct
+- `AppraisalDriveModulator.java` — drive mappings unchanged by #957 (subsequently modified by #983: removed SHAME→AFFILIATION reduction, and #984: added tanh diminishing returns)
 - `EmotionType.java` — using existing OCC types, no new INTEREST/SURPRISE
 - `PipelineCoherenceEvalTest.java` — existing scenarios validate the fix
 

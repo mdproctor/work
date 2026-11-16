@@ -51,10 +51,10 @@ done: 957
 - [x] casehubio/neocortex#970 — DriveProfileDerivationPhase personality classification
 - [x] casehubio/neocortex#971 — Fix eval test compilation failures from 926
 - [x] casehubio/neocortex#972 — Tension threshold sensitivity analysis
-- [ ] casehubio/neocortex#973 — CBR disposition filter isolation test ← active
-- [ ] casehubio/neocortex#983 — SHAME affiliation suppression
-- [ ] casehubio/neocortex#984 — Drive saturation clamping
-- [ ] casehubio/neocortex#985 — Curiosity attentional channel weight
-- [ ] casehubio/neocortex#986 — ATTENDING action tendency channel boost
-- [ ] casehubio/neocortex#989 — Re-run-tension-threshold-LLM-eval
-- [ ] casehubio/neocortex#990 — LlmSituationClassifier-silent-degradation
+- [x] casehubio/neocortex#973 — CBR disposition filter isolation test
+- [x] casehubio/neocortex#983 — SHAME affiliation suppression
+- [x] casehubio/neocortex#984 — Drive saturation clamping
+- [x] casehubio/neocortex#985 — Curiosity attentional channel weight
+- [x] casehubio/neocortex#986 — ATTENDING action tendency channel boost
+- [x] casehubio/neocortex#989 — Re-run-tension-threshold-LLM-eval
+- [x] casehubio/neocortex#990 — LlmSituationClassifier-silent-degradation
