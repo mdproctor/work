@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-1003-re-run-coherence-eval-suite
 issue-repo: casehubio/neocortex
 status: active
 covers: 841
@@ -63,3 +63,5 @@ done: 1001
 - [ ] casehubio/neocortex#1004 — Extract-TopologyChannelWeighter-magic-numbers
 - [ ] casehubio/neocortex#1000 — AVOIDANCE-ANTAGONISM-channel-weights
 - [ ] casehubio/neocortex#1005 — Context-dependent-SHAME-AFFILIATION-mapping
+- [ ] casehubio/neocortex#1009 — DriveComposer-cross-layer-AUTONOMY-saturation
+- [ ] casehubio/neocortex#1010 — Eval-test-seeding-AFFILIATION-drive
