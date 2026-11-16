@@ -78,3 +78,4 @@ done: 1010
 - [ ] casehubio/neocortex#1025 — AppraisalDriveModulator-secondary-boosts
 - [ ] casehubio/neocortex#1026 — Drive-temporal-smoothing
 - [ ] casehubio/neocortex#1027 — CAPS-settling-convergence
+- [ ] casehubio/neocortex#1028 — Action-tendency-targets
