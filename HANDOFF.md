@@ -2,65 +2,67 @@
 
 ## Last Session
 
-Verification and deeper-layer fixes after the previous session's coherence work. Ran PipelineCoherenceEvalTest and TensionThresholdSensitivityEvalTest empirically. Discovered cross-layer AUTONOMY saturation that the per-layer tanh didn't catch. Completed the Frijda channel weight framework and added Tangney's SHAME→AFFILIATION mapping. Queue fully drained including newly filed issues.
+Verification and deeper-layer fixes after the previous session's coherence work. Ran PipelineCoherenceEvalTest and TensionThresholdSensitivityEvalTest empirically. Discovered cross-layer AUTONOMY saturation that the per-layer tanh didn't catch. Completed the Frijda channel weight framework and added Tangney's SHAME→AFFILIATION mapping. Queue fully drained then repopulated with follow-on work.
 
-### Issues completed
+### Issues completed this session
 
 | # | Title | Scale | Outcome |
 |---|-------|-------|---------|
-| #1001 | DriveProfilePersonalityEvalTest compilation fix | XS/Low | Stale build artifacts — no code change needed, verified with clean build |
-| #1003 | Re-run coherence eval suite | S/Low | Both scenarios pass 4.0 gate. TensionThreshold 8/8 pass. Found AUTONOMY saturation and AFFILIATION test gap |
-| #1004 | Extract TopologyChannelWeighter magic numbers | XS/Low | ATTENDING_ACTIVATION_THRESHOLD (0.3) and ATTENDING_BLEND_FACTOR (0.4) as named constants |
-| #1000 | AVOIDANCE/ANTAGONISM channel weights | S/Low | AVOIDANCE (somatic+action) and ANTAGONISM (somatic-dominant) profiles with sequential blend order |
-| #1005 | SHAME→AFFILIATION secondary boost | S/Med | SHAME now maps to AUTONOMY(BOOST) + AFFILIATION(SECONDARY_BOOST) per Tangney & Dearing 2002 |
-| #1009 | DriveComposer cross-layer AUTONOMY saturation | S/Med | Cross-layer tanh: accumulate mood+personality+appraisal deltas, apply Math.tanh(totalDelta) before adding to raw intensity |
-| #1010 | Eval test seeding for AFFILIATION drive | XS/Low | UserModelOrchestrator.seedProfile() + CognitionTestHarness.seedUserProfile() for pre-populating test profiles |
-
-### Issues filed
-
-| # | Title | Scale | Why |
-|---|-------|-------|-----|
-| #1012 | DocumentSearchableProvider compilation failure | XS/Low | Pre-existing API mismatch from #480 — search() arg count wrong |
-| #1013 | Surefire fork timeout after LLM eval tests | S/Low | ClaudeAgentClient CLI processes not cleaned up after tests, causing fork timeout |
+| #1001 | DriveProfilePersonalityEvalTest compilation fix | XS/Low | Stale build artifacts — no code change needed |
+| #1003 | Re-run coherence eval suite | S/Low | Both scenarios pass 4.0 gate. TensionThreshold 8/8 pass. Found deeper issues |
+| #1004 | Extract TopologyChannelWeighter magic numbers | XS/Low | Named constants for ATTENDING thresholds |
+| #1000 | AVOIDANCE/ANTAGONISM channel weights | S/Low | AVOIDANCE + ANTAGONISM profiles, sequential blend order |
+| #1005 | SHAME→AFFILIATION secondary boost | S/Med | Tangney & Dearing 2002 relational shame argument |
+| #1009 | DriveComposer cross-layer AUTONOMY saturation | S/Med | Cross-layer tanh on totalDelta |
+| #1010 | Eval test seeding for AFFILIATION drive | XS/Low | UserModelOrchestrator.seedProfile() |
 
 ### Key design decisions
 
-- **Cross-layer tanh**: All modulation sources (mood + personality + appraisal) accumulated into totalDelta, tanh applied once. The appraisal layer's own tanh (from #984) is preserved — double compression makes appraisal more conservative than mood/personality, which is correct: transient signal should lose the tiebreak against dispositional and structural modulation.
-- **SHAME→AFFILIATION**: Static SECONDARY_BOOST rather than context-dependent mapping. Tangney & Dearing 2002 argues all shame is inherently relational — a self-conscious emotion presupposes an audience. No context check needed.
-- **Channel weight blend order**: AVOIDANCE → ANTAGONISM → ATTENDING. Body-level channels first, attentional focus last (higher-order cognitive process can override body-level narrowing).
-- **Eval test seeding**: seedProfile() on UserModelOrchestrator rather than mocking the orchestrator — preserves real drive computation path, just pre-populates the input data.
-
-### Research docs updated
-
-- `docs/specs/2026-11-16-coherence-eval-rerun-findings.md` — complete findings from #1003: coherence scores, drive modulation analysis, double-tanh observation, filed issues
-
-### Blog
-
-- `blog/2026-11-16-mdp01-the-pipeline-that-argued-with-itself.md` — revised: added verification second act (cross-layer tanh, SHAME→AFFILIATION, AVOIDANCE/ANTAGONISM, double-tanh observation)
+- **Cross-layer tanh**: All modulation sources accumulated into totalDelta, tanh applied once. Double-tanh (appraisal layer + cross-layer) is intentionally conservative — transient appraisal should lose tiebreak against dispositional mood and structural personality.
+- **SHAME→AFFILIATION**: Static SECONDARY_BOOST per Tangney & Dearing. No context check needed — all shame is relational.
+- **Channel weight blend order**: AVOIDANCE → ANTAGONISM → ATTENDING. Body-level first, cognitive override last.
 
 ### Cross-slot note for slot 196 (regulation/coping)
 
-This session's drive changes alter the baseline regulation operates against:
-- **SHAME now produces AFFILIATION signal** (#1005) — regulation can target AFFILIATION in shame scenarios where it previously saw near-zero
-- **Drive intensities are generally lower** (#1009 cross-layer tanh) — regulation parameters tuned against old drive response curves may need recalibration
-- **Channel weights respond to AVOIDANCE/ANTAGONISM** (#1000) — expression channels shift in threat scenarios, affecting what regulation modifies
+Drive baseline changed:
+- SHAME now produces AFFILIATION signal (#1005) — regulation can target it
+- Drive intensities generally lower (#1009 cross-layer tanh) — tuned regulation parameters may need recalibration
+- Channel weights respond to AVOIDANCE/ANTAGONISM (#1000)
 
-These are not bugs — they're the correct direction. But if slot 196 has hardcoded thresholds or tuned parameters, they should be re-evaluated.
+Not bugs — correct direction. But slot 196 parameters tuned against old curves should be re-evaluated.
 
-### Follow-on issues filed
+## Next Session Plan
 
-| # | Title | Scale | Slot |
-|---|-------|-------|------|
-| #1014 | Re-run coherence eval after deeper fixes | XS/Low | 211 (drive transitions) + 196 (regulation transitions) |
-| #1015 | REMORSE→AFFILIATION secondary boost | XS/Low | 211 |
-| #1016 | Remaining action tendency channel mappings | S/Med | 211 |
+### Queue (5 items)
 
-### Pending
+| Order | # | Title | Scale | Notes |
+|-------|---|-------|-------|-------|
+| 1 | #1014 | Re-run coherence eval post-fix | XS/Low | Verify #1005/#1009/#1000 improved scores. Cross-slot: drive transitions are ours, regulation transitions are 196's. Seed user profiles with #1010's seedProfile(). |
+| 2 | #1015 | REMORSE→AFFILIATION secondary boost | XS/Low | One-line change — same pattern as #1005 SHAME mapping. Update test. |
+| 3 | #1016 | Remaining action tendency channel mappings | S/Med | Evaluate APPROACH/SUBMISSION/DOMINANCE for channel weight profiles. REJECTION is similar to AVOIDANCE, INDIFFERENCE stays unmapped. |
+| 4 | #1012 | DocumentSearchableProvider compilation fix | XS/Low | Pre-existing: search() API mismatch from #480. Different module — quick fix. |
+| 5 | #1013 | Surefire fork timeout cleanup | S/Low | EvalTestSupport @AfterAll to close ClaudeAgentClient sessions, or configure forkedProcessExitTimeoutInSeconds in llm-eval profile. |
 
-- **Artifact promotion**: 13 workspace artifacts unpromoted to project repo — sweep script crashes on #1008 (missing verification module). Promotion can happen when #1008 is fixed.
-- **#1012**: Pre-existing compilation error in knowledge-pipeline module (DocumentSearchableProvider).
-- **#1013**: Surefire fork timeout after LLM evals — ClaudeAgentClient session cleanup needed.
+### Recommended approach
 
-### Queue state
+Start with #1014 + #1015 together — the eval re-run (#1014) validates all this session's work empirically, and #1015 is a one-line change that should be included in the same eval run. Then #1016 (design + implement remaining tendency mappings), then the two cleanup items (#1012, #1013).
 
-Epic #841 queue fully drained (51/51 items). Slot 211 work complete pending artifact promotion fix.
+### Context to carry forward
+
+- `docs/specs/2026-11-16-coherence-eval-rerun-findings.md` — baseline coherence scores from BEFORE deeper fixes. Next session should update with post-fix scores.
+- `blog/2026-11-16-mdp01-the-pipeline-that-argued-with-itself.md` — revised with verification second act. May need further update after #1014 results.
+- TopologyChannelWeighter now has 6 constants (3 tendencies × threshold + blend factor). If #1016 adds more, consider whether shared ACTIVATION_THRESHOLD and BLEND_FACTOR constants are cleaner than per-tendency duplicates.
+- 13 workspace artifacts unpromoted — blocked by #1008 (artifact_sweep.py verification module).
+
+### Files changed this session
+
+| File | What changed |
+|------|-------------|
+| `cognition/.../TopologyChannelWeighter.java` | +AVOIDANCE/ANTAGONISM profiles, named constants, sequential blend |
+| `cognition/.../AppraisalDriveModulator.java` | SHAME→AFFILIATION(SECONDARY_BOOST) |
+| `cognition/.../DriveComposer.java` | Cross-layer tanh on totalDelta, refactored mood/personality to delta methods |
+| `cognition/.../UserModelOrchestrator.java` | +seedProfile() for test seeding |
+| `cognition/.../TopologyChannelWeighterTest.java` | +4 tests (avoidance, antagonism, low threshold, multi-tendency blend) |
+| `cognition/.../AppraisalDriveModulatorTest.java` | Updated SHAME assertion + renamed test |
+| `cognition/.../CognitionTestHarness.java` | +seedUserProfile() convenience |
+| `docs/specs/2026-11-16-coherence-eval-rerun-findings.md` | Research findings with double-tanh observation |
