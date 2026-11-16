@@ -2,39 +2,50 @@
 
 ## Last Session
 
-Completed #972 on branch `issue-972-tension-threshold-sensitivity`. Made the tension threshold configurable and ran a sensitivity analysis that revealed the threshold is a formality — binary score distribution makes any value below 0.6 equivalent.
+Batch close of 7 issues (#973, #983, #984, #985, #986, #989, #990) — downstream coherence fixes from the #957 SEC→OCC eval and the #972 tension threshold analysis. Each branch separate, all landing on main via work-end.
 
 ### Issues completed
 
 | # | Title | Scale | Outcome |
 |---|-------|-------|---------|
-| #972 | Tension threshold sensitivity analysis for A/C prompt routing | S/Med | Threshold configurable, 0.5 confirmed optimal via analytical analysis |
+| #973 | CBR disposition filter isolation test | XS/Low | 3 integration tests with real InMemoryCbrRecordStore prove cross-personality cache isolation |
+| #983 | SHAME affiliation suppression | S/Med | Removed AFFILIATION REDUCE from SHAME mapping; withdrawal captured by AUTONOMY boost alone |
+| #984 | Drive saturation clamping | S/Med | Math.tanh() on accumulated drive deltas prevents co-occurring FEAR+SHAME saturating AUTONOMY at 1.0 |
+| #985 | Curiosity attentional channel weight | S/Med | TopologyChannelWeighter.weight(activations, actionTendencies) blends toward attention-heavy profile when ATTENDING > 0.3 |
+| #986 | ATTENDING channel boost | XS/Low | Covered by #985 — empty commit close |
+| #989 | Re-run tension threshold eval | XS/Low | Skipped — blocked on Vertex fable-5-2 availability |
+| #990 | LlmSituationClassifier silent degradation | S/Low | WARNING log when extractJson() returns null on non-empty response |
 
 ### Issues filed
 
 | # | Title | Scale | Why |
 |---|-------|-------|-----|
-| #989 | Re-run tension threshold LLM eval when Vertex deployment updated | XS/Low | Eval test ready but fable-5-2 model unavailable on Vertex |
-| #990 | LlmSituationClassifier silently degrades on unavailable models | S/Low | Discovered during eval — non-JSON responses produce empty results silently |
+| #1000 | Map AVOIDANCE and ANTAGONISM action tendencies to channel weights | S/Low | ATTENDING→attentional done (#985), other Frijda tendencies logically implied |
+| #1001 | DriveProfilePersonalityEvalTest compilation failure — stale module dependency | XS/Low | Pre-existing: 4-arg DriveProfileDerivationPhase constructor from #970 not picked up by caps-llm-classifier module |
 
-### What was built
+### Key design decisions
 
-- **Configurable threshold** — `LlmSituationClassifier` now accepts `tensionThreshold` as a 4th constructor parameter with [0,1] validation. CDI producer wires `casehub.caps.classification.tension-threshold` (default 0.5).
-- **Sensitivity analysis** — all 6 curated tension entries score 0.6–1.0; no scores exist in (0.0, 0.6). Thresholds 0.3 and 0.5 produce identical routing. Threshold 0.7 drops three meaningful tensions. Findings documented in `docs/specs/issue-972-tension-threshold-sensitivity.md`.
-- **Eval test** — `TensionThresholdSensitivityEvalTest` exercises all 6 tension table entries via 7 profiles (6 tension + 1 baseline) across thresholds 0.3/0.5/0.7. Measures inter-profile variance, dual-activation rates, and stability. Zero-vector guard prevents false-positive assertions when LLM is unavailable.
-- **Code review fixes** — import ordering, parameter validation, missing profiles (bold-avoidant and independent-low-autonomy at tension 0.7), false-positive guard on inter-profile variance assertion.
-
-### Key finding
-
-The tension table is binary by construction — pairs either create a named psychological conflict (scoring 0.6–1.0) or don't (scoring 0.0). There are no borderline entries. The routing threshold is a safety margin between the lowest legitimate score and zero, not a tuning knob. The real control surface for personality-aware classification is the tension table itself — which axis-value pairs get entries and what narratives they carry.
+- **SHAME mapping**: Removed AFFILIATION REDUCE rather than making it context-dependent. Simpler, and the withdrawal tendency is fully captured by AUTONOMY BOOST.
+- **Diminishing returns**: `tanh()` over alternatives (weighted averaging, hard cap) because it preserves monotonicity, works symmetrically for negative deltas, and doesn't change individual emotion-to-drive weights.
+- **ATTENDING blend**: Uses existing `ChannelWeightProfile.blend()` with proportional factor (`intensity * 0.4`) rather than additive boost. Normalisation is guaranteed by blend().
+- **Silent degradation**: Warning log (not exception) because callers handle empty activations gracefully and the error is about deployment configuration, not logic.
 
 ### Pending verification
 
-- LLM eval data collection for #972 blocked by Vertex model availability (fable-5-2) — tracked in #989
-- crossTickTrajectory eval score (was 2.3) still needs LLM eval run (from prior session)
-- DriveProfilePersonalityEvalTest needs LLM eval run (from prior session)
+- LLM eval data collection blocked by Vertex model availability (fable-5-2) — tracked in #989
+- shameRegulationChain eval should improve with #983+#984 — needs LLM re-run
+- curiosityExplorationChain drives-to-channel-weights should improve with #985 — needs LLM re-run
+- DriveProfilePersonalityEvalTest compilation — tracked in #1001
 
-### Next queue items
+### Research docs updated
 
-- #973 — CBR disposition filter isolation test
-- #983 — SHAME affiliation suppression
+- `docs/research/2026-11-05-post-era6-regulation-and-identity.md` — Stream 15 added
+- `wksp/specs/issue-957-sec-occ-emotion-mapping/2026-11-14-sec-occ-emotion-mapping-design.md` — AppraisalDriveModulator status updated
+
+### Blog
+
+- `blog/2026-11-16-mdp01-the-pipeline-that-argued-with-itself.md` — covers all four code fixes with tanh diminishing returns diagram
+
+### Queue state
+
+Epic #841 queue drained. Next work: #1000, #1001, or new queue items.
