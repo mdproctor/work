@@ -1,18 +1,18 @@
 # Work Plan —
 
 ## State
-branch: issue-1048-caps-coping-initializeAgent-wiring
+branch: issue-1051-orphaned-output-node-audit
 issue-repo: casehubio/neocortex
 status: active
-covers: 841
+covers: 1050
 project-sha: slot-creation
 date: 2026-11-03
 design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 check: 878
-done: 1048
-active: 
+done: 1048,1051,1042,1052,1041,1054,1053
+active: 1053
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
@@ -87,3 +87,12 @@ active:
 - [ ] casehubio/neocortex#976 — DriveProfileDerivationPhase-personality-classification
 - [ ] casehubio/neocortex#977 — PID5-facet-extension-personality-classification
 - [ ] casehubio/neocortex#1048 — CapsEngineContractTest-coping-initializeAgent-wiring
+- [ ] casehubio/neocortex#1051 — Orphaned-output-node-audit
+- [ ] casehubio/neocortex#1042 — Verify-inert-coping-nodes
+- [ ] casehubio/neocortex#1052 — CopingDefaults-coverage-expansion
+- [ ] casehubio/neocortex#1041 — CAPS-coping-to-regulation-connections
+- [ ] casehubio/neocortex#1054 — Moderate-threat-coping-bias-verification
+- [ ] casehubio/neocortex#1053 — End-to-end-personality-differentiation-test
+- [ ] casehubio/neocortex#980 — ConsolidationScheduler-journal-observability
+- [ ] casehubio/neocortex#968 — Instrument-CognitionCore-tick-stages
+- [ ] casehubio/neocortex#1045 — Surface-prediction-calibration-observability
