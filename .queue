@@ -1,15 +1,15 @@
 # Work Plan —
 
 ## State
-branch: issue-484-cognition-pipeline-builder
+branch: issue-457-integrate-m2m-animation-library
 issue-repo: casehubio/agency
 status: active
+covers: 457
 project-sha: 
 date: 
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
-active-issue: #481
 
 ## Queue
 - [x] casehubio/agency#376 — Issue #376
@@ -28,20 +28,4 @@ active-issue: #481
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
-- [x] casehubio/agency#477 — Validate parentMap entries reference known agentRoles in HierarchicalTopology
-- [x] casehubio/agency#466 — Rename SwarmDegradedEvent or move onDegradation to SwarmAwareTopology
-- [x] casehubio/agency#472 — Separate degradation tracking from scope absorption in HierarchicalTopology
-- [x] casehubio/agency#473 — ProgressUpdated broadcast should participate in scope absorption
-- [x] casehubio/agency#404 — LatencyDegradationTrigger external circuit breaker integration
-- [x] casehubio/agency#444 — Wire DecisionLoopEvent metrics through ExecutionEventListener
-- [x] casehubio/agency#468 — Migrate existing topologies to CascadeHandler
-- [x] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded
-- [x] casehubio/agency#480 — Propagate collapsed flag to DecisionLoopEvent.Degraded for telemetry
-- [x] casehubio/agency#479 — Add collapse emitter policy to DegradationAwareSummariser
-- [x] casehubio/agency#483 — MetricsListener emit separate counter for collapse events
-- [x] casehubio/agency#481 — agentic-yaml fails to compile DriveConfig arg mismatch
-- [x] casehubio/agency#484 — Assemble CognitionCore through CognitivePipelineBuilder
-- [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration ← active
-- [ ] casehubio/agency#469 — Neocortex budget integration wire platform budget types
-- [ ] casehubio/agency#486 — Wire SituationClassifier and NeedTierMappingProvider through Spring builder
-- [ ] casehubio/agency#485 — Expose smoothingAlpha in DriveConfigSpec for YAML configuration
+- [ ] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library ← active
