@@ -35,7 +35,7 @@ active-issue: #444
 - [x] casehubio/agency#473 — ProgressUpdated broadcast should participate in scope absorption
 - [x] casehubio/agency#404 — LatencyDegradationTrigger external circuit breaker integration
 - [x] casehubio/agency#444 — Wire DecisionLoopEvent metrics through ExecutionEventListener
-- [ ] casehubio/agency#468 — Migrate existing topologies to CascadeHandler ← active
-- [ ] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded
+- [x] casehubio/agency#468 — Migrate existing topologies to CascadeHandler
+- [ ] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded ← active
 - [ ] casehubio/agency#480 — Propagate collapsed flag to DecisionLoopEvent.Degraded for telemetry
 - [ ] casehubio/agency#479 — Add collapse emitter policy to DegradationAwareSummariser
