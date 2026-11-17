@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-477-validate-parentmap-refs
+branch: issue-473-progress-broadcast-absorption
 issue-repo: casehubio/agency
 status: active
 covers: 
@@ -29,3 +29,9 @@ flyway-next-v: none
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
 - [ ] casehubio/agency#477 — Validate parentMap entries reference known agentRoles in HierarchicalTopology
+- [ ] casehubio/agency#466 — Rename SwarmDegradedEvent or move onDegradation to SwarmAwareTopology
+- [ ] casehubio/agency#472 — Separate degradation tracking from scope absorption in HierarchicalTopology
+- [ ] casehubio/agency#473 — ProgressUpdated broadcast should participate in scope absorption
+- [ ] casehubio/agency#404 — LatencyDegradationTrigger external circuit breaker integration
+- [ ] casehubio/agency#444 — Wire DecisionLoopEvent metrics through ExecutionEventListener
+- [ ] casehubio/agency#468 — Migrate existing topologies to CascadeHandler
