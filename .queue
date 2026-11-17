@@ -41,12 +41,12 @@ active-issue: #481
 - [x] casehubio/agency#483 — MetricsListener emit separate counter for collapse events
 - [x] casehubio/agency#481 — agentic-yaml fails to compile DriveConfig arg mismatch
 - [ ] casehubio/agency#484 — Assemble CognitionCore through CognitivePipelineBuilder ← active
-  - [ ] Batch 1: Quarkus
-    - [ ] Task 1: Extract CognitiveGoalOrchestrator and migrate AgencyBeans
-  - [ ] Batch 2: Spring+Test
-    - [ ] Task 2: Migrate AgencyAutoConfiguration to builder
-    - [ ] Task 3: Migrate CognitionStack to builder
-  - [ ] Batch 3: Enforcement
-    - [ ] Task 4: Make constructors package-private and full build
+  - [x] Batch 1: Quarkus
+    - [x] Task 1: Extract CognitiveGoalOrchestrator and migrate AgencyBeans
+  - [x] Batch 2: Spring+Test
+    - [x] Task 2: Migrate AgencyAutoConfiguration to builder
+    - [x] Task 3: Migrate CognitionStack to builder
+  - [x] Batch 3: Enforcement
+    - [x] Task 4: Make constructors package-private and full build
 - [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
 - [ ] casehubio/agency#469 — Neocortex budget integration wire platform budget types
