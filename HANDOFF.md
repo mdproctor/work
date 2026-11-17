@@ -2,95 +2,76 @@
 
 ## Last Session
 
-Implemented #1020 (channel weight polarization) and expanded scope to systematically fix all sub-4.0 coherence eval transitions. Eight structural fixes across the pipeline raised all 5 scenarios above the 4.0 coherence gate. The CAPS consolidation scenario — previously the worst at 3.55 — jumped to 4.38, driven primarily by the attractor filter threshold fix (0.1→0.55) which eliminated unstimulated unipolar output nodes from the behavioral attractor set.
+Drive pipeline enrichment — 10 issues completed across the cognition/appraisal/drive pipeline. The drive layer was a black box: emotions went in, four floats came out, with no visible composition trace. This session made every drive evaluation traceable from source signal through each modulation delta to final intensity, with the dominant emotion named in the trigger string. Also added temporal smoothing, expanded emotion→drive and action tendency→channel weight mappings, and coupled SearchBudget prose tone to appraisal state.
 
-### Branch: `issue-1020-channel-weight-polarization`
+### Branch: `issue-1015-remorse-affiliation-secondary-boost`
 
-11 commits covering:
-1. **Channel weight polarization** — blend factors 0.4→0.75, sharpened AVOIDANCE/ANTAGONISM/ATTENDING profiles
-2. **Self-blame emotion routing** — EmotionMapper suppresses ANGER/ANTAGONISM/DOMINANCE when internal-standards < 0.5; routes to AVOIDANCE+SUBMISSION
-3. **Urgency triggers ATTENDING** — high urgency (>0.6) captures attention independently of novelty (Ohman 1986)
-4. **CAPS settling convergence** — momentum damping (0.4), wider oscillation detection (20-iter min, 50x epsilon), state averaging
-5. **Attractor filter threshold** — 0.1→0.55, filters unstimulated logistic-resting nodes
-6. **Drive trace enrichment** — PipelineTrace carries driveIntensities map, eval serializer outputs per-drive intensity
-7. **Attractor trace enrichment** — CapsSettlingSnapshot carries AttractorSnapshot list
-8. **SearchBudget channel coupling** — channel weights modulate search budget (somatic/actionTendency→convergence, attentional→breadth, temporal→depth)
-9. **LLM calibration anchors** — crisis novelty + self-blame clarification in LlmAppraisalStrategy system prompt
-10. **CAPS eval harness** — contextual observation + user profile seeding for consolidation tick
+11 commits (10 issues + 1 review fix):
 
-### Eval results after fixes
+1. **#1015** — REMORSE→AFFILIATION secondary boost (Tangney relational argument)
+2. **#1016** — APPROACH/SUBMISSION/DOMINANCE action tendency → channel weight profiles
+3. **#1012** — DocumentSearchableProvider compilation fix (no-arg search() API)
+4. **#1013** — JVM shutdown hook for ClaudeAgentClient in eval tests (surefire timeout fix)
+5. **#1021** — DriveEvaluation record: per-axis composition breakdown (raw, mood, personality, appraisal, other modulation deltas, composed intensity, activated flag)
+6. **#1022** — SearchBudget prose coupled to appraisal intensity (crisis/urgency qualifiers)
+7. **#1023** — Emotion→drive causal chain provenance in triggers ("elevated by SHAME" not "elevated by emotional response")
+8. **#1025** — INTEREST→CURIOSITY(BOOST), DISTRESS→AFFILIATION(SECONDARY_BOOST) mappings
+9. **#1026** — Asymmetric exponential smoothing for drive deactivation (smoothingAlpha=0.3, instant activation, gradual decay)
+10. **#1028** — LLM appraisal action_targets field populates tendency target strings
+11. **Review fix** — applySmoothing recomputes composite/dominant, urgency variable naming, smoothingAlpha validation, magic number replacement
 
-| Scenario | Before | After | Key transitions fixed |
-|---|---|---|---|
-| Curiosity | 3.97 | 4.32 | appraisal-to-drives 3.3→4.6 (drive enrichment) |
-| Shame | 4.50 | 4.62 | observation-to-appraisal now stable (self-blame routing), full-trace 4.3→4.6 |
-| Security | 4.13 | 4.37 | appraisal-to-channel-weights 3.8→4.2, channel-weights-to-prompt 3.8→4.3 |
-| Trajectory | 3.80 | 4.10 | 10-tick coherence improved by channel weight + drive trace enrichment |
-| CAPS | 3.55 | 4.38 | caps-input-to-settling 2.8→4.5, settling-to-prompt 3.8→4.1, full-consolidation 3.0→4.3 |
+### Issues filed this session
 
-### Issues completed this session
-
-| # | Title | Outcome |
-|---|-------|---------|
-| #1020 | Channel weight polarization | 8 structural fixes across pipeline, all 5 scenarios pass 4.0 gate |
-
-### Issues partially addressed (scope overlaps)
-
-| # | What was done | What remains |
-|---|---------------|-------------|
-| #1021 | Drive intensities added to PipelineTrace + eval serializer | Full drive trace enrichment (sub-threshold drives, modulation chain, DriveProfile in trace) |
-| #1022 | Channel weight → search budget coupling wired | SearchBudget prose still shows curiosity-default in some CAPS scenarios; source selection needs CAPS-aware override |
-| #1027 | Momentum damping + attractor filter + attractor trace enrichment | BehavioralPromptSection drops mid-tier attractors; activation-function-aware filtering |
+| # | Title | Priority |
+|---|-------|----------|
+| #1039 | SchererAppraisalStrategyTest.disabledSecs_reducedOutput — pre-existing failure | XS/Low |
+| #1040 | LlmAppraisalStrategy action_targets schema — example entries in JSON template | XS/Low |
 
 ### Key design decisions
 
-- **Self-blame threshold**: `internalStd < 0.5` gates self-blame. Maps exactly to the SEC internal-standards dimension — below 0.5 means the agent violated its own moral standards. This is a hard cutoff, not graduated.
-- **Damping factor 0.4**: Chosen empirically. 0.3 didn't suppress social-threat oscillation within 100 iterations. 0.5 was too aggressive — attenuated genuine signal propagation. 0.4 converges in 20-30 iterations.
-- **Attractor filter 0.55**: Above logistic(0)=0.5 resting level. Only works because all current output nodes are unipolar. If bipolar outputs are added to the topology, the filter needs to be activation-function-aware.
-- **Urgency × 0.9 for ATTENDING**: Urgency-driven attention is slightly weaker than novelty-driven. You focus intensely on a known threat type, but novelty captures attention more completely.
+- **Asymmetric smoothing**: only downward transitions are smoothed; upward spikes bypass smoothing. Threat activation stays instant. α=0.3 gives ~3-tick ramp-down.
+- **DriveEvaluation pre-smoothing**: composedIntensity records the pre-smoothing value from DriveComposer. The orchestrator applies smoothing afterward. Both values are meaningful for different consumers.
+- **Urgency not arousal**: SearchBudgetPromptSection reads SEC "urgency" dimension as the intensity proxy, not arousal. Variable naming matches the actual data source.
+- **INDIFFERENCE stays unmapped**: default channel weights (0.25 each) are correct for neutral action readiness. No mapping needed.
 
 ### Cross-slot note for slot 196 (regulation/coping)
 
-- EmotionMapper now produces AVOIDANCE+SUBMISSION for self-blame scenarios (was ANTAGONISM+DOMINANCE). Regulation strategy selection handles AVOIDANCE already. SUBMISSION is a new ActionReadiness value that regulation should map (not yet wired — currently passes through without regulation-specific handling).
+- SUBMISSION action readiness from prior session still not wired in regulation strategy selection — passes through without regulation-specific handling.
 
 ## Next Session Plan
 
-### Remaining coherence floor work
+### Remaining queue items (3 open issues)
 
-| Order | # | Title | Notes |
-|-------|---|-------|-------|
-| 1 | #1021 | Drive trace enrichment | Remaining: sub-threshold drives, modulation chain in trace. Foundational for #1022/#1023. |
-| 2 | #1027 | CAPS settling (remaining) | BehavioralPromptSection mid-tier attractor rendering. Activation-function-aware filter. |
-| 3 | #1025 | Secondary boost mappings | HOPE→COMPETENCE, JOY→AFFILIATION. Quick win. |
-| 4 | #1026 | Drive temporal smoothing | Trajectory-specific. Exponential smoothing in DriveOrchestrator. |
-| 5 | #1023 | Drive annotation provenance | DriveComposer per-source contribution tracking. Builds on #1021. |
-| 6 | #1022 | SearchBudget intensity coupling (remaining) | CAPS-aware source selection. Builds on #1021. |
+| Order | # | Title | Scale/Complexity | Notes |
+|-------|---|-------|-----------------|-------|
+| 1 | #1027 | CAPS settling convergence — MAX_ITERATIONS, zero attractors | M/High | Different subsystem (caps-engine). Needs investigation of CapsSettler oscillation dynamics for social-threat inputs. |
+| 2 | #1033 | BehavioralPromptSection drops mid-tier attractors | — | Related to #1034; attractor rendering filtering |
+| 3 | #1034 | Attractor filter threshold is activation-function-dependent | — | The 0.55 filter only works for unipolar outputs; bipolar outputs need different threshold |
 
-Also in queue from prior sessions: #1015, #1016, #1012, #1013.
+Also filed but not in queue: #1039 (pre-existing test), #1040 (schema cleanup).
 
 ### Context to carry forward
 
-- `docs/specs/2026-11-16-coherence-eval-rerun-findings.md` — updated with post-#1020 results, issues marked done.
-- Eval JSON in `caps-llm-classifier/target/experiment-results/` (not committed — regenerate with `-Pllm-eval`).
-- Pre-existing test failures: `SchererAppraisalStrategyTest.disabledSecs_reducedOutput` (pre-existing on main), `RegulationTopologyTest.topologyNodeCountIsCorrect` (pre-existing topology YAML mismatch).
-- `DocumentSearchableProvider.search()` API change in upstream — build with `-pl cognition -am` to avoid.
+- Blog entry: `wsp-casehub-neocortex/blog/2026-11-17-mdp01-the-black-box-that-shrugged.md`
+- Pre-existing test failures: `SchererAppraisalStrategyTest.disabledSecs_reducedOutput` (#1039), `RegulationTopologyTest.topologyNodeCountIsCorrect` (pre-existing topology YAML mismatch)
+- `DocumentSearchableProvider.search()` API fix landed in this branch — no longer needs `-pl cognition -am` workaround
+- Eval JSON in `caps-llm-classifier/target/experiment-results/` not committed — regenerate with `-Pllm-eval`
 
 ### Files changed this session
 
 | File | What changed |
 |------|-------------|
-| `caps-engine/.../CapsSettler.java` | Momentum damping, wider oscillation detection, averageStates, dead code removal |
-| `caps-engine/.../CapsSettlingConfig.java` | +dampingFactor (0.4), attractorStrengthMinFilter 0.1→0.55 |
-| `cognition-api/.../PipelineTrace.java` | +driveIntensities, +AttractorSnapshot, backward-compat constructors |
-| `cognition/.../EmotionMapper.java` | Self-blame routing, urgency→ATTENDING, selfBlame boolean gate |
-| `cognition/.../LlmAppraisalStrategy.java` | Crisis novelty + self-blame calibration anchors |
-| `cognition/.../TopologyChannelWeighter.java` | Blend factors 0.75, sharpened profiles |
-| `cognition/.../CognitionCore.java` | driveIntensities(), attractor snapshot population, journal entries |
-| `cognition/.../SearchBudgetTickParticipant.java` | Channel weight modulation block |
-| `cognition/.../EmotionMapperTest.java` | +5 tests (self-blame, urgency ATTENDING, channel weight) |
-| `cognition/.../TopologyChannelWeighterTest.java` | +3 tests (attending dominance, avoidance polarization, profile differentiation) |
-| `cognition/.../SearchBudgetTickParticipantTest.java` | +1 test (channel weight convergence boost) |
-| `caps-llm-classifier/.../PipelineCoherenceEvalTest.java` | Drive+attractor serializers, CAPS observation+profiles, enhanced serializeDrives |
-| `cognitive-observability-testing/.../PipelineSnapshotStoreContractTest.java` | Drive intensities field |
-| `mindmap-intelligence/.../BehavioralSynthesisPhaseTest.java` | CopingDefaults constructor arg |
-| `docs/specs/2026-11-16-coherence-eval-rerun-findings.md` | Post-#1020 results section |
+| `cognition-api/.../DriveEvaluation.java` | **New** — per-axis composition trace record |
+| `cognition-api/.../DriveConfig.java` | +smoothingAlpha field (0.3 default) |
+| `cognition-api/.../PipelineTrace.java` | +driveEvaluations field |
+| `cognition/.../DriveComposer.java` | composeWithEvaluations() — per-axis delta tracking, emotion provenance in triggers |
+| `cognition/.../DriveOrchestrator.java` | Asymmetric EMA smoothing, lastDriveEvaluations(), appraisal descriptions |
+| `cognition/.../ModulationLayer.java` | +descriptions field for per-axis provenance |
+| `cognition/.../AppraisalDriveModulator.java` | +INTEREST, DISTRESS→AFFILIATION, REMORSE→AFFILIATION; dominantContributions() |
+| `cognition/.../LlmAppraisalStrategy.java` | action_targets schema + parsing + application |
+| `cognition/.../TopologyChannelWeighter.java` | APPROACH/SUBMISSION/DOMINANCE profiles and switch cases |
+| `cognition/.../SearchBudgetPromptSection.java` | Appraisal-coupled prose (crisis/urgency qualifiers) |
+| `cognition/.../CognitionCore.java` | driveEvaluations(), appraisal supplier wiring, descriptions passing |
+| `caps-llm-classifier/.../EvalTestSupport.java` | JVM shutdown hook for ClaudeAgentClient |
+| `knowledge-pipeline/.../DocumentSearchableProvider.java` | search(null) → search() |
+| `cognitive-observability-testing/.../PipelineSnapshotStoreContractTest.java` | +driveEvaluations param |
