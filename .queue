@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-477-validate-parentmap-refs
 issue-repo: casehubio/agency
 status: active
 covers: 
@@ -28,3 +28,4 @@ flyway-next-v: none
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
+- [ ] casehubio/agency#477 — Validate parentMap entries reference known agentRoles in HierarchicalTopology
