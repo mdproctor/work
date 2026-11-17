@@ -129,6 +129,12 @@ every `shouldDegrade()` call — no caching.
 
 `state()` returns the same effective state: `max(localState, externalState)`.
 
+**Interaction: external OPEN blocks local probing.** If the local state
+is HALF_OPEN but external state is OPEN, the effective state is OPEN and
+`shouldDegrade()` returns `true`. Local recovery probing is suppressed
+until external state clears. This is correct — external OPEN means the
+platform has evidence the local trigger lacks.
+
 ### External State Supplier
 
 Optional `Supplier<CircuitBreakerState>` on the trigger. When absent,
