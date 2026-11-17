@@ -32,7 +32,7 @@ flyway-next-v: none
 - [x] casehubio/agency#466 — Rename SwarmDegradedEvent or move onDegradation to SwarmAwareTopology
 - [x] casehubio/agency#472 — Separate degradation tracking from scope absorption in HierarchicalTopology
 - [x] casehubio/agency#473 — ProgressUpdated broadcast should participate in scope absorption
-- [ ] casehubio/agency#404 — LatencyDegradationTrigger external circuit breaker integration
+- [x] casehubio/agency#404 — LatencyDegradationTrigger external circuit breaker integration
 - [ ] casehubio/agency#444 — Wire DecisionLoopEvent metrics through ExecutionEventListener
 - [ ] casehubio/agency#468 — Migrate existing topologies to CascadeHandler
 - [ ] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded
