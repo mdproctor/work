@@ -38,4 +38,4 @@ active-issue: #444
 - [x] casehubio/agency#468 — Migrate existing topologies to CascadeHandler
 - [x] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded
 - [x] casehubio/agency#480 — Propagate collapsed flag to DecisionLoopEvent.Degraded for telemetry
-- [ ] casehubio/agency#479 — Add collapse emitter policy to DegradationAwareSummariser ← active
+- [x] casehubio/agency#479 — Add collapse emitter policy to DegradationAwareSummariser
