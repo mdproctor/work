@@ -100,3 +100,19 @@ Note: `thumbs-up` is redundant with existing `yes` clip.
 - Do NOT guess quaternion axis directions — use IK targets with world coordinates
 - Do NOT claim a pose looks right without taking a screenshot and checking it honestly
 - The "bow" animation in M2M is archery (combat/ranged), not a greeting bow
+
+---
+
+## Recently Landed — Orchestration hardening (2026-11-17)
+
+Four issues landed on main outside the queue workflow:
+
+| # | SHA | Summary |
+|---|-----|---------|
+| #474 | `a4651fd0` | Constructor-time acyclicity validation in `HierarchicalTopology.parentMap` |
+| #465 | `87c45db1` | `TokenRecordable` interface replaces instanceof cascade in `CentralisedTopology` |
+| #467 | `feb565e7` | `modelId` parameter on `DecisionLoopFactory` (was hardcoded `"unknown"`) |
+| #464 | `752c9f6d` | Per-loop bridge bus emits `ActionDispatched` via `loopEventSink` |
+
+**Filed:** #477 — validate parentMap entries reference known agentRoles (added to queue)
+**Blog:** `docs/blog/2026-11-17-mdp01-the-gaps-that-tests-dont-find.md`
