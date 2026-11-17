@@ -36,6 +36,6 @@ active-issue: #444
 - [x] casehubio/agency#404 — LatencyDegradationTrigger external circuit breaker integration
 - [x] casehubio/agency#444 — Wire DecisionLoopEvent metrics through ExecutionEventListener
 - [x] casehubio/agency#468 — Migrate existing topologies to CascadeHandler
-- [ ] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded ← active
-- [ ] casehubio/agency#480 — Propagate collapsed flag to DecisionLoopEvent.Degraded for telemetry
+- [x] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded
+- [ ] casehubio/agency#480 — Propagate collapsed flag to DecisionLoopEvent.Degraded for telemetry ← active
 - [ ] casehubio/agency#479 — Add collapse emitter policy to DegradationAwareSummariser
