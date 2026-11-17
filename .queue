@@ -1,10 +1,10 @@
-# Work Plan — Work Plan —
+# Work Plan —
 
 ## State
-branch: issue-458-author-23-conversational-body-poses
+branch: 
 issue-repo: casehubio/agency
 status: active
-covers: 458
+covers: 
 project-sha: 
 date: 
 design-repo: 
@@ -27,8 +27,4 @@ flyway-next-v: none
 - [x] casehubio/agency#452 — Kokoro-voice-distillation
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
-- [ ] casehubio/agency#458 — Author-23-conversational-body-poses ← active
-  - [x] Batch 1: Batch 1
-    - [x] Task 1: Author 23 poses in Blender via Python scripting
-    - [x] Task 2: Retarget to RPM skeleton and bundle into m2m-animations.glb
-    - [x] Task 3: Update taxonomy and gesture tags in body-animations.mjs
+- [x] casehubio/agency#458 — Author-23-conversational-body-poses
