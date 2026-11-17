@@ -2,60 +2,30 @@
 
 ## Last Session
 
-Extended personality-aware situation classification with PID-5 facet scores and AppraisalWeights. The CAPS classifier now distinguishes characters who share disposition axes but differ in personality magnitude — an anxious cooperator perceives threat where a calm cooperator perceives information. Post-implementation: deep audit, blog revision with SVG, research doc updates, full queue reconciliation.
+Completed the final 4 queue items for epic #1050. Queue is now 84/84 — all items done. #976 was already implemented under #970/#977 (closed without new commits). #1071, #1070, #1072 were bundled as cleanup follow-ups from the #977 audit.
 
-### Landed on main (f2e09f2), all published to remote
+### Landed on main, not yet published to remote
 
-8 commits total:
+3 commits:
 
-1. **#977** — `PersonalityPromptBuilder`: `pid5Suffix()` and `appraisalSuffix()` with high/low/moderate labels, wired into Path A and Path C prompts. `pid5Facets` config property. Model version `haiku-pid5`.
-2. **#977** — `CbrCachingSituationDecorator`: SHA-256 extended with sorted `pid5.*` and `appraisal.*`. `addPersonalityFeatures()`.
-3. **#977** — `addPersonalityMetadata()` in BehavioralSynthesisPhase and DriveProfileDerivationPhase.
-4. **#977** — Eval: anxious-cooperative vs calm-cooperative profiles.
-5. Artifact promotion (spec, decisions, diary)
-6. CLAUDE.md module descriptions updated
-7. Blog revision + SVG diagram promoted
-8. Era7 research doc updated (#977 downstream consumer section, #980 marked done)
+1. **#1071** — Extracted `PersonalityMetadataEnricher` static utility in `cognitive-index`. Both `BehavioralSynthesisPhase` and `DriveProfileDerivationPhase` delegate to it. Includes `allowedFacets` parameter for config filtering.
+2. **#1070** — Created `Pid5FacetsConfig` in `mindmap-intelligence` reading `casehub.caps.classification.cbr.pid5-facets`. Both phases inject it and pass the facet set to the enricher. Filtering propagates through cache key hash naturally.
+3. **#1072** — Removed dead `PersonalityPromptBuilder.hasPid5()`. Added `assertThat(count).isGreaterThan(0)` guards to `pid5Divergence` and `anxiousProfile` eval tests.
 
 ### Issues closed
 
 | # | Title |
 |---|-------|
-| #977 | PID-5 facet extension personality classification |
+| #976 | DriveProfileDerivationPhase personality classification (already done via #970/#977) |
+| #1070 | Wire pid5Facets config to metadata enrichment and cache key |
+| #1071 | Extract addPersonalityMetadata to shared utility |
+| #1072 | Remove hasPid5 and strengthen eval assertions |
 
-### Issues filed
+### Queue status
 
-| # | Title | Scale | Complexity |
-|---|-------|-------|-----------|
-| #1070 | Wire pid5Facets config to metadata enrichment and cache key | S | Low |
-| #1071 | Extract addPersonalityMetadata to shared utility | S | Low |
-| #1072 | Remove hasPid5 and strengthen eval assertions | XS | Low |
+**84/84 complete.** Epic #1050 is fully resolved. Ready for `work end`.
 
-### Queue reconciliation
-
-Discovered 25 items in the queue that were closed on GitHub but never ticked. All verified — 24 have commits on main (some squashed into batch commits), 1 (#1001) was correctly closed without code changes. Queue now: **80 done, 4 remaining** (was incorrectly showing 37 remaining).
-
-### Key findings
-
-- **pid5Facets config not wired** — declared but no production code reads it. Filed as #1070.
-- **DRY violation** — `addPersonalityMetadata()` duplicated verbatim in two phases. Filed as #1071.
-- **Dead code** — `hasPid5()` defined but unused. Filed as #1072.
-- **IntelliJ optimize-imports strips static assertThat** after `ide_insert_member` — needs manual re-add.
-
-### Pre-existing failures
+### Pre-existing failures (carried forward)
 
 - `AttentionSignalTest` in mindmap-api
 - `CopingStrategyPredictorTest` in cognition — CopingDefaults 8 vs 5 args
-
-## Queue — 4 remaining under epic #1050
-
-| # | Title | Scale | Complexity |
-|---|-------|-------|-----------|
-| #1070 | Wire pid5Facets config | S | Low |
-| #1071 | Extract addPersonalityMetadata shared utility | S | Low |
-| #1072 | Remove hasPid5 + eval guards | XS | Low |
-| #976 | DriveProfileDerivationPhase personality classification | M | High |
-
-### Recommendation
-
-#1070 + #1071 + #1072 are quick follow-ups from this session's audit — bundle into one session (< 30 min). #976 is the last substantial item and needs its own design pass. After these 4, epic #1050 is complete.

@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: issue-977-pid5-facet-personality-classification
 issue-repo: casehubio/neocortex
 status: active
 covers: 1050
@@ -12,7 +12,7 @@ design-section-hashes:
 flyway-next-v: unknown
 check: 878
 done: 
-active: 
+active: casehubio/neocortex#976
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
@@ -84,7 +84,7 @@ active:
 - [x] casehubio/neocortex#1034 — Attractor-filter-activation-function-aware
 - [x] casehubio/neocortex#1039 — SchererAppraisalStrategyTest-pre-existing-failure
 - [x] casehubio/neocortex#1040 — LlmAppraisalStrategy-action-targets-schema-cleanup
-- [ ] casehubio/neocortex#976 — DriveProfileDerivationPhase-personality-classification
+- [x] casehubio/neocortex#976 — DriveProfileDerivationPhase-personality-classification
 - [x] casehubio/neocortex#977 — PID5-facet-extension-personality-classification
 - [x] casehubio/neocortex#1048 — CapsEngineContractTest-coping-initializeAgent-wiring
 - [x] casehubio/neocortex#1051 — Orphaned-output-node-audit
@@ -96,6 +96,6 @@ active:
 - [x] casehubio/neocortex#980 — ConsolidationScheduler-journal-observability
 - [x] casehubio/neocortex#968 — Instrument-CognitionCore-tick-stages
 - [x] casehubio/neocortex#1045 — Surface-prediction-calibration-observability
-- [ ] casehubio/neocortex#1070 — Wire-pid5Facets-config
-- [ ] casehubio/neocortex#1071 — Extract-addPersonalityMetadata
-- [ ] casehubio/neocortex#1072 — Remove-hasPid5-strengthen-evals
+- [x] casehubio/neocortex#1070 — Wire-pid5Facets-config
+- [x] casehubio/neocortex#1071 — Extract-addPersonalityMetadata
+- [x] casehubio/neocortex#1072 — Remove-hasPid5-strengthen-evals
