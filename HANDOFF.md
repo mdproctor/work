@@ -2,30 +2,35 @@
 
 ## Last Session
 
-Completed the final 4 queue items for epic #1050. Queue is now 84/84 — all items done. #976 was already implemented under #970/#977 (closed without new commits). #1071, #1070, #1072 were bundled as cleanup follow-ups from the #977 audit.
+Completed the final 4 queue items for epic #1050. Queue 84/84 — all items done. Epic closed on GitHub. All work published.
 
-### Landed on main, not yet published to remote
+### Landed and published (e1d7ce1)
 
-3 commits:
+5 commits published to GitHub:
 
-1. **#1071** — Extracted `PersonalityMetadataEnricher` static utility in `cognitive-index`. Both `BehavioralSynthesisPhase` and `DriveProfileDerivationPhase` delegate to it. Includes `allowedFacets` parameter for config filtering.
-2. **#1070** — Created `Pid5FacetsConfig` in `mindmap-intelligence` reading `casehub.caps.classification.cbr.pid5-facets`. Both phases inject it and pass the facet set to the enricher. Filtering propagates through cache key hash naturally.
-3. **#1072** — Removed dead `PersonalityPromptBuilder.hasPid5()`. Added `assertThat(count).isGreaterThan(0)` guards to `pid5Divergence` and `anxiousProfile` eval tests.
+1. **#1071** — `PersonalityMetadataEnricher` static utility in `cognitive-index`. Both phases delegate to it.
+2. **#1070** — `Pid5FacetsConfig` wires `casehub.caps.classification.cbr.pid5-facets`. Facet filtering at enrichment time.
+3. **#1072** — Removed dead `hasPid5()`. Hardened eval assertion guards.
+4. Era7 research doc updated — #1070-1072 complete, epic #1050 resolution summary.
+5. CLAUDE.md — `PersonalityMetadataEnricher` added to cognitive-index description.
 
 ### Issues closed
 
 | # | Title |
 |---|-------|
 | #976 | DriveProfileDerivationPhase personality classification (already done via #970/#977) |
-| #1070 | Wire pid5Facets config to metadata enrichment and cache key |
-| #1071 | Extract addPersonalityMetadata to shared utility |
-| #1072 | Remove hasPid5 and strengthen eval assertions |
+| #1050 | Epic: CAPS pipeline wiring completeness (84/84 complete) |
+| #1070 | Wire pid5Facets config |
+| #1071 | Extract addPersonalityMetadata shared utility |
+| #1072 | Remove hasPid5 + eval guards |
+
+### Issues filed
+
+| # | Title | Scale | Complexity |
+|---|-------|-------|-----------|
+| #1077 | AttentionSignalTest pre-existing failure in mindmap-api | XS | Low |
+| #1078 | CopingStrategyPredictorTest pre-existing failure — CopingDefaults arity mismatch | XS | Low |
 
 ### Queue status
 
-**84/84 complete.** Epic #1050 is fully resolved. Ready for `work end`.
-
-### Pre-existing failures (carried forward)
-
-- `AttentionSignalTest` in mindmap-api
-- `CopingStrategyPredictorTest` in cognition — CopingDefaults 8 vs 5 args
+**84/84 complete.** Epic #1050 fully resolved and closed. Slot 211 is done.
