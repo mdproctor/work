@@ -2,62 +2,46 @@
 
 ## Last Session
 
-Cognitive observability pass: wired CognitiveJournal through the consolidation pipeline, instrumented all remaining CognitionCore tick stages, surfaced prediction calibration in the observability resolver. 3 issues closed, 1 follow-up filed. All landed on main.
+PID-5 facet extension for personality-aware situation classification. Extended the CAPS classifier to distinguish characters who share disposition axes but differ in PID-5 personality facet intensity — anxious vs calm cooperative, for example.
 
-### Landed: `issue-980-consolidation-journal-observability` → main (435bdb6)
+### Landed: `issue-977-pid5-facet-personality-classification` → main (4888d49)
 
-4 commits (3 features + 1 promotion):
+5 commits (4 features/tests + 1 promotion):
 
-1. **#980** — `setCognitiveJournal()` on ConsolidationPhase SPI + wiring in ConsolidationScheduler.runPhases()
-2. **#968** — 7 new CognitiveEntry types (TemporalFocusTicked, MemoryHygieneTicked, NarrativeUpdated, StrategyUpdated, ReflectionRetrieved, UserModelUpdated, MentalModelUpdated) + recording calls in CognitionCore.tick()
-3. **#1045** — `calibration()` resolver on CognitionApi + PredictionCalibrationResult type in cognitive-observability-core
-4. Blog + SVG promotion
+1. **#977** — extend PersonalityPromptBuilder with `pid5Suffix()` and `appraisalSuffix()`; wire into Path A and Path C prompts; add `pid5Facets` config property; bump model version to `haiku-pid5`
+2. **#977** — extend CBR cache key SHA-256 with PID-5 facet scores and AppraisalWeights; rename `addDispositionFeatures` → `addPersonalityFeatures`
+3. **#977** — extend `addDispositionMetadata` → `addPersonalityMetadata` in BehavioralSynthesisPhase and DriveProfileDerivationPhase; populate `pid5.*` and `appraisal.*` metadata keys
+4. **#977** — add anxious-cooperative vs calm-cooperative eval profiles with activation divergence and threat-sensitivity assertions
+5. Artifact promotion (design spec, decisions, diary)
 
 ### Issues closed
 
 | # | Title | Resolution |
 |---|-------|-----------|
-| #980 | ConsolidationScheduler journal observability | setCognitiveJournal() default method on ConsolidationPhase SPI |
-| #968 | Instrument remaining CognitionCore tick stages | 7 new entry types, all 12 stages now observable |
-| #1045 | Surface prediction calibration observability | calibration(tenancyId, agentId, minEpisodes?) resolver method |
-
-### Issues filed this session
-
-| # | Title | Scale | Complexity |
-|---|-------|-------|-----------|
-| #1067 | Extract PredictionCalibrationAnalyzer to shared module | S | Low |
+| #977 | PID-5 facet extension personality classification | All 13 PID-5 facets + 5 AppraisalWeights in metadata, prompt, and CBR cache key |
 
 ### Key findings
 
-- **CognitiveEntry sealed hierarchy now has 23 types** (was 16) — no exhaustive switches exist in the codebase, so adding types required zero consumer updates
-- **Consolidation was a black box** — journal field was CDI-wired but never passed to phases; fix was 2 lines of SPI + 1 line of wiring
-- **Calibration logic duplicated due to module boundary** — cognitive-observability-core cannot depend on cognition (reverse dep exists); replicated analysis inline, tracked in #1067
-- **Per-subject model entries** emit one record per subject, giving subject-level trace granularity
+- **CopingDefaults constructor mismatch** was blocking compilation in caps-llm-classifier eval tests — record expanded from 5 to 8 fields in a prior session but `CopingEmergenceEvalTest` wasn't updated. Fixed by rebuilding `cognitive-index` jar which had the current 8-field record.
+- **IntelliJ optimize-imports strips static assertThat** when inserting test methods — the `reformat: true` default on `ide_insert_member` removes static imports it considers unused. Manual re-add via `ide_replace_text_in_file` needed after each insertion.
+- **Config property `pid5Facets` defaults to all 13** — the filtering is applied at metadata enrichment layer, not the prompt builder. Future eval may narrow this list.
 
 ### Pre-existing failures
 
-- `AttentionSignalTest` in mindmap-api — pre-existing, unrelated to this work
-- `CopingStrategyPredictorTest` in cognition — pre-existing CopingDefaults constructor mismatch (8 args vs 5 expected)
-
-### Unpublished
-
-4 commits on canonical `~/claude/casehub/neocortex` main are ahead of remote. Publish with:
-```bash
-python3 ~/.claude/skills/project/canonical_sync.py publish /Users/mdproctor/claude/casehub/neocortex
-```
+- `AttentionSignalTest` in mindmap-api — pre-existing
+- `CopingStrategyPredictorTest` in cognition — pre-existing CopingDefaults constructor mismatch (8 args vs 5)
 
 ## Next Session Plan
 
-### Queue (position 47/81 under epic #1050)
-
-Remaining nearby items are CAPS/coping domain — a topic change from observability:
+### Queue (position ~48/81 under epic #1050)
 
 | # | Title | Scale | Complexity | Notes |
 |---|-------|-------|-----------|-------|
-| #977 | PID5 facet extension personality classification | M | Med | CAPS/personality |
-| #1048 | CapsEngineContractTest coping initializeAgent wiring | S | Low | CAPS/testing |
-| #1066 | Expand PersonalityDifferentiationTest | S | Med | Add curiosity channel + attractor assertions |
+| #1001 | DriveProfilePersonalityEvalTest compilation fix | S | Low | Testing |
+| #1003 | Re-run coherence eval suite | S | Low | Eval |
+| #1004 | Extract TopologyChannelWeighter magic numbers | S | Med | Cleanup |
+| #1000 | AVOIDANCE-ANTAGONISM channel weights | S | Med | CAPS channel tuning |
 
 ### Recommendation
 
-Start a fresh session for the CAPS/personality cluster — different domain from observability, fresh context will serve better.
+Start a fresh session — the queue tracking was manually managed this session and needs clean lifecycle state. Next items are small testing/eval tasks.

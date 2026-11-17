@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-1051-orphaned-output-node-audit
+branch: issue-977-pid5-facet-personality-classification
 issue-repo: casehubio/neocortex
 status: active
 covers: 1050
@@ -11,8 +11,8 @@ design-repo: project
 design-section-hashes: 
 flyway-next-v: unknown
 check: 878
-done: 1048,1051,1042,1052,1041,1054,1053
-active: 1053
+done: 
+active: 977
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
