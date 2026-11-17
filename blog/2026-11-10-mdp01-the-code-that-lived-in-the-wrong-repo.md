@@ -1,6 +1,10 @@
 ---
-type: diary
+title: "The Code That Lived in the Wrong Repo"
+date: 2026-11-10
+entry_type: note
+subtype: diary
 tags: [architecture, voice, connectors, agency, migration]
+projects: [casehubio/agency]
 ---
 
 # The Code That Lived in the Wrong Repo

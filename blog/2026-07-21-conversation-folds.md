@@ -1,8 +1,10 @@
 ---
 title: "Conversation Folds — Epistemic Ground and Convergence"
 date: 2026-07-21
-type: diary
+entry_type: note
+subtype: diary
 tags: [conversation, epistemic, convergence, fold, blocks]
+projects: [casehubio/agency]
 issue: "casehubio/blocks#65, casehubio/blocks#66"
 ---
 
