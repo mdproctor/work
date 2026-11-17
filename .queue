@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-404-latency-degradation-circuit-breaker
+branch: issue-483-metrics-collapse-counter
 issue-repo: casehubio/agency
 status: active
 covers: 
@@ -10,7 +10,7 @@ date:
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
-active-issue: #444
+active-issue: #483
 
 ## Queue
 - [x] casehubio/agency#376 — Issue #376
@@ -39,3 +39,4 @@ active-issue: #444
 - [x] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded
 - [x] casehubio/agency#480 — Propagate collapsed flag to DecisionLoopEvent.Degraded for telemetry
 - [x] casehubio/agency#479 — Add collapse emitter policy to DegradationAwareSummariser
+- [ ] casehubio/agency#483 — MetricsListener emit separate counter for collapse events
