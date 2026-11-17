@@ -1,45 +1,31 @@
 # HANDOFF — casehub-agency
 
-## Epic #475: Swarm coordination infrastructure — topology cleanup and enhancement
+## Session summary (2026-11-17, session 2)
 
-### Session summary (2026-11-17)
-
-Landed 4 issues, filed 3 follow-ups:
+Landed #481 (agentic-yaml compile fix) and filed 1 follow-up:
 
 | # | SHA | Summary |
 |---|-----|---------|
-| #477 | `e8b0ab41` | Validate `parentMap` entries reference known `agentRoles` |
-| #466 | `d23be111` | Rename `SwarmDegradedEvent` → `DegradedEvent`, move to `orchestration.degradation` |
-| #472 | `0dacc5f1` | Separate `degradedLoops` (cascade threshold) from `collapsedLoops` (scope absorption) |
-| #473 | `ec01eeda` | `ProgressUpdated` broadcast routes through `resolveAbsorber` |
+| #481 | `1f1e9727` | Pass `smoothingAlpha` as 14th arg to `DriveConfig` canonical constructor in `CognitionCompiler` |
 
-**Blog:** `docs/blog/2026-11-17-mdp01-not-every-stumble-is-a-fall.md`
+**Filed:** #485 — expose `smoothingAlpha` in `DriveConfigSpec` for YAML configuration (deferred design decision)
 
-### Queue — 6 remaining items
+**Blog:** `docs/blog/2026-11-17-mdp04-the-field-your-yaml-never-sees.md` — YAML compilation layer as a stability boundary
+
+### Queue — 3 remaining items
 
 | # | Title | Scale | Complexity | Notes |
 |---|-------|-------|------------|-------|
-| #404 | LatencyDegradationTrigger: external circuit breaker integration | S | Med | Independent |
-| #444 | Wire DecisionLoopEvent metrics through ExecutionEventListener | M | Med | 2 of 3 items already on main |
-| #468 | Migrate existing topologies to CascadeHandler | M | Med | Independent |
-| #478 | Rename `ExecutionEventListener.onSwarmDegraded` to `onDegraded` | XS | Low | Consumer-facing API — verify engine doesn't override |
-| #480 | Propagate `collapsed` flag to `DecisionLoopEvent.Degraded` | XS | Low | Telemetry gap |
-| #479 | Add collapse emitter policy to `DegradationAwareSummariser` | S | Med | Mechanism exists but dormant — no emitter sends `collapsed=true` |
+| #484 | Assemble CognitionCore through CognitivePipelineBuilder | M | Med | Next active |
+| #447 | Remove residual cognitive code, complete neocortex migration | L | High | Depends on #484 |
+| #469 | Neocortex budget integration, wire platform budget types | M | Med | Independent |
 
-### Key design context for next session
+### Key context for next session
 
-**Degradation vs collapse:** `DegradedEvent` now has two independent signals:
-- `fallbackActive` → agent switched to heuristic (loop still functions) → `degradedLoops`
-- `collapsed` → agent structurally absent, parent absorbs scope → `collapsedLoops`
+**Pre-existing build issue resolved.** The `agentic-yaml` module now compiles — `CognitionCompiler.compileDrive` passes all 14 `DriveConfig` components. The fix takes `smoothingAlpha` from `DriveConfig.defaults()` (0.3), matching the pattern used for `subThoughtModulationStrength` and `secondaryPleasureModulationFactor`.
 
-Backward-compat 3-arg constructor defaults `collapsed=false` — existing emitters unchanged.
-
-**Thread safety:** `ConcurrentHashMap.newKeySet()` per-operation atomic, two-set compound in `onDegradation` not transactional (pre-existing characteristic, not introduced by this work).
-
-### Pre-existing build issue
-
-`agentic-yaml` module: `CognitionCompiler.java:58` constructor mismatch with neocortex `DriveConfig`. Unrelated. `agency-core` builds and tests clean (519 tests).
+**DriveConfigSpec design:** 11 of 14 `DriveConfig` components are YAML-configurable. Three are internal defaults. Whether `smoothingAlpha` should be promoted to the YAML surface is tracked in #485.
 
 ### Unpublished
 
-17 commits on main not yet pushed to remote. Publish with `canonical_sync.py publish`.
+agency project: 1 commit on main not yet pushed. agency workspace: 16 commits. Publish with `canonical_sync.py publish`.
