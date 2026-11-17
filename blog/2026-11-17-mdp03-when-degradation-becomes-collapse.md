@@ -76,3 +76,4 @@ The coordination infrastructure epic started with parentMap validation and token
 The degradation system now has a full signal path: trigger fires → heuristic fallback → collapse policy evaluates → collapsed event emits → topology absorbs scope → telemetry records it all. Each stage is a separate concern with its own interface. The topology doesn't know about collapse policies. The collapse policy doesn't know about cascades. The cascade handler doesn't know about scope absorption. They compose through events and callbacks.
 
 The practical value is that consumers can now distinguish between a temporary LLM hiccup and a persistent failure. A `CollapsePolicy.afterCalls(10)` on a hierarchical topology means the parent takes over after ten consecutive heuristic calls — not after one spike, not after a provider restart, but after sustained evidence that the child can't recover. That's the distinction the boolean couldn't express.
+
