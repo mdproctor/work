@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-977-pid5-facet-personality-classification
+branch: main
 issue-repo: casehubio/neocortex
 status: active
 covers: 1050
@@ -12,7 +12,7 @@ design-section-hashes:
 flyway-next-v: unknown
 check: 878
 done: 
-active: 977
+active: 
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
@@ -59,40 +59,43 @@ active: 977
 - [x] casehubio/neocortex#986 — ATTENDING action tendency channel boost
 - [x] casehubio/neocortex#989 — Re-run-tension-threshold-LLM-eval
 - [x] casehubio/neocortex#990 — LlmSituationClassifier-silent-degradation
-- [ ] casehubio/neocortex#1001 — DriveProfilePersonalityEvalTest-compilation-fix
-- [ ] casehubio/neocortex#1003 — Re-run-coherence-eval-suite
-- [ ] casehubio/neocortex#1004 — Extract-TopologyChannelWeighter-magic-numbers
-- [ ] casehubio/neocortex#1000 — AVOIDANCE-ANTAGONISM-channel-weights
-- [ ] casehubio/neocortex#1005 — Context-dependent-SHAME-AFFILIATION-mapping
-- [ ] casehubio/neocortex#1009 — DriveComposer-cross-layer-AUTONOMY-saturation
-- [ ] casehubio/neocortex#1010 — Eval-test-seeding-AFFILIATION-drive
-- [ ] casehubio/neocortex#1014 — Re-run-coherence-eval-post-fix
-- [ ] casehubio/neocortex#1015 — REMORSE-AFFILIATION-secondary-boost
-- [ ] casehubio/neocortex#1016 — Remaining-action-tendency-channel-mappings
-- [ ] casehubio/neocortex#1012 — DocumentSearchableProvider-compilation-fix
-- [ ] casehubio/neocortex#1013 — Surefire-fork-timeout-cleanup
-- [ ] casehubio/neocortex#1020 — Channel-weight-polarization
-- [ ] casehubio/neocortex#1021 — Drive-trace-enrichment
-- [ ] casehubio/neocortex#1022 — SearchBudget-intensity-coupling
-- [ ] casehubio/neocortex#1023 — Drive-annotation-provenance
-- [ ] casehubio/neocortex#1024 — LLM-appraisal-vocabulary
-- [ ] casehubio/neocortex#1025 — AppraisalDriveModulator-secondary-boosts
-- [ ] casehubio/neocortex#1026 — Drive-temporal-smoothing
-- [ ] casehubio/neocortex#1027 — CAPS-settling-convergence
-- [ ] casehubio/neocortex#1028 — Action-tendency-targets
-- [ ] casehubio/neocortex#1033 — BehavioralPromptSection-drops-mid-tier-attractors
-- [ ] casehubio/neocortex#1034 — Attractor-filter-activation-function-aware
-- [ ] casehubio/neocortex#1039 — SchererAppraisalStrategyTest-pre-existing-failure
-- [ ] casehubio/neocortex#1040 — LlmAppraisalStrategy-action-targets-schema-cleanup
+- [x] casehubio/neocortex#1001 — DriveProfilePersonalityEvalTest-compilation-fix
+- [x] casehubio/neocortex#1003 — Re-run-coherence-eval-suite
+- [x] casehubio/neocortex#1004 — Extract-TopologyChannelWeighter-magic-numbers
+- [x] casehubio/neocortex#1000 — AVOIDANCE-ANTAGONISM-channel-weights
+- [x] casehubio/neocortex#1005 — Context-dependent-SHAME-AFFILIATION-mapping
+- [x] casehubio/neocortex#1009 — DriveComposer-cross-layer-AUTONOMY-saturation
+- [x] casehubio/neocortex#1010 — Eval-test-seeding-AFFILIATION-drive
+- [x] casehubio/neocortex#1014 — Re-run-coherence-eval-post-fix
+- [x] casehubio/neocortex#1015 — REMORSE-AFFILIATION-secondary-boost
+- [x] casehubio/neocortex#1016 — Remaining-action-tendency-channel-mappings
+- [x] casehubio/neocortex#1012 — DocumentSearchableProvider-compilation-fix
+- [x] casehubio/neocortex#1013 — Surefire-fork-timeout-cleanup
+- [x] casehubio/neocortex#1020 — Channel-weight-polarization
+- [x] casehubio/neocortex#1021 — Drive-trace-enrichment
+- [x] casehubio/neocortex#1022 — SearchBudget-intensity-coupling
+- [x] casehubio/neocortex#1023 — Drive-annotation-provenance
+- [x] casehubio/neocortex#1024 — LLM-appraisal-vocabulary
+- [x] casehubio/neocortex#1025 — AppraisalDriveModulator-secondary-boosts
+- [x] casehubio/neocortex#1026 — Drive-temporal-smoothing
+- [x] casehubio/neocortex#1027 — CAPS-settling-convergence
+- [x] casehubio/neocortex#1028 — Action-tendency-targets
+- [x] casehubio/neocortex#1033 — BehavioralPromptSection-drops-mid-tier-attractors
+- [x] casehubio/neocortex#1034 — Attractor-filter-activation-function-aware
+- [x] casehubio/neocortex#1039 — SchererAppraisalStrategyTest-pre-existing-failure
+- [x] casehubio/neocortex#1040 — LlmAppraisalStrategy-action-targets-schema-cleanup
 - [ ] casehubio/neocortex#976 — DriveProfileDerivationPhase-personality-classification
-- [ ] casehubio/neocortex#977 — PID5-facet-extension-personality-classification
-- [ ] casehubio/neocortex#1048 — CapsEngineContractTest-coping-initializeAgent-wiring
-- [ ] casehubio/neocortex#1051 — Orphaned-output-node-audit
-- [ ] casehubio/neocortex#1042 — Verify-inert-coping-nodes
-- [ ] casehubio/neocortex#1052 — CopingDefaults-coverage-expansion
-- [ ] casehubio/neocortex#1041 — CAPS-coping-to-regulation-connections
-- [ ] casehubio/neocortex#1054 — Moderate-threat-coping-bias-verification
-- [ ] casehubio/neocortex#1053 — End-to-end-personality-differentiation-test
+- [x] casehubio/neocortex#977 — PID5-facet-extension-personality-classification
+- [x] casehubio/neocortex#1048 — CapsEngineContractTest-coping-initializeAgent-wiring
+- [x] casehubio/neocortex#1051 — Orphaned-output-node-audit
+- [x] casehubio/neocortex#1042 — Verify-inert-coping-nodes
+- [x] casehubio/neocortex#1052 — CopingDefaults-coverage-expansion
+- [x] casehubio/neocortex#1041 — CAPS-coping-to-regulation-connections
+- [x] casehubio/neocortex#1054 — Moderate-threat-coping-bias-verification
+- [x] casehubio/neocortex#1053 — End-to-end-personality-differentiation-test
 - [x] casehubio/neocortex#980 — ConsolidationScheduler-journal-observability
 - [x] casehubio/neocortex#968 — Instrument-CognitionCore-tick-stages
 - [x] casehubio/neocortex#1045 — Surface-prediction-calibration-observability
+- [ ] casehubio/neocortex#1070 — Wire-pid5Facets-config
+- [ ] casehubio/neocortex#1071 — Extract-addPersonalityMetadata
+- [ ] casehubio/neocortex#1072 — Remove-hasPid5-strengthen-evals

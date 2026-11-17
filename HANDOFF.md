@@ -2,46 +2,60 @@
 
 ## Last Session
 
-PID-5 facet extension for personality-aware situation classification. Extended the CAPS classifier to distinguish characters who share disposition axes but differ in PID-5 personality facet intensity — anxious vs calm cooperative, for example.
+Extended personality-aware situation classification with PID-5 facet scores and AppraisalWeights. The CAPS classifier now distinguishes characters who share disposition axes but differ in personality magnitude — an anxious cooperator perceives threat where a calm cooperator perceives information. Post-implementation: deep audit, blog revision with SVG, research doc updates, full queue reconciliation.
 
-### Landed: `issue-977-pid5-facet-personality-classification` → main (4888d49)
+### Landed on main (f2e09f2), all published to remote
 
-5 commits (4 features/tests + 1 promotion):
+8 commits total:
 
-1. **#977** — extend PersonalityPromptBuilder with `pid5Suffix()` and `appraisalSuffix()`; wire into Path A and Path C prompts; add `pid5Facets` config property; bump model version to `haiku-pid5`
-2. **#977** — extend CBR cache key SHA-256 with PID-5 facet scores and AppraisalWeights; rename `addDispositionFeatures` → `addPersonalityFeatures`
-3. **#977** — extend `addDispositionMetadata` → `addPersonalityMetadata` in BehavioralSynthesisPhase and DriveProfileDerivationPhase; populate `pid5.*` and `appraisal.*` metadata keys
-4. **#977** — add anxious-cooperative vs calm-cooperative eval profiles with activation divergence and threat-sensitivity assertions
-5. Artifact promotion (design spec, decisions, diary)
+1. **#977** — `PersonalityPromptBuilder`: `pid5Suffix()` and `appraisalSuffix()` with high/low/moderate labels, wired into Path A and Path C prompts. `pid5Facets` config property. Model version `haiku-pid5`.
+2. **#977** — `CbrCachingSituationDecorator`: SHA-256 extended with sorted `pid5.*` and `appraisal.*`. `addPersonalityFeatures()`.
+3. **#977** — `addPersonalityMetadata()` in BehavioralSynthesisPhase and DriveProfileDerivationPhase.
+4. **#977** — Eval: anxious-cooperative vs calm-cooperative profiles.
+5. Artifact promotion (spec, decisions, diary)
+6. CLAUDE.md module descriptions updated
+7. Blog revision + SVG diagram promoted
+8. Era7 research doc updated (#977 downstream consumer section, #980 marked done)
 
 ### Issues closed
 
-| # | Title | Resolution |
-|---|-------|-----------|
-| #977 | PID-5 facet extension personality classification | All 13 PID-5 facets + 5 AppraisalWeights in metadata, prompt, and CBR cache key |
+| # | Title |
+|---|-------|
+| #977 | PID-5 facet extension personality classification |
+
+### Issues filed
+
+| # | Title | Scale | Complexity |
+|---|-------|-------|-----------|
+| #1070 | Wire pid5Facets config to metadata enrichment and cache key | S | Low |
+| #1071 | Extract addPersonalityMetadata to shared utility | S | Low |
+| #1072 | Remove hasPid5 and strengthen eval assertions | XS | Low |
+
+### Queue reconciliation
+
+Discovered 25 items in the queue that were closed on GitHub but never ticked. All verified — 24 have commits on main (some squashed into batch commits), 1 (#1001) was correctly closed without code changes. Queue now: **80 done, 4 remaining** (was incorrectly showing 37 remaining).
 
 ### Key findings
 
-- **CopingDefaults constructor mismatch** was blocking compilation in caps-llm-classifier eval tests — record expanded from 5 to 8 fields in a prior session but `CopingEmergenceEvalTest` wasn't updated. Fixed by rebuilding `cognitive-index` jar which had the current 8-field record.
-- **IntelliJ optimize-imports strips static assertThat** when inserting test methods — the `reformat: true` default on `ide_insert_member` removes static imports it considers unused. Manual re-add via `ide_replace_text_in_file` needed after each insertion.
-- **Config property `pid5Facets` defaults to all 13** — the filtering is applied at metadata enrichment layer, not the prompt builder. Future eval may narrow this list.
+- **pid5Facets config not wired** — declared but no production code reads it. Filed as #1070.
+- **DRY violation** — `addPersonalityMetadata()` duplicated verbatim in two phases. Filed as #1071.
+- **Dead code** — `hasPid5()` defined but unused. Filed as #1072.
+- **IntelliJ optimize-imports strips static assertThat** after `ide_insert_member` — needs manual re-add.
 
 ### Pre-existing failures
 
-- `AttentionSignalTest` in mindmap-api — pre-existing
-- `CopingStrategyPredictorTest` in cognition — pre-existing CopingDefaults constructor mismatch (8 args vs 5)
+- `AttentionSignalTest` in mindmap-api
+- `CopingStrategyPredictorTest` in cognition — CopingDefaults 8 vs 5 args
 
-## Next Session Plan
+## Queue — 4 remaining under epic #1050
 
-### Queue (position ~48/81 under epic #1050)
-
-| # | Title | Scale | Complexity | Notes |
-|---|-------|-------|-----------|-------|
-| #1001 | DriveProfilePersonalityEvalTest compilation fix | S | Low | Testing |
-| #1003 | Re-run coherence eval suite | S | Low | Eval |
-| #1004 | Extract TopologyChannelWeighter magic numbers | S | Med | Cleanup |
-| #1000 | AVOIDANCE-ANTAGONISM channel weights | S | Med | CAPS channel tuning |
+| # | Title | Scale | Complexity |
+|---|-------|-------|-----------|
+| #1070 | Wire pid5Facets config | S | Low |
+| #1071 | Extract addPersonalityMetadata shared utility | S | Low |
+| #1072 | Remove hasPid5 + eval guards | XS | Low |
+| #976 | DriveProfileDerivationPhase personality classification | M | High |
 
 ### Recommendation
 
-Start a fresh session — the queue tracking was manually managed this session and needs clean lifecycle state. Next items are small testing/eval tasks.
+#1070 + #1071 + #1072 are quick follow-ups from this session's audit — bundle into one session (< 30 min). #976 is the last substantial item and needs its own design pass. After these 4, epic #1050 is complete.
