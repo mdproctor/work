@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-1015-remorse-affiliation-secondary-boost
 issue-repo: casehubio/neocortex
 status: active
 covers: 841
@@ -12,7 +12,7 @@ design-section-hashes:
 flyway-next-v: unknown
 check: 878
 done: 1010
-active: 1020
+active: 1028
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
@@ -82,3 +82,5 @@ active: 1020
 - [ ] casehubio/neocortex#1028 — Action-tendency-targets
 - [ ] casehubio/neocortex#1033 — BehavioralPromptSection-drops-mid-tier-attractors
 - [ ] casehubio/neocortex#1034 — Attractor-filter-activation-function-aware
+- [ ] casehubio/neocortex#1039 — SchererAppraisalStrategyTest-pre-existing-failure
+- [ ] casehubio/neocortex#1040 — LlmAppraisalStrategy-action-targets-schema-cleanup
