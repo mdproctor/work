@@ -1,3 +1,17 @@
+# Work Plan —
+
+## State
+branch: issue-484-cognition-pipeline-builder
+issue-repo: casehubio/agency
+status: active
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
+active-issue: #481
+
+## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -27,23 +41,7 @@
 - [x] casehubio/agency#483 — MetricsListener emit separate counter for collapse events
 - [x] casehubio/agency#481 — agentic-yaml fails to compile DriveConfig arg mismatch
 - [x] casehubio/agency#484 — Assemble CognitionCore through CognitivePipelineBuilder
-  - [x] Batch 1: Quarkus
-    - [x] Task 1: Extract CognitiveGoalOrchestrator and migrate AgencyBeans
-  - [x] Batch 2: Spring+Test
-    - [x] Task 2: Migrate AgencyAutoConfiguration to builder
-    - [x] Task 3: Migrate CognitionStack to builder
-  - [x] Batch 3: Enforcement
-    - [x] Task 4: Make constructors package-private and full build
-- [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration        ← active
+- [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration ← active
 - [ ] casehubio/agency#469 — Neocortex budget integration wire platform budget types
-
-## State
-branch: issue-484-cognition-pipeline-builder
-issue-repo: casehubio/agency
-status: active
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
-active-issue: #481
+- [ ] casehubio/agency#486 — Wire SituationClassifier and NeedTierMappingProvider through Spring builder
+- [ ] casehubio/agency#485 — Expose smoothingAlpha in DriveConfigSpec for YAML configuration
