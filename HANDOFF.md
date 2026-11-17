@@ -2,76 +2,55 @@
 
 ## Last Session
 
-Drive pipeline enrichment — 10 issues completed across the cognition/appraisal/drive pipeline. The drive layer was a black box: emotions went in, four floats came out, with no visible composition trace. This session made every drive evaluation traceable from source signal through each modulation delta to final intensity, with the dominant emotion named in the trigger string. Also added temporal smoothing, expanded emotion→drive and action tendency→channel weight mappings, and coupled SearchBudget prose tone to appraisal state.
+Batch cleanup of 7 issues across the CAPS/behavioral/appraisal pipeline, all on a single branch. Four fixes from the queue (#1033, #1034, #1039, #1040), two newly filed issues (#1043, #1044), and one documentation gap (#975). Two previously filed issues (#974, #1001) turned out to be already resolved.
 
-### Branch: `issue-1015-remorse-affiliation-secondary-boost`
+### Branch: `issue-1033-behavioral-prompt-mid-tier-attractors`
 
-11 commits (10 issues + 1 review fix):
+8 commits:
 
-1. **#1015** — REMORSE→AFFILIATION secondary boost (Tangney relational argument)
-2. **#1016** — APPROACH/SUBMISSION/DOMINANCE action tendency → channel weight profiles
-3. **#1012** — DocumentSearchableProvider compilation fix (no-arg search() API)
-4. **#1013** — JVM shutdown hook for ClaudeAgentClient in eval tests (surefire timeout fix)
-5. **#1021** — DriveEvaluation record: per-axis composition breakdown (raw, mood, personality, appraisal, other modulation deltas, composed intensity, activated flag)
-6. **#1022** — SearchBudget prose coupled to appraisal intensity (crisis/urgency qualifiers)
-7. **#1023** — Emotion→drive causal chain provenance in triggers ("elevated by SHAME" not "elevated by emotional response")
-8. **#1025** — INTEREST→CURIOSITY(BOOST), DISTRESS→AFFILIATION(SECONDARY_BOOST) mappings
-9. **#1026** — Asymmetric exponential smoothing for drive deactivation (smoothingAlpha=0.3, instant activation, gradual decay)
-10. **#1028** — LLM appraisal action_targets field populates tendency target strings
-11. **Review fix** — applySmoothing recomputes composite/dominant, urgency variable naming, smoothingAlpha validation, magic number replacement
+1. **#1033 fix** — Remove `.limit(5)` from BehavioralPromptSection; all above-threshold attractors now render with three-tier strength labels
+2. **#1034 refactor** — Replace absolute `attractorStrengthMinFilter` (0.55) with baseline-relative `attractorStrengthMargin` (0.05) using `NodeRange.restingLevel()`
+3. **#1039 test fix** — SchererAppraisalStrategyTest: assert on SEC dimensions count, not emotion count (more SECs → more precise, not more numerous emotions)
+4. **#1040 prompt fix** — Move action_targets examples out of LLM JSON template into prose instruction
+5. **#1044 topology fix** — Add `self_worth → distrust (-0.40)` and `other_reliability → distrust (-0.45)` connections; fix test input "trusted friend" → "close friend"
+6. **#1043 rendering** — Reframe oscillation attractors: "this ambivalence is real, not a problem to resolve"
+7. **#975 docs** — CAPS modules table + BehavioralSynthesisPhase documentation in contributor guide
 
-### Issues filed this session
+### Issues closed this session
 
-| # | Title | Priority |
-|---|-------|----------|
-| #1039 | SchererAppraisalStrategyTest.disabledSecs_reducedOutput — pre-existing failure | XS/Low |
-| #1040 | LlmAppraisalStrategy action_targets schema — example entries in JSON template | XS/Low |
+| # | Title | Type |
+|---|-------|------|
+| #974 | Fix eval test compilation | Already resolved (closed) |
+| #1001 | DriveProfilePersonalityEvalTest compilation | Already resolved (closed) |
 
 ### Key design decisions
 
-- **Asymmetric smoothing**: only downward transitions are smoothed; upward spikes bypass smoothing. Threat activation stays instant. α=0.3 gives ~3-tick ramp-down.
-- **DriveEvaluation pre-smoothing**: composedIntensity records the pre-smoothing value from DriveComposer. The orchestrator applies smoothing afterward. Both values are meaningful for different consumers.
-- **Urgency not arousal**: SearchBudgetPromptSection reads SEC "urgency" dimension as the intensity proxy, not arousal. Variable naming matches the actual data source.
-- **INDIFFERENCE stays unmapped**: default channel weights (0.25 each) are correct for neutral action readiness. No mapping needed.
+- **No attractor limit**: the `minStrength` threshold is sufficient filtering; a hard count cap silently drops psychologically meaningful mid-tier signals
+- **Baseline-relative filtering**: `NodeRange.restingLevel()` (0.5 unipolar, 0.0 bipolar) makes the attractor margin portable across activation functions
+- **Ambivalence as signal**: oscillation reframed from "mind hasn't settled" to "ambivalence is real, sit with it" — guides exploration over premature commitment
 
-### Cross-slot note for slot 196 (regulation/coping)
+### Pre-existing failures resolved
 
-- SUBMISSION action readiness from prior session still not wired in regulation strategy selection — passes through without regulation-specific handling.
+- `CognitiveEmergenceSampleTest.classifierDrivenSettling` — #1044 (distrust topology connections)
+- `SchererAppraisalStrategyTest.disabledSecs_reducedOutput` — #1039 (assertion fix)
+
+### Pre-existing failures remaining
+
+- `CapsEngineContractTest.initializeAgentSeedsCopingAttractorsFromCopingDefaults` — from #1018/#1019 coping work, `initializeAgent` 4-arg not wired in implementations
+- `CapsEngineContractTest.highBISInputActivatesAvoidantCopingAttractors` — same root cause
 
 ## Next Session Plan
 
-### Remaining queue items (3 open issues)
+### Queue (remaining open items under epic #841)
 
-| Order | # | Title | Scale/Complexity | Notes |
-|-------|---|-------|-----------------|-------|
-| 1 | #1027 | CAPS settling convergence — MAX_ITERATIONS, zero attractors | M/High | Different subsystem (caps-engine). Needs investigation of CapsSettler oscillation dynamics for social-threat inputs. |
-| 2 | #1033 | BehavioralPromptSection drops mid-tier attractors | — | Related to #1034; attractor rendering filtering |
-| 3 | #1034 | Attractor filter threshold is activation-function-dependent | — | The 0.55 filter only works for unipolar outputs; bipolar outputs need different threshold |
-
-Also filed but not in queue: #1039 (pre-existing test), #1040 (schema cleanup).
+| # | Title | Scale | Complexity | Notes |
+|---|-------|-------|-----------|-------|
+| #976 | DriveProfileDerivationPhase personality-aware classification | M | High | Extend beyond disposition axes |
+| #977 | PID-5 facet extension for personality classification | M | High | Depends on #976 |
 
 ### Context to carry forward
 
-- Blog entry: `wsp-casehub-neocortex/blog/2026-11-17-mdp01-the-black-box-that-shrugged.md`
-- Pre-existing test failures: `SchererAppraisalStrategyTest.disabledSecs_reducedOutput` (#1039), `RegulationTopologyTest.topologyNodeCountIsCorrect` (pre-existing topology YAML mismatch)
-- `DocumentSearchableProvider.search()` API fix landed in this branch — no longer needs `-pl cognition -am` workaround
-- Eval JSON in `caps-llm-classifier/target/experiment-results/` not committed — regenerate with `-Pllm-eval`
-
-### Files changed this session
-
-| File | What changed |
-|------|-------------|
-| `cognition-api/.../DriveEvaluation.java` | **New** — per-axis composition trace record |
-| `cognition-api/.../DriveConfig.java` | +smoothingAlpha field (0.3 default) |
-| `cognition-api/.../PipelineTrace.java` | +driveEvaluations field |
-| `cognition/.../DriveComposer.java` | composeWithEvaluations() — per-axis delta tracking, emotion provenance in triggers |
-| `cognition/.../DriveOrchestrator.java` | Asymmetric EMA smoothing, lastDriveEvaluations(), appraisal descriptions |
-| `cognition/.../ModulationLayer.java` | +descriptions field for per-axis provenance |
-| `cognition/.../AppraisalDriveModulator.java` | +INTEREST, DISTRESS→AFFILIATION, REMORSE→AFFILIATION; dominantContributions() |
-| `cognition/.../LlmAppraisalStrategy.java` | action_targets schema + parsing + application |
-| `cognition/.../TopologyChannelWeighter.java` | APPROACH/SUBMISSION/DOMINANCE profiles and switch cases |
-| `cognition/.../SearchBudgetPromptSection.java` | Appraisal-coupled prose (crisis/urgency qualifiers) |
-| `cognition/.../CognitionCore.java` | driveEvaluations(), appraisal supplier wiring, descriptions passing |
-| `caps-llm-classifier/.../EvalTestSupport.java` | JVM shutdown hook for ClaudeAgentClient |
-| `knowledge-pipeline/.../DocumentSearchableProvider.java` | search(null) → search() |
-| `cognitive-observability-testing/.../PipelineSnapshotStoreContractTest.java` | +driveEvaluations param |
+- Branch `issue-1033-behavioral-prompt-mid-tier-attractors` has 8 commits ready for work-end
+- Queue has 21 stale closed items that should be cleaned up (all issues before #1033 are already closed on GitHub)
+- Blog entries: `wsp-casehub-neocortex/blog/2026-11-17-mdp01-the-black-box-that-shrugged.md`
+- Pre-existing CapsEngineContractTest failures from coping work (#1018/#1019)
