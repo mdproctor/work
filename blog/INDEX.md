@@ -44,3 +44,4 @@
 | [2026-11-13-mdp01-the-retarget-that-looked-right.md](2026-11-13-mdp01-the-retarget-that-looked-right.md) | 2026-11-13 | Cross-rig animation retarget: T-pose vs A-pose mismatch, pose alignment before offset capture, IK proportion correction |
 | [2026-11-17-mdp03-when-degradation-becomes-collapse.md](2026-11-17-mdp03-when-degradation-becomes-collapse.md) | 2026-11-17 | Collapse lifecycle: CollapsePolicy, CascadeHandler composition, and telemetry wiring close the coordination infrastructure epic |
 | [2026-11-17-mdp04-the-field-your-yaml-never-sees.md](2026-11-17-mdp04-the-field-your-yaml-never-sees.md) | 2026-11-17 | YAML compilation layer as a stability boundary — when upstream records evolve, the config spec absorbs the change |
+| [2026-11-17-mdp05-the-factory-nobody-called.md](2026-11-17-mdp05-the-factory-nobody-called.md) | 2026-11-17 | CognitionCore hand-builds replaced by CognitivePipelineBuilder — 10 missing capabilities, three call sites, one factory |
