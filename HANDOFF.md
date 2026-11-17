@@ -1,41 +1,72 @@
-# HANDOFF — casehub-agency
+# HANDOFF — casehub-agency (slot 223)
 
-## Session summary (2026-11-17, session 2)
+## Completed — #458 Author 23 conversational body poses (CLOSED)
 
-Landed 2 issues, filed 2 follow-ups:
+**Branch:** `issue-458-author-23-conversational-body-poses`
 
-| # | SHA | Summary |
-|---|-----|---------|
-| #481 | `1f1e9727` | Pass `smoothingAlpha` as 14th arg to `DriveConfig` canonical constructor |
-| #484 | `f8cffec5` | Route all 3 CognitionCore assembly sites through CognitivePipelineBuilder / CognitionCoreFactory |
+All 23 original poses addressed. 68 animations in `m2m-animations.glb`.
 
-**Cross-repo:** neocortex `3d20b9ad` — CognitionCore constructors package-private + 4 test file migrations
+### What was built
 
-**Filed:**
-- #485 — expose `smoothingAlpha` in `DriveConfigSpec` for YAML configuration
-- #486 — wire `SituationClassifier` and `NeedTierMappingProvider` through Spring builder path
+**Authored/fixed poses:** finger-pointing-up, finger-pointing-forward, finger-wag (T-1000 pendulum), shrug (animated trap-style + morph frown), shrug-casual, head-shake (animated), head-shake-casual, one-hand-raised, self-hug (from shiver), arms-wide-open, hands-converge (steeple + finger ripple), hands-expand (animated wider idle-talking), hands-clasped-front (guitar mirror), hands-behind-back (mirrored), hands-on-hips (greeting mirror), hands-on-head, hands-over-mouth, hand-over-mouth, facepalm, double-facepalm, ninjajump (3 clips combined)
 
-**Blog entries:**
-- `docs/blog/2026-11-17-mdp04-the-field-your-yaml-never-sees.md` — YAML compilation layer as a stability boundary
-- `docs/blog/2026-11-17-mdp05-the-factory-nobody-called.md` — CognitionCore factory migration
+**Deleted (redundant or not authorable):** hands-alternating, hands-interlocked-chest, shocked-recoil, thinker, open-palms-presenting, hands-base-to-chest, hit-head, hit-chest
 
-### Queue — 2 remaining items
+### Key techniques discovered
 
-| # | Title | Scale | Complexity | Notes |
-|---|-------|-------|------------|-------|
-| #447 | Remove residual cognitive code, complete neocortex migration | L | High | Next active — depends on #484 (now done) |
-| #469 | Neocortex budget integration, wire platform budget types | M | Med | Independent |
+- **Quaternion mirror formula `(x,-y,-z,w)`** — tested all 4 sign combinations, this one produces correct symmetric poses for Mixamo rigs
+- **Morph target injection** — added Wolf3D_Head/Wolf3D_Teeth mesh nodes with 72 morph targets to the bone-only animation bundle. First clips with facial expressions (shrug frowns)
+- **Source clip reuse** — most poses built from existing animation frames (interact peak, guitar-playing, shiver, confused, greeting, pray) rather than from scratch
+- **setFromUnitVectors for direction** — reliable for arm/forearm direction, but doesn't control twist. Must add separate twist via forearm axis rotation
+- **Finger overlap verification** — always measure LeftHandMiddle2 vs RightHandMiddle2 distance for clasped/overlapping hand poses
 
-### Key context for next session
+### What does NOT work
 
-**CognitionCore is now builder-only.** All three constructors are package-private in neocortex. External code must use `CognitivePipelineBuilder` or `CognitionCoreFactory`. The builder wires 14 `configure*()` calls automatically — appraisal, regulation, gut feeling, drive-goal bridge, effective defaults, entity rendering, etc.
+- Blender IK round-trip — exports corrupt bone rotations
+- Mixing body from one clip with arms from another — spine mismatch changes arm positions
+- Guessing rotation sign — always test both directions or all 4 formulas
+- `setFromUnitVectors` alone for hand orientation — controls direction but not twist
 
-**AgencyBeans SPI bridge pattern.** Three producers bridge agency types for the neocortex factory's CDI resolution: `MemoryHygieneSpiAdapter` → `neocortex.MemoryHygieneOrchestrator`, `EngagementRecorderCore::record` → `Consumer<EngagementEvent>`, and `CognitiveGoalOrchestrator` (with mood-to-PAD lambda). These return null when dependencies are absent — the factory's `Instance.isResolvable()` handles both cases.
+### Taxonomy restructured
 
-**Pre-existing neocortex test failures.** 4 tests in `AppraisalStatePropagation`, `EmotionRegulationTickParticipant`, and `RecurringThoughtIntegration` fail on neocortex main independent of this work (confirmed via stash+test).
+5 categories: **conversational** (stance, hand-gesture, agreement, disagreement, emphasis, uncertainty), **idle** (relaxed, restless, self-amusing, dance, attention), **reactive** (positive, negative, greeting, distress), **dramatic** (death, combat, theatrical), **seated** (idle, talking)
 
-**Neocortex snapshot.** The locally installed neocortex snapshot includes the package-private constructors. If another session installs the remote snapshot (older), agency will regress to compile errors from `new CognitionCore(...)` in the removed hand-build code. Push the neocortex change first.
+**Allegory gesture tags:** tightrope-walk=careful, moonwalk=rewind, ninjajump=sneaky, meditate=calm, pray=hope, drumming=suspense
 
-### Unpublished
+**Multi-listed clips:** dab (positive + self-amusing), clapping (agreement + positive), knock (emphasis + attention), dance-simple/dance-arm-pump (dance + positive)
 
-agency project: 4 commits on main. agency workspace: 28 commits. neocortex: 1 commit. Publish with `canonical_sync.py publish`.
+## Next Issue — #457 Integrate M2M animations with TalkingHead
+
+**Status:** OPEN, scaffolded, ready for next session
+
+### What exists
+
+- `body-animations.mjs` has the complete playback system: taxonomy, pool selection (speaking/idle), gesture tag resolution (40+ mappings), keyword fallback (10 patterns), crossfade, head bone exclusion
+- All 68 clips tested in animation-test.html
+
+### What needs building
+
+1. **Speaking-state wiring** — connect TalkingHead speech start/stop to speaking/idle pool switching
+2. **LLM gesture tag parsing** — extract `[gesture:tag]` from response text, route to GESTURE_MAP, trigger clip
+3. **Keyword fallback** — scan responses without tags for keyword matches
+4. **Morph target layering** — compose body animation frowns with TalkingHead's viseme/expression system
+5. **Idle attention** — silence timeout triggers knock/interact from idle.attention pool
+
+### Key files
+
+| File | What |
+|------|------|
+| `speech-demo/.../animations/m2m-animations.glb` | 68-clip production bundle |
+| `speech-demo/.../animations/body-animations.mjs` | Full taxonomy + playback system |
+| `speech-demo/target/.../animation-test.html` | Visual test page (not in src — target only) |
+| `speech-demo/.../avatar.glb` | RPM avatar |
+
+### Testing
+
+```bash
+# Serve test page
+python3 -m http.server 8888 --directory speech-demo/target/classes/META-INF/resources
+# Open http://localhost:8888/animation-test.html
+```
+
+The test page has URL hash state for clip + camera position. Cache-busting on GLB URL.
