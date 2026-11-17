@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-483-metrics-collapse-counter
+branch: 
 issue-repo: casehubio/agency
 status: active
 covers: 
@@ -10,7 +10,7 @@ date:
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
-active-issue: #483
+active-issue: #481
 
 ## Queue
 - [x] casehubio/agency#376 — Issue #376
@@ -39,8 +39,8 @@ active-issue: #483
 - [x] casehubio/agency#478 — Rename ExecutionEventListener.onSwarmDegraded to onDegraded
 - [x] casehubio/agency#480 — Propagate collapsed flag to DecisionLoopEvent.Degraded for telemetry
 - [x] casehubio/agency#479 — Add collapse emitter policy to DegradationAwareSummariser
-- [ ] casehubio/agency#483 — MetricsListener emit separate counter for collapse events
-- [ ] casehubio/agency#481 — agentic-yaml fails to compile DriveConfig arg mismatch
+- [x] casehubio/agency#483 — MetricsListener emit separate counter for collapse events
+- [ ] casehubio/agency#481 — agentic-yaml fails to compile DriveConfig arg mismatch ← active
 - [ ] casehubio/agency#484 — Assemble CognitionCore through CognitivePipelineBuilder
 - [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
 - [ ] casehubio/agency#469 — Neocortex budget integration wire platform budget types
