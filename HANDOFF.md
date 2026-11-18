@@ -38,44 +38,51 @@ All 23 original poses addressed. 68 animations in `m2m-animations.glb`.
 
 ## Active — #457 Integrate M2M animations with TalkingHead
 
-**Status:** OPEN — design needs revision before implementation
-**Branch:** `issue-457-integrate-m2m-animation-library` (fresh from main, includes all #458 work)
+**Status:** IN PROGRESS — Batch 1 complete, Batches 2–6 remain
+**Branch:** `issue-457-integrate-m2m-animation-library`
 
-### What this session did
+### What this session delivered
 
-1. Landed #458 — queue surgery (uncheck, reactivate), squashed 153 → 5 commits, rebased onto main, resolved AgencyBeans.java conflict
-2. Synced all repos — fixed conflicts in connectors (.idea/compiler.xml), wsp-casehub-blocks (HANDOFF.md), wsp-casehub-connectors (HANDOFF.md), wsp-casehub-neocortex (HANDOFF.md, .work-progress, .queue)
-3. Published everything to GitHub — agency (10 commits to casehubio + fork), connectors (1), 3 workspace repos (54 + 3 + 63 commits)
-4. Recreated #457 branch from updated main
+**TalkingHead fork (#491) — COMPLETE, pushed to GitHub:**
+- Forked `met4citizen/TalkingHead` into `casehubio/TalkingHead`
+- 4 extension points added (207 lines, non-breaking):
+  - **Bone ownership (D20):** canonical vocabulary, `claimBones`/`releaseBones`/`claimBoneGroup`/`releaseBoneGroup`, guards in `updatePoseBase`/`updatePoseDelta`/neck/hips
+  - **Morph layer registry (D21):** `registerMorphLayer`/`unregisterMorphLayer`, ordered blend modes (`replace`/`additive`/`max`), runs after `updateMorphTargets`
+  - **External mixer registration (D22):** `registerMixer`/`unregisterMixer`, coordinated frame update with auto bone claiming
+  - **Lifecycle events (D23):** EventTarget delegation, `statechange`/`moodchange`/`audiostart`/`audioend`
+- Bug fix: cache invalidation on avatar change (stale `_morphMeshes` and `_registeredMixers`)
+- Vendored into agency at `speech-demo/.../vendor/talkinghead.mjs`, import map updated
 
-### Design revision needed — fork TalkingHead instead of overlay
+**#457 Batch 1: Foundation — COMPLETE (3 tasks):**
+- `PerformanceVocabulary` SPI in speech-api (gestureTags, moods, clips)
+- `avatar-performance.json` — 68 clips, full taxonomy, pools, 55 gesture tags, 8 moods
+- `JsonPerformanceVocabulary` — Jackson-backed implementation (7 tests)
+- Protocol types: `Segment`, `TurnComplete`, `Gesture`, `Mood`, `PlaybackComplete`, `UserActivity`, `Cue` sealed interface (6 new codec tests, 126 total passing)
+- `UtteranceSegmenter` — server-side `[gesture:tag]`/`[mood:tag]` parser with vocabulary validation, sentence splitting, forward binding (13 tests, 139 total passing)
 
-Late-session decision: the overlay approach (BodyAnimationSystem alongside TalkingHead, compositing via onBeforeRender hack) fights TalkingHead's design at too many seams. A fork of met4citizen/TalkingHead is cleaner:
+**Design work:**
+- Brainstormed fork approach (D18–D24), revised D6/D11/D14/D17
+- Updated spec and implementation plan for fork approach
+- Verification spike replaced by fork, `speakAudio` adopted as playback host
 
-**Why fork:**
-- The overlay requires a spike (Batch 0) just to check if body bone ownership can be separated — unknown seam
-- Face compositor is bolted on via `scene.onBeforeRender` post-processing hack
-- Custom audio pipeline bypasses TalkingHead's speak/speakAudio entirely
-- Protocol replaces TalkingHead's built-in Phonemes/Response handling
-- We're already routing around most of TalkingHead's speech pipeline
+**Filed issues:**
+- #491 — Fork TalkingHead with composable extension points (DONE)
+- #492 — UtteranceSegmenter position tracking fragile (deferred from review)
 
-**What the fork adds:**
-- Body animation as a first-class layer with configurable bone ownership (eliminates spike)
-- Face compositor built into the render loop properly
-- Mark timing / gesture callback support in the audio pipeline natively
-- Segment protocol support in speakAudio
+### What's next — Batch 2: Server Session Refactor
 
-**Contribution path:** fork → build #457 against it → submit body animation system + API changes as PR to met4citizen/TalkingHead. If accepted, fork dissolves back to CDN. If not, maintain a thin layered delta — the work exists either way.
+This is the heaviest batch. It restructures `SpeechSession` per D10:
+- **Task 5:** Capture/Turn split, `TurnExecutor`, `FloorState` — the core concurrency fix
+- **Task 6:** `PromptSection` composition, `GesturePromptSection` — wires vocabulary into prompts
 
-**Impact on existing plan:** several decisions assumed overlay — D14 (speakAudio), D6 (expression curves), D11 (layered animation) would simplify or change. The spec and plan need a brainstorm pass before implementation.
-
-### Prerequisites
+### Prerequisites still open
 
 1. ~~Land #458~~ ✅ Done
-2. **Brainstorm fork approach** — revise design spec and plan for TalkingHead fork
-3. **File + land connectors issue** — `TextMark`/`MarkTiming` in `casehub-connectors-voice-spi` (blocks Batch 3)
-4. **File neocortex issue** — proactive prompt sections, non-verbal outcomes (non-blocking, follows #457)
+2. ~~TalkingHead fork~~ ✅ Done (#491)
+3. **Connectors issue** — `TextMark`/`MarkTiming` in voice-spi (blocks Batch 3)
+4. **Neocortex issue** — proactive prompt sections, non-verbal outcomes (non-blocking)
 
-### Ideas logged
+### Known issues from code review
 
-- Contribute body animation system (BodyAnimationSystem + M2M CC0 library + gesture tag protocol) to met4citizen/TalkingHead upstream — see IDEAS.md
+- #492: UtteranceSegmenter `indexOf` fragile with duplicate sentences; trailing tag `+2` lookahead is a magic number; space collapse shifts tag positions. Non-blocking for Batch 1, becomes important at Batch 3 (mark timing)
+- Pre-existing: `ModelProvisioningService.ensureQwen3SharedLibrary()` stubbed out (connectors dependency gap)
