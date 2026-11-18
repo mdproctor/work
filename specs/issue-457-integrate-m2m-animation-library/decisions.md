@@ -191,10 +191,10 @@ Mid-turn queue drains, caused by slow synthesis of sentence N+1, do not change s
   4. **Application.** Curves are applied by name through the **avatar** mesh's `morphTargetDictionary`. A name that is missing on the avatar is skipped with a warning.
 
   Authoring stays in the GLB, where #458 put it, so there is no hand-maintained second copy.
-- **One face owner (D14)** composes the face each frame, in order, before render:
-  1. Base: TalkingHead's blink, mood and eyes.
-  2. Visemes: replace the `viseme_*` channels.
-  3. Gesture expression curves: added to the expression channels and clamped to [0, 1].
+- **Face compositing via morph layer registry (D21).** `BodyAnimationSystem` registers a `gestureExpressions` morph layer via the fork's `head.registerMorphLayer()` API. TalkingHead's blink, mood, and eyes are layer 0 (internal). The registered layers compose in order:
+  1. Layer 0 (TalkingHead internal): blink, mood, eyes.
+  2. Visemes: registered as a `replace` layer for `viseme_*` channels.
+  3. Gesture expression curves: registered as an `additive` layer, clamped to [0, 1].
   4. The gesture expression weight follows the gesture layer's weight (D11), so it fades with the gesture.
 - The shrug frown therefore also shows **during speech**, which is when the gesture means most (`shrug` sits in `conversational.uncertainty`, which is in the speaking pool and is a tag target).
 - **Build-time test (D12).** It asserts that every allow-listed name used by any clip's curve exists in `avatar.glb`'s head mesh.
@@ -210,13 +210,13 @@ Mid-turn queue drains, caused by slow synthesis of sentence N+1, do not change s
 - Additive blending of raw tracks in the mixer. Rejected: the mixer's normalised weighted accumulation is not additive across separate writers, and it would still write the viseme and blink channels.
 **Rationale:** ARKit-style expression shapes compose additively with visemes; TalkingHead layers mood over speech the same way. The defect was having several writers, not the choice of blending policy. Name keying makes expression data independent of mesh layout.
 **Trade-offs:**
-- Requires the frame-ordered face owner from D14.
+- Requires the morph layer registry from D21 (replaces the frame-ordered face owner from D14).
 - The allow-list must be maintained when new expression channels appear.
 - The extraction assumes morph tracks are keyed in clip time and keeps that alignment.
 **Sources:** three.js GLTFLoader weights → `<mesh>.morphTargetInfluences` whole-array track (behaviour to confirm against the loaded clip during implementation); HANDOFF "Morph target injection" (72 targets, injected into the bundle); index.html viseme rAF loop L272–297
 **Exploration:** quick, revised under review
-**Depends on:** D11, D12, D14
-**Status:** revised (round 1, R1-08; round 2, R2-05: name-keyed remapping)
+**Depends on:** D11, D12, D21
+**Status:** revised (round 1, R1-08; round 2, R2-05: name-keyed remapping; fork revision: D14 dependency replaced by D21 morph layer registry)
 
 ## D7: LLM gesture instructions — generated from the vocabulary, with descriptions, placement and density rules
 
@@ -406,10 +406,12 @@ Arbitration rules:
 - Defer pool changes until the gesture finishes. Rejected in favour of layering: deferral needs a pending-state queue and delays the pool change visibly after long gestures. Ducking gives the same priority with no queue.
 **Rationale:** three.js mixes actions by normalised weight. A ducked base plus a full-weight gesture gives strict gesture priority, and the base stays continuous.
 **Trade-offs:** Two concurrent actions per frame (negligible). Weight management replaces `crossFadeTo` for the gesture path.
+
+**Integration with TalkingHead fork (D22):** `BodyAnimationSystem`'s `AnimationMixer` is registered via `head.registerMixer(bodyMixer, { boneClaim: ['spine', 'spine1', ...] })`. TalkingHead calls `bodyMixer.update(dt)` in its own frame loop, eliminating the separate `tickBody` rAF loop. The base+gesture layering logic within our mixer is unchanged — it's the coordination with TalkingHead's frame loop that improves.
 **Sources:** body-animations.mjs (build copy) `play`, `playGesture`, `setSpeaking`, `_playFromActivePool`, `finished` handler
 **Exploration:** surfaced in review (R1-07)
-**Depends on:** D13
-**Status:** captured (round 1)
+**Depends on:** D13, D22
+**Status:** revised (round 1; fork revision: mixer registration via D22 replaces separate rAF loop)
 
 ## D12: Performance vocabulary — the whole taxonomy in one resource behind an SPI
 
@@ -474,41 +476,38 @@ Arbitration rules:
 
 ## D14: Per-frame channel ownership and playback host
 
-**Choice:** Channel ownership is explicit:
+**Choice:** Channel ownership is explicit, enforced through the TalkingHead fork's extension points (D18–D23):
 
-| Channel | Owner |
-|---|---|
-| Head, neck and eye bones | TalkingHead (already masked from body clips) |
-| All other skeleton bones | `BodyAnimationSystem` mixer |
-| Face morphs | one face compositor (D6) |
-| Audio clock | the playback host |
+| Channel | Owner | Mechanism |
+|---|---|---|
+| Head, neck and eye bones | TalkingHead | Default (unclaimed) |
+| All other skeleton bones | `BodyAnimationSystem` mixer | `claimBones()` via D20, registered mixer via D22 |
+| Face morphs: blink, mood, eyes | TalkingHead | Layer 0 (internal) via D21 |
+| Face morphs: visemes | Viseme layer | Registered morph layer (`replace` mode) via D21 |
+| Face morphs: expression curves | Gesture expression layer | Registered morph layer (`additive` mode) via D21 |
+| Audio clock | `speakAudio` | TalkingHead's audio pipeline with `markers`/`mtimes` |
 
-The demo's separate `tickBody` rAF loop is removed. Two independent rAF callbacks make the final pose depend on callback order and render timing.
+**The verification spike (Batch 0 of the original plan) is replaced by the fork.** The three spike checks are answered by the extension points:
+- (a) `speakAudio` accepts visemes + markers — confirmed by source analysis and README docs.
+- (b) markers fire on the audio clock — confirmed: they fire as callback entries in the animation queue at scheduled `mtimes`.
+- (c) body-pose system can be prevented from writing non-head bones — solved by `claimBones()` (D20). The fork's `updatePoseBase`/`updatePoseDelta` skip claimed bones.
 
-**Frame ordering uses one public three.js render hook.** This works whatever the spike finds. `scene.onBeforeRender` on TalkingHead's scene runs after TalkingHead's frame step has written bones and morphs and called `renderer.render`. Inside `render`, it runs after `scene.updateMatrixWorld()`, and before any skeleton upload or draw. The single ordered step there, guarded to run once per `renderer.info.render.frame`, is:
-1. `mixer.update(dt)` for the body;
-2. `armature.updateMatrixWorld(true)`;
-3. the face compositor (D6) over **all** face meshes, i.e. every mesh with `viseme_*` targets (`Wolf3D_Head`, `Wolf3D_Teeth`, …). Visemes (layer 2) still write Teeth even though expression curves (layer 3) do not.
+**The separate `tickBody` rAF loop is replaced by mixer registration (D22).** `BodyAnimationSystem`'s mixer is registered via `head.registerMixer(bodyMixer, { boneClaim: [...] })`. TalkingHead calls `bodyMixer.update(dt)` in its frame loop at the correct point, eliminating ordering indeterminacy from two independent loops.
 
-These semantics are to be verified on `three@0.180.0` during implementation. TalkingHead internals are never needed.
+**The `scene.onBeforeRender` workaround is replaced by the morph layer registry (D21).** Face compositing is handled by TalkingHead's native layer pipeline instead of an external render hook. TalkingHead renders all registered layers in order after its internal writes.
 
-**Playback host, gated by a verification spike:** adopt TalkingHead 1.8's `speakAudio` as the host if all of the following hold:
-- (a) it accepts our viseme timeline and words/markers;
-- (b) markers fire on the audio clock;
-- (c) its per-frame body-pose system can be prevented from writing non-head bones while the external mixer owns them.
+**Playback host: adopt `speakAudio`.** With the fork providing bone ownership and morph layers, all three original spike conditions are met by construction. The custom audio queue and viseme rAF loop are deleted. Gesture cues become `markers` at `offsetMs / rate − strokeMs`. Visemes are delivered through `speakAudio`'s `visemes`/`vtimes`/`vdurations` arrays and rendered via a registered morph layer.
 
-If all three hold, the custom audio queue and viseme rAF loop are deleted, and gesture cues become `markers` at `offsetMs / rate − stroke`. If any fails, keep the custom host. The custom host implements D3 (header-based pairing), D5 and D10, and the render hooks above provide ordering. The spike result is recorded here before implementation planning.
 **Alternatives:**
 - Leave ownership implicit, with three uncoordinated writers (status quo). Rejected: the result depends on update order, not on policy.
-- Adopt `speakAudio` unconditionally. Not taken without verification: the v1.8 API (marker semantics, pose-system interaction) was not confirmed.
-- Depend on a TalkingHead frame hook (round-1 point (d)). Rejected: three.js public hooks give deterministic ordering without coupling to TalkingHead internals.
-- Face compositor in the head mesh's `onBeforeRender` (round-2 text). Rejected: the face spans several meshes, and three.js opaque draw order (sorted by program, material and depth) does not guarantee that Head draws before Teeth. Per-mesh hooks would split one compositor across callbacks.
-**Rationale:** Settling ownership first is what makes D5, D6 and D11 implementable. Render hooks make the ownership table enforceable today, so the spike only decides the audio host. TalkingHead's own timeline would remove custom queue code and fits the IDEAS.md goal of keeping #457 contribution-friendly upstream, but only if it really yields the bones.
-**Trade-offs:** A spike before planning. `scene.onBeforeRender` is a single slot: the demo must not let other code overwrite it (wrap and chain if needed).
-**Sources:** built index.html L603–652 (TalkingHead 1.8, separate mixer, separate rAF); index.html L248–309 (custom queue and viseme loop); three.js `Object3D.onBeforeRender` / `Scene.onBeforeRender`; IDEAS.md (upstream contribution)
-**Exploration:** surfaced in review (R1-16)
-**Depends on:** D6, D11
-**Status:** revised (round 2, R2-06: render-hook ordering replaces spike point (d); round 3, R3-06: face compositor moved into the single scene hook)
+- `scene.onBeforeRender` workaround without forking (original D14). Superseded: the fork provides clean ownership at the right abstraction level. The render hook was a workaround for TalkingHead's lack of composability; the fork removes the need.
+- Adopt `speakAudio` without forking, using `opt.update(dt)` for bones. Rejected: source analysis confirmed `updatePoseBase` overwrites all bones before `opt.update(dt)`, and `updateMorphTargets` overwrites all morphs after. External writes in the hook are either pre-clobbered or post-clobbered.
+**Rationale:** The fork (D18) makes channel ownership enforceable through proper APIs rather than workarounds. Each extension point (bone claims, morph layers, mixer registration) addresses exactly one ownership gap. The result is simpler: no render hooks, no separate rAF loop, no frame-ordering analysis.
+**Trade-offs:** Depends on the fork landing first (D24). The fork is an additional piece of work, but it removes the spike, the render-hook analysis, and the workaround code from #457.
+**Sources:** TalkingHead 1.8 source (frame order analysis); `speakAudio` markers/mtimes documentation; D18–D23 (fork extension points); IDEAS.md (upstream contribution)
+**Exploration:** deep-analysis (source code analysis)
+**Depends on:** D6, D11, D18, D20, D21, D22
+**Status:** revised (fork revision: spike replaced, render-hook workaround replaced by extension points, speakAudio adopted as playback host)
 
 ## D15: Keyword fallback — dropped
 
@@ -583,17 +582,19 @@ If all three hold, the custom audio queue and viseme rAF loop are deleted, and g
 
 **Choice:** #457 implementation is sequenced as follows:
 1. **#458 lands via `work-end`** (D1).
-2. **Connectors peer issue lands first.** Mark timing in `casehub-connectors-voice-spi`: `TextMark`/`MarkTiming`, `MarkTimingEnricher`, and the VITS guarded-exact implementation (D4). #457 **blocks** on it. It is small and well-bounded, and the alternative is an interim timing shim in the wrong layer.
-3. **#457 ships everything else in-repo:**
+2. **TalkingHead fork issue lands** (D24). Fork casehubio/TalkingHead, implement four extension points (D20–D23), vendor `talkinghead.mjs` into agency (D19). #457 **blocks** on it. This replaces the verification spike (original Batch 0) — the fork answers all three spike questions by construction.
+3. **Connectors peer issue lands.** Mark timing in `casehub-connectors-voice-spi`: `TextMark`/`MarkTiming`, `MarkTimingEnricher`, and the VITS guarded-exact implementation (D4). #457 **blocks** on it. It is small and well-bounded, and the alternative is an interim timing shim in the wrong layer.
+4. **#457 ships everything else in-repo:**
    - segmenter, consumer forms, turn serialisation and the capture/turn split (D2, D9, D10);
    - protocol, including the client→server contract (D3);
-   - client floor, layers and face compositor (D5, D11, D13, D6, D14);
+   - client floor, layers and face compositor via fork extension points (D5, D11, D13, D6, D14, D20–D22);
    - performance vocabulary and SPI (D12);
    - `PromptContext`-parameterised assemblers, `DefaultPromptAssembler` section composition and the gesture section (D7);
    - opt-in `SilenceAttentionPolicy` (D8);
    - **cognition-owned mood via `currentAffect`, and LLM-owned turn-scoped mood (D16)**;
-   - adherence logging (D15).
-4. **Neocortex peer issue lands behind #457** (non-blocking). It adds:
+   - adherence logging (D15);
+   - `speakAudio` adoption as playback host with markers for gesture timing (D14 revised).
+5. **Neocortex peer issue lands behind #457** (non-blocking). It adds:
    - caller-supplied prompt sections for proactive speech (D7);
    - a non-verbal proactive outcome (D8);
    - delivery feedback for proactive initiations dropped at dequeue (D10).
@@ -609,10 +610,10 @@ If all three hold, the custom audio queue and viseme rAF loop are deleted, and g
 - Interim connectors shim inside `speech-ws`. Rejected (D4).
 - Do everything in one cross-repo branch set. Rejected: per-issue landing (D1 rationale).
 **Rationale:** The dependency direction is fixed by the code. Mark timing is an SPI that #457 consumes. The proactive changes need decisions made inside neocortex, which agency must not fake. Mood needs no neocortex change, because its producer is already readable.
-**Trade-offs:** #457 starts only after the connectors change lands. Cognition configurations reach full proactive parity only after the neocortex follow-up.
+**Trade-offs:** #457 starts only after both the fork issue and the connectors change land. Cognition configurations reach full proactive parity only after the neocortex follow-up.
 **Sources:** casehub-connectors-voice-spi (SynthesisOptions/Result); CognitionAvatarAdapter → neocortex ProactiveSpeechSupport; neocortex MoodOrchestrator; human decisions rounds 1 and 2 (`skip`)
 **Exploration:** surfaced in review (R2-03); endorsed by the reviewer on the merits (round 3)
-**Status:** revised (round 3, R3-03: mood accessor removed from the neocortex issue; dequeue-drop feedback added). Decided in round 3: the human was asked to confirm this sequencing in rounds 1 and 2 and answered `skip` both times, so the reviewed recommendation is adopted as the decision. The human can override it at any time before implementation planning.
+**Status:** revised (round 3, R3-03: mood accessor removed from the neocortex issue; dequeue-drop feedback added; fork revision: TalkingHead fork issue added as step 2, replacing the verification spike). Decided in round 3: the human was asked to confirm this sequencing in rounds 1 and 2 and answered `skip` both times, so the reviewed recommendation is adopted as the decision. The human can override it at any time before implementation planning.
 
 ---
 
