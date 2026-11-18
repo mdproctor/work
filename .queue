@@ -27,7 +27,7 @@ flyway-next-v: none
 - [x] casehubio/agency#452 — Kokoro-voice-distillation
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
-- [ ] casehubio/agency#458 — Author-23-conversational-body-poses
+- [x] casehubio/agency#458 — Author-23-conversational-body-poses
 - [ ] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
 - [ ] casehubio/agency#491 — Fork-TalkingHead-with-composable-extension-points
 - [ ] casehubio/agency#492 — UtteranceSegmenter-position-tracking-fragile
