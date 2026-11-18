@@ -22,3 +22,16 @@
 **Sources:** RetentionConfig (cognition-api), MemoryHygieneOrchestratorImpl (cognition)
 **Exploration:** quick
 **Status:** captured
+
+## D3: Adaptation algorithm
+
+**Choice:** Ratio-based heuristic with bounded step sizes. Compute quality ratios from KnowledgeGapSummary (eviction pressure = lowRetentionCount/totalScored, consolidation activity = consolidationGroups/totalScored). Identify the weakest dimension, apply small delta steps (±0.05) clamped to valid ranges. Deterministic, explainable, no cold-start problem.
+**Alternatives:**
+- CBR-driven adaptation — stores (params → quality outcome) as cases, retrieves best-performing config. Learns from history but has cold-start problem; better as a future layer
+- Combined heuristic + CBR — heuristics bootstrap, CBR refines. Appealing but adds complexity that can be layered later
+**Rationale:** A working system needs to function from tick 1 without historical data. Ratio-based heuristics are interpretable and testable. CBR case recording can be added as a follow-on issue without changing the phase's core logic.
+**Trade-offs:** No learning from history — each adaptation is stateless (based on current quality signals only, not trends). Sufficient for v1; CBR layering adds trend awareness later.
+**Depends on:** D1 (phase reads KnowledgeGapSummary cross-system)
+**Sources:** KnowledgeGapSummary (memory-api), RetentionConfig (cognition-api)
+**Exploration:** quick
+**Status:** captured
