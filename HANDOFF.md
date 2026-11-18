@@ -1,78 +1,63 @@
-# HANDOFF — casehub-agency (slot 223)
+# HANDOFF — casehub-agency
 
-## Completed — #458 Author 23 conversational body poses (CLOSED)
+## Session summary (2026-11-18, session 3)
 
-**Branch:** `issue-458-author-23-conversational-body-poses`
+Completed #447 implementation — delete residual cognitive code from agency after neocortex#1115 migration.
 
-All 23 original poses addressed. 68 animations in `m2m-animations.glb`.
+### Branch: `issue-447-neocortex-cognitive-migration`
 
-### What was built
+9 commits (needs rebase onto current main):
 
-**Authored/fixed poses:** finger-pointing-up, finger-pointing-forward, finger-wag (T-1000 pendulum), shrug (animated trap-style + morph frown), shrug-casual, head-shake (animated), head-shake-casual, one-hand-raised, self-hug (from shiver), arms-wide-open, hands-converge (steeple + finger ripple), hands-expand (animated wider idle-talking), hands-clasped-front (guitar mirror), hands-behind-back (mirrored), hands-on-hips (greeting mirror), hands-on-head, hands-over-mouth, hand-over-mouth, facepalm, double-facepalm, ninjajump (3 clips combined)
+| Commit | Summary |
+|--------|---------|
+| `bdade558` | Delete 23 source + 5 test files migrated to neocortex#1115 |
+| `f6227dd8` | Re-wire AgencyBeans — remove dead producers, add neocortex ReflectionQueryStore no-op |
+| `49660465` | Re-wire AgencyAutoConfiguration — same cleanup, direct SPI reference |
+| `2ffefccc` | Update agentic-yaml imports to neocortex cognition.memory |
+| `ef5256b9` | Add casehub-neocortex-cognition provided dep to agentic-yaml pom |
+| `2d73b1d9` | Fix: restore connectors-voice-sherpa dep accidentally dropped |
+| `d1b5e31b` | Fix: remove MemoryHygieneSpiAdapter from CognitionStack test |
+| `c7d86425` | Update CLAUDE.md — memory hygiene moved to neocortex |
+| `1ad58499` | Blog: the bridge that outlived its reason |
 
-**Deleted (redundant or not authorable):** hands-alternating, hands-interlocked-chest, shocked-recoil, thinker, open-palms-presenting, hands-base-to-chest, hit-head, hit-chest
+### What was deleted (28 files, 1429 lines)
 
-### Key techniques discovered
+- `social/memory/` — 22 main files (MemoryHygieneOrchestrator, scorers, integrity, reflection stores, retention, events)
+- `social/cognition/MemoryHygieneSpiAdapter` — bridge adapter
+- 5 test files for the above
 
-- **Quaternion mirror formula `(x,-y,-z,w)`** — tested all 4 sign combinations, this one produces correct symmetric poses for Mixamo rigs
-- **Morph target injection** — added Wolf3D_Head/Wolf3D_Teeth mesh nodes with 72 morph targets to the bone-only animation bundle. First clips with facial expressions (shrug frowns)
-- **Source clip reuse** — most poses built from existing animation frames (interact peak, guitar-playing, shiver, confused, greeting, pray) rather than from scratch
-- **setFromUnitVectors for direction** — reliable for arm/forearm direction, but doesn't control twist. Must add separate twist via forearm axis rotation
-- **Finger overlap verification** — always measure LeftHandMiddle2 vs RightHandMiddle2 distance for clasped/overlapping hand poses
+### What stays in agency
 
-### What does NOT work
+- `social/memory/evolution/` — 7 files (engine-api SPI implementations)
+- `social/cognition/evolution/` — 4 files (engine-to-neocortex bridge)
+- `social/cognition/CognitionAvatarAdapter` — handled by #490
 
-- Blender IK round-trip — exports corrupt bone rotations
-- Mixing body from one clip with arms from another — spine mismatch changes arm positions
-- Guessing rotation sign — always test both directions or all 4 formulas
-- `setFromUnitVectors` alone for hand orientation — controls direction but not twist
+### Build status
 
-### Taxonomy restructured
+Core modules compile and pass tests (agency-core, agency, summarisation-api, cloudevents, summarisation-yaml, speech-api, speech-ws). Pre-existing failures in agency-spring and agentic-yaml from missing PersonalityEvolutionConfig in neocortex — tracked by #493.
 
-5 categories: **conversational** (stance, hand-gesture, agreement, disagreement, emphasis, uncertainty), **idle** (relaxed, restless, self-amusing, dance, attention), **reactive** (positive, negative, greeting, distress), **dramatic** (death, combat, theatrical), **seated** (idle, talking)
+### Filed issues
 
-**Allegory gesture tags:** tightrope-walk=careful, moonwalk=rewind, ninjajump=sneaky, meditate=calm, pray=hope, drumming=suspense
+| # | Title | Scale | Complexity |
+|---|-------|-------|------------|
+| #493 | PersonalityEvolutionConfig compile failures (pre-existing) | S | Low |
+| #494 | CognitionStack constructor verification | XS | Low |
 
-**Multi-listed clips:** dab (positive + self-amusing), clapping (agreement + positive), knock (emphasis + attention), dance-simple/dance-arm-pump (dance + positive)
+Both appended to the queue.
 
-## Active — #457 Integrate M2M animations with TalkingHead
+### Queue state
 
-**Status:** OPEN — design and planning complete, ready for implementation
-**Branch:** `issue-457-integrate-m2m-animation-library` (empty — needs rebase after #458 lands)
+The workspace queue diverged during this session — another session advanced it to #457/#458 while we worked on #447's feature branch. The queue no longer tracks #447. Next session should:
+1. Rebase `issue-447-neocortex-cognitive-migration` onto current main
+2. Resolve any conflicts (likely CLAUDE.md)
+3. Land via work-end (may need queue repair to include #447)
 
-### Design completed (17 decisions, 3 adversarial review rounds)
+### Key context for next session
 
-Full spec: `specs/issue-457-integrate-m2m-animation-library/2026-11-18-m2m-animation-integration-design.md`
-Full decisions: `specs/issue-457-integrate-m2m-animation-library/decisions.md`
-Implementation plan: `plans/2026-11-18-m2m-animation-integration.md` (14 tasks, 7 batches)
+**neocortex cognition module must be installed locally** before building agency. Run `mvn install -DskipTests` on neocortex's cognition and cognition-api modules first. The remote snapshot may be stale.
 
-### Architecture summary
+**#490 is unblocked** — eidos#240 and neocortex#1105 both landed. It handles the speech-api types and CognitionAvatarAdapter that this branch intentionally left alone.
 
-- **Server-side `UtteranceSegmenter`** — single parser for `[gesture:tag]`/`[mood:tag]`, strips before TTS, all 3 speech paths
-- **Turn-framed protocol** — replaces `Phonemes`/`Response` with `Segment`/`TurnComplete`/`Gesture`/`Mood`. Binary audio frames carry 8-byte identity headers.
-- **Mark timing** — SSML-style `TextMark`/`MarkTiming` via connectors voice-spi for word-level gesture sync
-- **Session capture/turn split** — capture side (STT, speaker ID) and turn side (LLM, TTS, outbound) share no mutable state via `TurnExecutor`
-- **Performance vocabulary** — `avatar-performance.json` as single source of truth for taxonomy, pools, gestures, moods. `PerformanceVocabulary` SPI in speech-api.
-- **Animation layering** — base layer (pool cycling) + gesture layer (one-shots). Base ducks under gestures.
-- **Face compositor** — single `scene.onBeforeRender` hook: TalkingHead base → visemes → gesture expression curves (additive, clamped)
-- **Floor states** — idle/listening/thinking/speaking with per-state pools
-- **Mood ownership** — cognition-owned (PAD→discrete with hysteresis) or LLM-owned (turn-scoped with decay)
-- **Keyword fallback dropped** — adherence logging instead, speaking pool provides continuous motion
+### Unpublished
 
-### Prerequisites before implementation
-
-1. **Land #458** via `work-end` — code not on main yet
-2. **File + land connectors issue** — `TextMark`/`MarkTiming` in `casehub-connectors-voice-spi` (blocks Batch 3)
-3. **File neocortex issue** — proactive prompt sections, non-verbal outcomes (non-blocking, follows #457)
-4. **TalkingHead spike** — verify `speakAudio` API (Batch 0, Task 1)
-
-### Key scope changes from review
-
-- Protocol is a breaking change (Phonemes/Response removed)
-- Keyword fallback dropped (D15) — was in original scope
-- Cognition mood ownership added (D16) — not in original scope
-- Cross-repo dependency on connectors (D17)
-
-### Ideas logged
-
-- Contribute body animation system (BodyAnimationSystem + M2M CC0 library + gesture tag protocol) to met4citizen/TalkingHead upstream — see IDEAS.md
+agency project: 9 commits on feature branch. agency workspace: specs and plans.
