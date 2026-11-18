@@ -1,259 +1,177 @@
 # M2M Animation Library Integration — Design Spec
 
 **Issue:** casehubio/agency#457
-**Branch:** issue-457-integrate-m2m-animation-library (rebased on issue-458-author-23-conversational-body-poses)
 **Date:** 2026-11-18
+**Decisions:** See `decisions.md` for full rationale, alternatives, and trade-offs (D1–D17, reviewed across 3 adversarial rounds).
 
 ## Overview
 
-Wire the M2M animation library (68 clips authored in #458) into TalkingHead's speech pipeline so the avatar performs contextually appropriate body gestures during conversation. The `body-animations.mjs` module already has the full taxonomy, pool selection, gesture tag resolution, keyword matching, and crossfade playback. This issue connects that system to the live avatar during speech with proper audio-gesture synchronisation.
+Wire the M2M animation library (68 clips authored in #458) into TalkingHead's speech pipeline with proper audio-gesture synchronisation, turn framing, morph target compositing, and mood ownership. The result is a production-grade avatar speech pipeline, not a demo integration.
+
+## Prerequisites (D1, D17)
+
+1. **Land #458** via `work-end` first. Recreate #457 branch from updated main.
+2. **Connectors peer issue** (mark timing SPI) must land before #457 implementation starts.
+3. **Neocortex peer issue** (proactive prompt sections, non-verbal outcomes) follows #457, non-blocking.
 
 ## Architecture
 
-The integration spans three layers:
-
 ```
-LLM → [gesture:tag] in response text
+LLM → response text with [gesture:tag] and [mood:tag]
   ↓
-Server (SpeechSession): strip tags per-sentence before TTS,
-  extract gesture + wordIndex, send in Phonemes message
+UtteranceSegmenter (D2): single parser for all speech paths
+  → ParsedSegment(cleanText, List<Cue>)
   ↓
-Client (index.html): play gesture from playback queue
-  with proportional timing delay
+Per consumer form (D9):
+  TTS         → clean text
+  Client      → Segment(text, visemes, cues) + binary audio w/ header
+  History     → canonical markup (validated tags only)
+  Vocabulary  → clean text (no tag pollution)
+  Cognition   → clean text
 ```
 
-**Key principle:** The sentence boundary is the sync point. The server already splits LLM responses into sentences for TTS. Each sentence gets its own Phonemes + audio delivery. Gesture info rides alongside Phonemes — the client triggers the gesture when it starts playing that sentence from its audio queue.
+### Protocol (D3)
 
-## Component Changes
+Replaces `Phonemes` and `Response` with turn-framed messages:
 
-### 1. Server: SpeechSession gesture extraction
+| Message | Direction | Purpose |
+|---------|-----------|---------|
+| `Segment(turnSeq, index, text, hasAudio, visemes, cues)` | server→client | Per-sentence: display text + visemes + gesture/mood cues |
+| `TurnComplete(turnSeq, segmentCount, origin)` | server→client | End-of-turn signal |
+| `Gesture(tag, origin)` | server→client | Non-speech gestures (attention bids, cognition) |
+| `Mood(state)` | server→client | Persistent mood baseline (cognition-owned) |
+| `PlaybackComplete(turnSeq)` | client→server | Client finished playing turn's audio |
+| `UserActivity(kind)` | client→server | Typing, visibility changes |
 
-**File:** `speech-ws/src/main/java/io/casehub/agency/speech/ws/SpeechSession.java`
+Binary audio frames carry an 8-byte header: `u8 version, u8 reserved, u16 segmentIndex, u32 turnSeq`. Client pairs frames to segments by identity, not arrival order.
 
-Add a utility method that processes a sentence before TTS:
+### Gesture Timing (D4)
 
-```java
-record GestureExtraction(String cleanText, @Nullable String gesture, int wordIndex, int wordCount) {}
+The server owns speech time via SSML-style mark timing:
+- `SynthesisOptions` gains `List<TextMark>` marks
+- `SynthesisResult` gains `List<MarkTiming>` with millisecond offsets
+- **VITS: exact, guarded** — espeak phonemisation + duration output word boundaries, with consistency guard
+- **Phoneme-only engines: phoneme-proportional** fallback
+- **No phonemes: character-proportional** fallback
+- `MarkTimingEnricher` decorator provides fallback tiers
 
-static GestureExtraction extractGestures(String sentence) {
-    // Parse [gesture:tag] from sentence
-    // Strip tags, count word position of first tag
-    // Return clean text + gesture info
-}
-```
+The client owns animation time: `trigger = max(0, offsetMs/rate − strokeMs − crossfade/2)` where `strokeMs` is per-clip metadata from the performance vocabulary.
 
-Call `extractGestures()` in the sentence loop within `handleStop()` and `handleText()`:
-- TTS receives `cleanText` (no tags)
-- Gesture info is passed to `synthesiseAndSend()`
+### Session Concurrency (D10)
 
-Also strip `[mood:tag]` markers before TTS (same vocalization problem).
+SpeechSession splits into two sides:
+- **Capture side** (inbound thread): STT stream, ring buffer, speaker ID, partial polling
+- **Turn side** (single-thread TurnExecutor): history, prompt assembly, LLM, TTS, outbound messages
 
-Validate gesture names against a known set (the GESTURE_MAP keys). Drop unknown tags silently — the medical-robot LLM study showed small models sometimes hallucinate tag names outside the vocabulary.
+They share no mutable state. The capture side hands immutable `UserTurn` requests to the executor. One active turn per session. Proactive turns are suppressed during listening/thinking/unacknowledged playback, and re-checked at dequeue for staleness.
 
-### 2. Protocol: Extend Phonemes message
+### Client Floor States (D13)
 
-**File:** `speech-ws/src/main/java/io/casehub/agency/speech/ws/protocol/AvatarMessage.java`
+| State | Entered on | Base pool |
+|-------|-----------|-----------|
+| idle | TurnComplete + all audio played | `idle` |
+| listening | mic start, UserActivity(typing) | `listening` |
+| thinking | user stop/text sent | `thinking` (neutral attentive stances) |
+| speaking | first audio-bearing segment plays | `speaking` |
 
-Extend the `Phonemes` record:
+### Animation Layering (D11)
 
-```java
-record Phonemes(
-    List<VisemeFrame> data,
-    @Nullable String gesture,
-    int gestureWordIndex,
-    int gestureWordCount
-) implements AvatarMessage {}
-```
+Two concurrent layers in `BodyAnimationSystem`:
+- **Base layer**: looping pool clip. Pool changes only swap the base.
+- **Gesture layer**: one-shot clip. Base ducks to weight 0 during gesture, fades back when gesture finishes.
 
-**File:** `speech-ws/src/main/java/io/casehub/agency/speech/ws/protocol/MessageCodec.java`
+A pool change during a gesture swaps the base underneath with no visible effect.
 
-Update `encode()` to include `gesture`, `gestureWordIndex`, `gestureWordCount` fields when gesture is non-null.
+### Face Compositing (D6, D14)
 
-### 3. Server: LLM system prompt
+One `scene.onBeforeRender` hook orders all writers per frame:
+1. TalkingHead: blink, mood, eyes (base)
+2. Visemes: replace `viseme_*` channels
+3. Gesture expression curves: added to expression channels, clamped to [0,1], weight follows gesture layer
 
-**File:** `speech-ws/src/main/java/io/casehub/agency/speech/ws/DefaultPromptAssembler.java`
+Morph target tracks are stripped from body clips at load. Expression curves (brow, mouthFrown, mouthSmile, cheek, noseSneer, mouthPucker) are extracted name-keyed from the animation bundle's mesh dictionary, applied through the avatar's dictionary.
 
-Append gesture instructions to the system prompt:
+### Performance Vocabulary (D12)
 
-```
-You can express body language by placing [gesture:tag] markers in your responses.
-Available gestures: nod, bow, no, naughty, shrug, wait, aha, point, thumbsup,
-yes, reject, knock, thinking, confused, dizzy, clapping, angry, greeting,
-victory, fistpump, dab, sad, joyful, facepalm, doublefacepalm, shocked,
-overwhelmed, horror, oops, nervous, shiver, careful, sneaky, rewind, meditate,
-pray, guitar, drumroll, sing, death, hit, zombie, drunk, backflip, powerup,
-agreement, disagreement, emphasis, uncertainty, celebrate, surprise, distress,
-dance, attention, happy, explaining.
+Single source of truth: `avatar-performance.json`
+- `clips`: every GLB clip with `strokeMs` and optional expression-curve overrides
+- `taxonomy`: categories → subcategories → weighted clips
+- `pools`: per floor state → weighted subcategory refs
+- `gestures`: tag + description + target + `promptable` flag
+- `moods`: TalkingHead mood set with descriptions and `promptable`
 
-Place markers at natural points in your speech. Example:
-"Hello! [gesture:greeting] Welcome to the demo."
-"Hmm, [gesture:thinking] that's an interesting question."
+`body-animations.mjs` holds no data — pure playback logic. Java validates via `PerformanceVocabulary` SPI in speech-api.
 
-Use gestures sparingly — one or two per response is natural. Not every
-response needs a gesture. You can also set mood with [mood:happy], [mood:sad],
-[mood:angry], [mood:love], [mood:fear].
-```
+### LLM Prompt (D7)
 
-### 4. Client: Audio-synced gesture triggering
+`GesturePromptSection` (speech-api `PromptSection`) generated from vocabulary:
+- Each promptable tag with one-line description
+- Rules: place tag before its word, at most one per sentence, none when nothing fits
+- `DefaultPromptAssembler` gains `PromptSection` composition (first production composer of that SPI)
+- `SpeechPromptAssembler.assemble` gains `PromptContext` parameter
 
-**File:** `speech-demo/src/main/resources/META-INF/resources/index.html`
+### Mood Ownership (D16)
 
-Modify the `ws.onmessage` handler for `'phonemes'` to capture gesture info alongside viseme data:
+One owner per session, by configuration:
+- **Cognition with mood**: `AvatarCognition.currentAffect()` → PAD vector → discrete mood via octant mapping with hysteresis + dead-zone. `Mood(state)` message on change.
+- **No cognition**: LLM owns mood. `[mood:X]` → turn-scoped `MoodCue`, decays after playback + 3s hold.
 
-```javascript
-case 'phonemes':
-  pendingVisemes = msg.data;
-  pendingGesture = msg.gesture ? {
-    name: msg.gesture,
-    wordIndex: msg.gestureWordIndex || 0,
-    wordCount: msg.gestureWordCount || 1
-  } : null;
-  break;
-```
+### Idle Attention (D8)
 
-Modify `playAudio()` to capture `pendingGesture` synchronously (like it already does for `pendingVisemes`), and pass it into the `playQueue` entry:
+Server-owned, opt-in via `AvatarConfig`:
+- **With cognition**: non-verbal bids via neocortex (D17 follow-up). Until then, no attention gestures.
+- **Without cognition**: `SilenceAttentionPolicy` — 30s subtle bid, 75s stronger bid, then nothing.
+- Activity resets: user messages, `PlaybackComplete`, throttled `UserActivity`.
 
-```javascript
-playQueue.push({ audio: audioBuf, visemes: myVisemes, gesture: myGesture });
-```
+### Keyword Fallback — Dropped (D15)
 
-In `playNextQueued()`, when starting playback of a queue item with a gesture:
+No keyword fallback. The speaking pool provides continuous motion. Tag adherence is logged per turn. Revisit data-driven if models ignore instructions.
 
-```javascript
-if (item.gesture && bodyAnim) {
-  var delay = (item.gesture.wordIndex / item.gesture.wordCount)
-              * (item.audio.duration * 1000);
-  setTimeout(function() {
-    bodyAnim.playGesture(item.gesture.name);
-  }, delay);
-}
-```
+## Verification Spike (D14)
 
-Remove the gesture-triggering logic from the `'response'` case — gestures now fire from the Phonemes/audio queue for proper sync. The `'response'` handler still strips tags for display text and detects mood (this is unchanged from #458). Keep the keyword fallback (`classifyResponse`) as a safety net for sentences where the server extracted no gesture.
+Before implementation planning: verify TalkingHead 1.8 `speakAudio`:
+- (a) accepts our viseme timeline and markers
+- (b) markers fire on the audio clock
+- (c) body-pose system can be prevented from writing non-head bones
 
-### 5. Client: Speaking pool switching
+If all pass, adopt as playback host. If any fails, keep custom audio queue.
 
-**File:** `speech-demo/src/main/resources/META-INF/resources/index.html`
+## Cross-Repo Changes
 
-In `playNextQueued()`:
-- When starting the **first** queued item (transition from `!isPlaying`), call `bodyAnim.setSpeaking(true)`
-- When the **last** queued item finishes (`playQueue.length === 0`), call `bodyAnim.setSpeaking(false)`
-
-This is the natural boundary — the avatar is "speaking" exactly when audio is playing.
-
-### 6. Client: Morph target conditional pass-through
-
-**File:** `speech-demo/src/main/resources/META-INF/resources/animations/body-animations.mjs`
-
-Extend `_maskHeadBones(clip)` to also strip morph target tracks:
-
-```javascript
-_maskHeadBones(clip) {
-  clip.tracks = clip.tracks.filter(track => {
-    const dot = track.name.indexOf(".");
-    if (dot === -1) return true;
-    const boneName = track.name.slice(0, dot);
-    if (HEAD_BONES.has(boneName)) return false;
-    // Store morph target tracks separately for conditional playback
-    if (track.name.includes('.morphTargetInfluences')) {
-      this._morphTracks.set(clip.name, this._morphTracks.get(clip.name) || []);
-      this._morphTracks.get(clip.name).push(track);
-      return false; // Strip from main clip
-    }
-    return true;
-  });
-}
-```
-
-Add a method `setVisemesActive(active)` that the client calls when viseme playback starts/stops. When visemes are NOT active and the current body animation has morph targets, apply them additively.
-
-### 7. Client: Idle attention with escalating timeouts
-
-**File:** `speech-demo/src/main/resources/META-INF/resources/animations/body-animations.mjs`
-
-Add attention state to `BodyAnimationSystem`:
-
-```javascript
-startAttentionMonitor() {
-  this._lastActivity = Date.now();
-  this._attentionLevel = 0; // 0=none, 1=first prompt, 2=second prompt
-  this._attentionTimer = setInterval(() => {
-    if (this._speaking) { this._resetAttention(); return; }
-    const silence = Date.now() - this._lastActivity;
-    if (silence > 60000 && this._attentionLevel === 1) {
-      this._attentionLevel = 2;
-      this.playGesture('attention');
-    } else if (silence > 30000 && this._attentionLevel === 0) {
-      this._attentionLevel = 1;
-      this.playGesture('attention');
-    }
-    // After level 2, resume normal idle — don't keep prompting
-  }, 5000);
-}
-
-recordActivity() {
-  this._lastActivity = Date.now();
-  this._attentionLevel = 0;
-}
-```
-
-Call `recordActivity()` from the client on user input (send, mic start, any interaction).
-
-## Data Flow — Complete Speech Cycle
-
-```
-1. User types "What is machine learning?"
-   → Client: bodyAnim.playGesture('thinking')
-   → Client: bodyAnim.recordActivity()
-
-2. Server: LLM responds:
-   "Machine learning [gesture:explaining] is a branch of AI
-    that learns from data. [gesture:nod] It's quite powerful."
-
-3. Server splits into sentences:
-   a. "Machine learning is a branch of AI that learns from data."
-      gesture=explaining, wordIndex=1, wordCount=12
-   b. "It's quite powerful."
-      gesture=nod, wordIndex=0, wordCount=3
-
-4. Server TTS each clean sentence:
-   a. → Phonemes(visemes, "explaining", 1, 12) → audio bytes
-   b. → Phonemes(visemes, "nod", 0, 3) → audio bytes
-
-5. Client receives:
-   - Response("Machine learning [gesture:explaining] is a branch...")
-     → display clean text, detect mood
-   - Phonemes a → capture pending gesture + visemes
-   - Audio a → queue with gesture {explaining, 1, 12}
-   - Phonemes b → capture pending gesture + visemes
-   - Audio b → queue with gesture {nod, 0, 3}
-
-6. Client playback:
-   - Start queue → bodyAnim.setSpeaking(true)
-   - Play audio a: delay = (1/12)*audioDuration → setTimeout → playGesture('explaining')
-   - Play audio b: delay = (0/3)*audioDuration = 0ms → playGesture('nod') immediately
-   - Queue empty → bodyAnim.setSpeaking(false) → idle pool resumes
-```
+| Repo | Change | Blocking? |
+|------|--------|-----------|
+| connectors | `TextMark`/`MarkTiming` in voice-spi, `MarkTimingEnricher`, VITS guarded-exact | Yes — blocks #457 |
+| agency (speech-api) | `PerformanceVocabulary` SPI, `PromptSection` composition, `PromptContext` param, `Affect` record, `AvatarCognition.currentAffect` | In-repo |
+| agency (speech-ws) | `UtteranceSegmenter`, `Segment`/`TurnComplete`/`Gesture`/`Mood` protocol, capture/turn split, `TurnExecutor`, `SilenceAttentionPolicy`, `GesturePromptSection`, `MoodMapper` | In-repo |
+| agency (speech-demo) | `avatar-performance.json`, `body-animations.mjs` data-free rewrite, `index.html` floor states + layered animation + face compositor + new protocol | In-repo |
+| neocortex | Caller-supplied proactive prompt sections, non-verbal proactive outcome, delivery feedback | No — follows #457 |
 
 ## Testing
 
-- **Unit test:** `GestureExtraction` parsing — tags stripped, wordIndex calculated, unknown tags dropped
-- **Unit test:** `Phonemes` encoding with gesture fields
-- **Manual test:** Send messages with gesture tags, verify gestures fire at approximately the right moment
-- **Manual test:** Verify TTS does NOT vocalize `[gesture:X]` or `[mood:X]` markers
-- **Manual test:** Speaking pool switches on first audio play, off on last audio end
-- **Manual test:** Morph target gestures (shrug frown) show during idle, hidden during speech
-- **Manual test:** Idle attention fires at 30s and 60s, resets on user input
-- **Edge cases:** Response with no gesture tags (keyword fallback should still work), multiple gesture tags in one sentence (use first), empty response
+- **Build-time**: vocabulary ↔ GLB clip inventory, taxonomy resolution, expression channel names
+- **Unit**: `UtteranceSegmenter` parsing (forward binding, trailing tags, malformed markup, concurrent tags)
+- **Unit**: `GestureExtraction` per consumer form (clean, canonical, vocabulary-filtered)
+- **Unit**: Turn serialisation (capture/turn split, proactive suppression, dequeue staleness check)
+- **Unit**: `MoodMapper` PAD→discrete with hysteresis and dead-zone
+- **Unit**: `MarkTimingEnricher` fallback tiers
+- **Integration**: `Segment`/audio pairing by header identity
+- **Manual**: gesture fires at correct word during speech
+- **Manual**: TTS does not vocalize tags
+- **Manual**: floor state transitions (idle→listening→thinking→speaking→idle)
+- **Manual**: morph target expressions during idle, clean visemes during speech
+- **Manual**: attention bids at 30s/75s, reset on activity
 
 ## References
 
-- [SpeechSession.java] — server speech pipeline, sentence splitting, TTS dispatch
-- [AvatarMessage.java] — WebSocket protocol sealed hierarchy
-- [body-animations.mjs] — BodyAnimationSystem, GESTURE_MAP, TAXONOMY, parseGestureTags
-- [index.html (#458 branch)] — existing client integration, playQueue, viseme playback
-- [Azure avatar SSML gestures](https://learn.microsoft.com/en-nz/azure/ai-services/speech-service/text-to-speech-avatar/avatar-gestures-with-ssml) — SSML bookmark gesture sync pattern
-- [AIAvatarKit](https://github.com/uezo/aiavatarkit) — LLM → animation pipeline reference
-- [SARGes](https://arxiv.org/pdf/2503.20202) — LLM ethogram-based gesture label assignment
-- [TANDE](https://arxiv.org/pdf/2607.13357) — structured JSON gesture output from LLM
-- McNeill "Hand and Mind" — gesture-speech timing: gestures lead speech by 100-300ms
+- [SpeechSession.java] — server speech pipeline, handleStop L239-245, handleProactiveSpeech L175-176
+- [AvatarMessage.java] — current WebSocket protocol (to be replaced)
+- [body-animations.mjs (#458)] — BodyAnimationSystem, GESTURE_MAP, TAXONOMY
+- [index.html (#458)] — TalkingHead 1.8 integration, playback queue, viseme loop
+- [casehub-connectors-voice-spi] — SynthesisOptions, SynthesisResult, LipSyncEnricher
+- [CognitionAvatarAdapter] — wrapAssembler L51-75, evaluateProactive L94-103
+- [MoodOrchestrator] — currentMood(agentId, tenantId) → Optional<MoodState>
+- [Azure avatar SSML gestures](https://learn.microsoft.com/en-nz/azure/ai-services/speech-service/text-to-speech-avatar/avatar-gestures-with-ssml)
+- [AIAvatarKit](https://github.com/uezo/aiavatarkit) — LLM → animation pipeline
+- [SARGes](https://arxiv.org/pdf/2503.20202) — LLM ethogram-based gesture labels
+- [TANDE](https://arxiv.org/pdf/2607.13357) — structured JSON gesture output
+- McNeill 1992 / Kendon 2004 — gesture stroke–affiliate synchrony
