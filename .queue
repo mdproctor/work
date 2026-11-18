@@ -13,7 +13,7 @@ active_ref: casehubio/neocortex#1119
 - [ ] casehubio/neocortex#1135 — extend bridge to compose AMPD facets
 - [x] casehubio/neocortex#1136 — Speech pipeline integration — proactive prompt sections + non-verbal outcomes + delivery feedback
 - [ ] casehubio/neocortex#1139 — Document NonVerbalConfig in pipeline defaults
-- [ ] casehubio/neocortex#1140 — Update CLAUDE.md for speech pipeline types
+- [x] casehubio/neocortex#1140 — Update CLAUDE.md for speech pipeline types
 - [ ] casehubio/neocortex#1141 — Fix DispositionSignalWriterTest broken by eidos API
 - [ ] casehubio/neocortex#1143 — CBR persistence for learned retention parameters
 - [ ] casehubio/neocortex#1144 — Per-tenant RetentionConfig adaptation
