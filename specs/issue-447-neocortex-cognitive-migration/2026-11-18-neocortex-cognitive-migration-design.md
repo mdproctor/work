@@ -88,11 +88,13 @@ Delete the 20 `social/memory/` source files and their 9 test files from agency �
 
 Same changes as AgencyBeans, adapted for Spring's `@Bean`/`@ConditionalOnMissingBean`.
 
-### Import updates in evolution files
+### Evolution files — no import changes needed
 
-The evolution files have zero neocortex imports today, but after deletion they may need to import types that moved. Specifically:
-- `MemoryHygieneOutcomeProvider` references `MemoryHygieneOutcome` — both stay in agency, no change needed
-- If any evolution file references the old agency `MemoryHygieneOrchestrator` class directly, update the import to `io.casehub.neocortex.cognition.memory.MemoryHygieneOrchestrator`
+The 7 memory evolution files have zero neocortex imports. The 4 cognition evolution files already reference neocortex types (DriveOrchestrator, MoodSignal). Neither group references any of the deleted types.
+
+### CDI gap check
+
+When deleting `NoOpReflectionQueryStore`, verify a `@DefaultBean` exists for `io.casehub.neocortex.memory.ReflectionQueryStore` — `narrativePipeline()` injection depends on it. If none exists in neocortex, add one in AgencyBeans.
 
 ## CLAUDE.md updates
 
