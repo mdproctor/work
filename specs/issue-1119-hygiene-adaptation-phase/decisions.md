@@ -47,3 +47,15 @@
 **Sources:** cognition module structure, CognitiveProfileParticipant (cognition), DomainActivationParticipant (cognition)
 **Exploration:** quick
 **Status:** captured
+
+## D5: Consolidation phase priority
+
+**Choice:** @Priority(22) — after BehavioralSynthesisPhase (19), before MergeDetection (24).
+**Alternatives:**
+- @Priority(50) run last — maximizes info but delays adaptation unnecessarily since inputs come from the hygiene scheduler, not consolidation outputs
+**Rationale:** The phase reads KnowledgeGapSummary from the previous hygiene tick, not current consolidation outputs. Only ordering constraint is "after behavioral synthesis" so CAPS-driven quality effects are captured before the next hygiene cycle. Priority 22 slots naturally in the existing gap between 19 and 24.
+**Trade-offs:** None significant — the phase is cross-system and largely ordering-independent.
+**Depends on:** D1 (runs in ConsolidationScheduler), D4 (lives in cognition module)
+**Sources:** ConsolidationScheduler priority ranges (10-45), BehavioralSynthesisPhase @Priority(19), MergeDetectionPhase @Priority(24)
+**Exploration:** quick
+**Status:** captured
