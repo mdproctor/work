@@ -1,3 +1,12 @@
+# Work Plan —
+
+## State
+branch: issue-1115-receive-memory-hygiene
+issue-repo: casehubio/neocortex
+status: active
+covers: 1115
+
+## Queue
 - [x] casehubio/neocortex#882 — HTML to positional markdown parser
 - [x] casehubio/neocortex#883 — Web capture store integration
 - [x] casehubio/neocortex#884 — Web capture MCP tool
@@ -5,9 +14,6 @@
 - [x] casehubio/neocortex#886 — TTL-based curation
 - [ ] casehubio/neocortex#887 — Image capture and LLM description
 - [ ] casehubio/neocortex#888 — Captcha inbox
-
-## State
-branch: issue-1115-receive-memory-hygiene
-issue-repo: casehubio/neocortex
-status: active
-covers: 1115
+- [ ] casehubio/neocortex#1121 — Memory hygiene unbounded tickLocks + deprecated EraseRequest + O(n²) filter
+- [ ] casehubio/neocortex#1120 — LLM-backed ConsolidationSummariser implementation
+- [ ] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
