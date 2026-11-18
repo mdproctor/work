@@ -1,11 +1,11 @@
 # Work Plan —
 
 ## State
-branch: issue-1111-defensive-tag-fallback
+branch: issue-1110-salience-computation
 issue-repo: casehubio/neocortex
 status: active
 covers: 1115
-active_ref: casehubio/neocortex#1111
+active_ref: casehubio/neocortex#1110
 
 ## Queue
 - [x] casehubio/neocortex#882 — HTML to positional markdown parser
