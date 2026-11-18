@@ -12,6 +12,18 @@
 **Exploration:** quick
 **Status:** captured
 
+## D3: Evolution types stay in agency
+
+**Choice:** All 11 evolution files (7 memory hygiene evolution + 4 cognition evolution) stay in agency-core
+**Alternatives:**
+- Move all 11 to neocortex cognition — adds engine-api as a neocortex dependency for no structural benefit; the 7 memory hygiene evolution files have zero neocortex imports
+- Move only the 4 cognition evolution files (they bridge engine↔neocortex) — splits them from their cohesive partner in memory hygiene evolution for no gain
+**Rationale:** The 7 memory/evolution files implement engine-api SPIs (ImprovementProposalSource, RegressionEvaluator, CapabilityArea, etc.) with zero neocortex deps. The 4 cognition/evolution files are genuine bridge types connecting engine's evolution tick to neocortex's drives/mood — that's exactly what agency-core is for. None are wired in AgencyBeans/AgencyAutoConfiguration — they're CDI-discovered by the engine's improvement loop.
+**Trade-offs:** Memory hygiene evolution types in agency will reference types that now live in neocortex (via MemoryHygieneOutcomeProvider callback). This is the correct dependency direction — agency depends on neocortex, not the reverse.
+**Sources:** Dependency audit of all 11 files, engine-api SPI interfaces, neocortex#1119 (native consolidation-phase approach)
+**Exploration:** quick
+**Status:** captured
+
 ## D2: Speech-api types — defer to #490
 
 **Choice:** #447 does not touch speech-api types or CognitionAvatarAdapter. #490 handles that.
