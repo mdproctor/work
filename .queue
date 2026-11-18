@@ -1,3 +1,17 @@
+# Work Plan —
+
+## State
+branch: issue-503-post-extraction-debris-sweep
+issue-repo: casehubio/agency
+status: active
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
+active-issue: #494
+
+## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -21,16 +35,5 @@
 - [x] casehubio/agency#490 — Adopt unified prompt assembly from eidos-api
 - [x] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing
 - [x] casehubio/agency#501 — consumer-guide stale cognition references
-- [ ] casehubio/agency#502 — contributor-guide-stale-cognition-refs        ← active
-- [ ] casehubio/agency#503 — post-extraction-debris-sweep
-
-## State
-branch: 
-issue-repo: casehubio/agency
-status: active
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
-active-issue: #494
+- [x] casehubio/agency#502 — contributor-guide-stale-cognition-refs
+- [x] casehubio/agency#503 — post-extraction-debris-sweep
