@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-458-author-23-conversational-body-poses
+branch: issue-457-integrate-m2m-animation-library
 issue-repo: casehubio/agency
 status: active
-covers: 458
+covers: 457
 project-sha: 
 date: 
 design-repo: 
@@ -28,4 +28,4 @@ flyway-next-v: none
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
 - [ ] casehubio/agency#458 — Author-23-conversational-body-poses
-- [x] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
+- [ ] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
