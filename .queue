@@ -1,17 +1,17 @@
 # Work Plan —
 
 ## State
-branch: issue-1136-speech-pipeline-integration
+branch: 
 issue-repo: casehubio/neocortex
 status: active
-covers: 1136
-active_ref: casehubio/neocortex#1136
+covers: 
+active_ref: 
 
 ## Queue
 - [ ] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
 - [ ] casehubio/neocortex#1132 — implement LivedDispositionSource
 - [ ] casehubio/neocortex#1135 — extend bridge to compose AMPD facets
-- [ ] casehubio/neocortex#1136 — Speech pipeline integration — proactive prompt sections + non-verbal outcomes + delivery feedback
+- [x] casehubio/neocortex#1136 — Speech pipeline integration — proactive prompt sections + non-verbal outcomes + delivery feedback
 - [ ] casehubio/neocortex#1139 — Document NonVerbalConfig in pipeline defaults
 - [ ] casehubio/neocortex#1140 — Update CLAUDE.md for speech pipeline types
 - [ ] casehubio/neocortex#1141 — Fix DispositionSignalWriterTest broken by eidos API
