@@ -1,15 +1,16 @@
 # Work Plan —
 
 ## State
-branch: issue-457-integrate-m2m-animation-library
+branch: issue-447-neocortex-cognitive-migration
 issue-repo: casehubio/agency
 status: active
-covers: 457
+covers: 447
 project-sha: 
 date: 
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
+active-issue: #447
 
 ## Queue
 - [x] casehubio/agency#376 — Issue #376
@@ -29,3 +30,6 @@ flyway-next-v: none
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
 - [ ] casehubio/agency#458 — Author-23-conversational-body-poses
 - [ ] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
+- [ ] casehubio/agency#493 — PersonalityEvolutionConfig compile failures
+- [ ] casehubio/agency#494 — CognitionStack constructor verification
+- [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
