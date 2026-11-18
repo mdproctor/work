@@ -24,6 +24,18 @@
 **Exploration:** quick
 **Status:** captured
 
+## D4: MemoryHygieneOutcomeProvider wire-up
+
+**Choice:** MemoryHygieneOutcomeProvider stays in agency. AgencyBeans re-wires it to call neocortex's MemoryHygieneOrchestratorImpl (landed in neocortex#1115) instead of the old agency orchestrator.
+**Alternatives:**
+- Move MemoryHygieneOutcomeProvider to neocortex — wrong direction; evolution loop is agency's concern
+- Delete the wire-up entirely — breaks the evolution loop's ability to measure hygiene quality
+**Rationale:** Same callback pattern, just the target moved repos. The evolution loop in agency tunes parameters; neocortex owns the pipeline. This is the correct dependency direction.
+**Trade-offs:** None — existing pattern, just re-pointed.
+**Sources:** neocortex#1115 (MemoryHygieneOrchestratorImpl), neocortex#1119 (future native consolidation)
+**Exploration:** quick
+**Status:** captured
+
 ## D2: Speech-api types — defer to #490
 
 **Choice:** #447 does not touch speech-api types or CognitionAvatarAdapter. #490 handles that.
