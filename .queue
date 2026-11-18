@@ -15,3 +15,5 @@ active_ref: casehubio/neocortex#1119
 - [ ] casehubio/neocortex#1139 — Document NonVerbalConfig in pipeline defaults
 - [ ] casehubio/neocortex#1140 — Update CLAUDE.md for speech pipeline types
 - [ ] casehubio/neocortex#1141 — Fix DispositionSignalWriterTest broken by eidos API
+- [ ] casehubio/neocortex#1143 — CBR persistence for learned retention parameters
+- [ ] casehubio/neocortex#1144 — Per-tenant RetentionConfig adaptation
