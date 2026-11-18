@@ -35,3 +35,15 @@
 **Sources:** KnowledgeGapSummary (memory-api), RetentionConfig (cognition-api)
 **Exploration:** quick
 **Status:** captured
+
+## D4: Module placement
+
+**Choice:** AdaptiveRetentionConfig holder in cognition-api (alongside RetentionConfig). HygieneAdaptationPhase in cognition (alongside MemoryHygieneOrchestratorImpl). No new module.
+**Alternatives:**
+- New memory-hygiene-adaptation module — clean separation but over-engineering for a single class + config record
+**Rationale:** Follows existing pattern: CognitiveProfileParticipant and DomainActivationParticipant already live in cognition and implement SPIs from other modules. The holder is API-level since both producer (adaptation phase) and consumer (hygiene orchestrator) reference it.
+**Trade-offs:** cognition module gains one more ConsolidationPhase implementation — acceptable given it already has several cross-cutting participants.
+**Depends on:** D2 (holder bean needs a module home)
+**Sources:** cognition module structure, CognitiveProfileParticipant (cognition), DomainActivationParticipant (cognition)
+**Exploration:** quick
+**Status:** captured
