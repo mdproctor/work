@@ -2,38 +2,48 @@
 
 ## Last Session
 
-Completed **#1115 — Receive memory hygiene implementation from agency#447**. Landed on main, published to origin.
+Completed three issues in one session — the memory hygiene migration plus two immediate follow-ups. All landed on main, published to origin.
 
-**What was built:**
+**#1115 — Receive memory hygiene implementation from agency#447** (M/Med)
 
-- **Memory hygiene value types + SPIs in cognition-api:** `ConfidenceScorer`, `ConsolidationSummariser` (new — replaces agency's `ContentSummariser`), `IntegrityChecker`, `SemanticIntegrityChecker` SPIs. `RetentionConfig`, `RetentionScore`, `HygieneEvent`, `HygieneTick`, `MaintenanceTick`, `IntegrityViolation`, `ViolationType` value types.
+- 11 types in cognition-api: 4 SPIs (`ConfidenceScorer`, `ConsolidationSummariser`, `IntegrityChecker`, `SemanticIntegrityChecker`) + 7 value types (`RetentionConfig`, `RetentionScore`, `HygieneEvent`, `HygieneTick`, `MaintenanceTick`, `IntegrityViolation`, `ViolationType`)
+- 8 implementations in cognition: `MemoryHygieneOrchestratorImpl`, `MemoryHygieneScheduler`, `ArousalScorer`, `SurpriseScorer`, `CompositeConfidenceScorer`, `WeightedScorer`, `DefaultIntegrityChecker`, `NoOpSemanticIntegrityChecker`, `NoOpConsolidationSummariser`
+- 5 default bean producers in `CognitionDefaultBeans`
+- Design spec + implementation plan in workspace
 
-- **Implementations in cognition:** `MemoryHygieneOrchestratorImpl` (implements the pre-existing `MemoryHygieneOrchestrator` SPI — retention scoring, eviction, consolidation, per-agent locking), `MemoryHygieneScheduler` (composes orchestrator + `ReflectionOrchestrator` + `IntegrityChecker`), `ArousalScorer`/`SurpriseScorer` (dual `ContentScorer` + `ConfidenceScorer`), `CompositeConfidenceScorer`/`WeightedScorer`, `DefaultIntegrityChecker`, `NoOpSemanticIntegrityChecker`, `NoOpConsolidationSummariser`. 5 default bean producers in `CognitionDefaultBeans`.
+**#1121 — Code review cleanups** (S/Low)
 
-- **25 tests** across 4 test files, 1196 total cognition module tests green.
+- Striped lock array (16 stripes) replacing unbounded `ConcurrentHashMap<String, ReentrantLock>`
+- Canonical `Subject.of("memory", entityId)` replacing deprecated 4-arg `EraseRequest`
+- O(n) `Set<String>` lookup replacing O(n²) stream scan for survivor filtering
+
+**#1120 — LLM-backed ConsolidationSummariser** (S/Low)
+
+- `LlmConsolidationSummariser` using `SessionPipeline` with `ClearingPolicy.EVERY_CALL`
+- CDI producer auto-selects LLM when `SessionPipeline` available, NoOp otherwise
+- Enables the consolidation path in `MemoryHygieneOrchestratorImpl` — previously dead under NoOp
 
 **Key design decisions:**
 
-- Evolution types (7 agency `social/memory/evolution/` + 4 `social/cognition/evolution/`) excluded — they implement agency-specific SPIs (`ImprovementProposalSource`, `RegressionEvaluator`, etc.). Tracked in #1119 for a neocortex-native consolidation phase approach instead.
-- Agency's `ReflectionStore`/`ReflectionQueryStore` replaced by existing neocortex `ReflectionOrchestrator` — no capability lost.
+- Evolution types (11 files) excluded — they implement agency-specific SPIs. Tracked in #1119 for a neocortex-native consolidation phase approach.
+- Agency's `ReflectionStore` replaced by existing neocortex `ReflectionOrchestrator` — no capability lost.
 - Agency's `ContentSummariser` replaced by `ConsolidationSummariser` SPI — simpler text-in/text-out contract.
-- Agency's `KeyedLock` replaced by inline `ConcurrentHashMap<String, ReentrantLock>`.
 
-**Code review findings (filed):** #1121 — unbounded tickLocks growth, deprecated `EraseRequest` constructor, O(n²) survivor filtering. Three inline fixes applied (null guard, stale gap state, redundant condition).
+**Tests:** 30 across 5 test files, full cognition module (1196 tests) green.
 
-**Blog:** "The Migration That Needed a Scalpel" — decomposing cross-repo migrations, first-principles analysis of evolution types.
+**Blog:** "The Migration That Needed a Scalpel" — revised with follow-up sections on the cleanups and LLM summariser.
 
 ## Issues Filed This Session
 
-| # | Title | Scale | Complexity |
-|---|-------|-------|------------|
-| #1119 | Memory hygiene parameter adaptation via consolidation phase | M | Med |
-| #1120 | LLM-backed ConsolidationSummariser implementation | S | Low |
-| #1121 | Memory hygiene: unbounded tickLocks + deprecated EraseRequest + O(n²) filter | S | Low |
+| # | Title | Scale | Complexity | Status |
+|---|-------|-------|------------|--------|
+| #1119 | Memory hygiene parameter adaptation via consolidation phase | M | Med | Open — scheduled in queue |
+| #1120 | LLM-backed ConsolidationSummariser implementation | S | Low | **Closed** |
+| #1121 | Memory hygiene: tickLocks + EraseRequest + filter | S | Low | **Closed** |
 
 ## Immediate Next Step
 
-Queue position 5/7. Check `.queue` for the next active issue.
+Queue has remaining items including #887 (Image capture), #888 (Captcha inbox), and #1119 (hygiene adaptation). Check `.queue` for current position.
 
 ## References
 
