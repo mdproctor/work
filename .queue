@@ -103,3 +103,4 @@ active_ref: casehubio/neocortex#1105
 - [ ] casehubio/neocortex#1105 — Unify prompt assembly across eidos neocortex and agency
 - [ ] casehubio/neocortex#1110 — Add salience computation to contributeBlocks
 - [ ] casehubio/neocortex#1111 — Defensive tag fallback for anonymous renderers
+- [ ] casehubio/neocortex#1115 — Receive memory hygiene implementation from agency 447
