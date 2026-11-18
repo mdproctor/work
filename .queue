@@ -1,22 +1,17 @@
 # Work Plan —
 
 ## State
-branch: issue-1110-salience-computation
+branch: issue-1136-speech-pipeline-integration
 issue-repo: casehubio/neocortex
 status: active
-covers: 1115
-active_ref: casehubio/neocortex#1110
+covers: 1136
+active_ref: casehubio/neocortex#1136
 
 ## Queue
-- [x] casehubio/neocortex#882 — HTML to positional markdown parser
-- [x] casehubio/neocortex#883 — Web capture store integration
-- [x] casehubio/neocortex#884 — Web capture MCP tool
-- [x] casehubio/neocortex#885 — PDF visual archive
-- [x] casehubio/neocortex#886 — TTL-based curation
-- [ ] casehubio/neocortex#887 — Image capture and LLM description
-- [ ] casehubio/neocortex#888 — Captcha inbox
-- [ ] casehubio/neocortex#1121 — Memory hygiene unbounded tickLocks + deprecated EraseRequest + O(n²) filter
-- [ ] casehubio/neocortex#1120 — LLM-backed ConsolidationSummariser implementation
 - [ ] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
-- [ ] casehubio/neocortex#1110 — Add salience computation to contributeBlocks
-- [ ] casehubio/neocortex#1111 — Defensive tag fallback for anonymous renderers
+- [ ] casehubio/neocortex#1132 — implement LivedDispositionSource
+- [ ] casehubio/neocortex#1135 — extend bridge to compose AMPD facets
+- [ ] casehubio/neocortex#1136 — Speech pipeline integration — proactive prompt sections + non-verbal outcomes + delivery feedback
+- [ ] casehubio/neocortex#1139 — Document NonVerbalConfig in pipeline defaults
+- [ ] casehubio/neocortex#1140 — Update CLAUDE.md for speech pipeline types
+- [ ] casehubio/neocortex#1141 — Fix DispositionSignalWriterTest broken by eidos API
