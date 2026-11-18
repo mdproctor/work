@@ -124,6 +124,10 @@ Two changes:
 1. Replace `private final RetentionConfig retentionConfig` with `private final RetentionConfigSupplier configSupplier`. Read `configSupplier.current()` at the start of each tick instead of using a fixed field.
 2. Implement `tenantGapSummary(String tenantId)` by iterating `gapStates` entries matching the tenant suffix.
 
+#### `CognitionDefaultBeans` (cognition)
+
+Add a `@DefaultBean` producer for `RetentionConfigSupplier` that returns `RetentionConfig.DEFAULT` via a lambda. When `AdaptiveRetentionConfig` is on the classpath and enabled, CDI prefers the `@ApplicationScoped` bean over the `@DefaultBean`. This ensures the hygiene orchestrator always has a supplier — even when adaptation is disabled.
+
 ### HygieneAdaptationPhase (cognition)
 
 ```java
