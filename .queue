@@ -4,7 +4,7 @@
 branch: issue-457-integrate-m2m-animation-library
 issue-repo: casehubio/agency
 status: active
-covers: 499
+covers: 496
 project-sha: 
 date: 
 design-repo: 
@@ -30,4 +30,3 @@ flyway-next-v: none
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
 - [ ] casehubio/agency#496 — StreamingTTS-path
 - [ ] casehubio/agency#498 — SilenceAttentionPolicy
-- [ ] casehubio/agency#499 — Remove-legacy-protocol-messages
