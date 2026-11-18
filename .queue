@@ -4,7 +4,7 @@
 branch: 
 issue-repo: casehubio/agency
 status: active
-covers: 494
+covers: casehubio/agency#500
 project-sha: 
 date: 
 design-repo: 
@@ -31,8 +31,8 @@ active-issue: #494
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
 - [x] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
 - [x] casehubio/agency#493 — PersonalityEvolutionConfig compile failures
-- [ ] casehubio/agency#494 — CognitionStack constructor verification ← active
+- [ ] casehubio/agency#494 — CognitionStack constructor verification ← done on issue-494-cognitionstack-constructor-verification
 - [x] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
 - [x] casehubio/agency#490 — Adopt unified prompt assembly from eidos-api
-- [ ] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing
+- [ ] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing ← active
 - [ ] casehubio/agency#501 — consumer-guide stale cognition references
