@@ -1,43 +1,39 @@
 # HANDOFF — casehub-agency
 
-## Session summary (2026-11-18, session 4)
+## Session summary (2026-11-18, session 5)
 
-Landed #490 (unified prompt assembly) and #493 (PersonalityEvolutionConfig compile fix). Filed #500, #501. All published.
+Cleaned up post-migration debris: #494, #500, #501 — all landed and closed. Filed #502, #503 for remaining doc and sweep work. Queue synced (5 stale items fixed).
 
 ### Landed
 
 | # | SHA | Summary |
 |---|-----|---------|
-| #490 | `7b769bcf` | Delete 3 speech-api duplicates (AssembledPrompt, PromptSection, PromptContext). Thin AvatarCognition to extend CognitiveLifecycle. CognitionAvatarAdapter gains promptSections(). speech-ws switches to eidos-api AssembledPrompt (userPrompt→userMessage). agentic-yaml test code migrated to CognitionPromptRenderer. |
-| #493 | `f31d78f2` | Remove PersonalityEvolutionOrchestrator producer from AgencyBeans/AgencyAutoConfiguration (CDI-managed in neocortex now). Update agentic-yaml to DispositionEvolutionConfig — 7 YAML fixtures, compiler, tests. |
+| #494 | `1e1aeec6` | Replace null ConsolidationSummariser with no-op lambda in CognitionStack test helper. Constructor's 5th param changed from AgentProvider (nullable) to ConsolidationSummariser (not nullable) during neocortex migration. |
+| #500 | `34bad637` | Rename `Provisioner.ensureQwen3SharedLibrary()` → `ensureQwen3Binary()` in speech-demo. Also renamed local wrapper method. |
+| #501 | `a63b1feb` + `436a0f49` | Removed 12 ghost types from consumer-guide `io.casehub.agency.core.social.prompt` section. Replaced with actual `io.casehub.agency.social.cognition` types. Removed stale SocialCognitionDefaultBeans, situational context SPIs, attention mediator sections. Blog: "The Debris Field". |
 
-**Blog:** `docs/blog/2026-11-18-mdp02-three-prompts-one-answer.md`
-**Also fixed:** Extracted inline SVG in prior entry to `images/memory-hygiene-migration.svg`. Closed stale #457 on GitHub.
+**Blog:** `docs/blog/2026-11-18-mdp02-the-debris-field.md`
 
-**Published:** All commits pushed to origin (agency canonical + workspace).
+### Queue fix
+
+Session started with 5 stale items in the queue (landed+closed on GitHub but unchecked): #458, #457, #493, #447, #490. All synced via plan_manager.py.
 
 ### Filed
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|------------|
-| #500 | speech-demo: ensureQwen3SharedLibrary missing from Provisioner | XS | Low |
-| #501 | consumer-guide: stale SocialAvatarCognition and prompt section references | S | Low |
+| #502 | contributor-guide: stale cognition references match consumer-guide cleanup | XS | Low |
+| #503 | Post-extraction debris sweep: audit all test helpers and examples for stale neocortex refs | S | Low |
 
 ### Build status
 
-Full project compiles except speech-demo (#500 — pre-existing `ensureQwen3SharedLibrary` missing from Provisioner). All test suites pass: 555 agency-core, 120 speech-ws, 416 agentic-yaml.
+Full project compiles. All test suites pass: agentic-yaml 416, speech-demo compiles (was broken before #500).
 
 ### Queue
 
 | # | Title | Status |
 |---|-------|--------|
-| #458 | Author 23 conversational body poses | stale — landed, closed, not checked off |
-| #457 | Avatar demo integrate M2M animation library | stale — landed, closed, not checked off |
-| #447 | Remove residual cognitive code | stale — landed session 3, closed |
-| #490 | Adopt unified prompt assembly | stale — landed this session, closed |
-| #493 | PersonalityEvolutionConfig compile failures | stale — landed this session, closed |
-| #494 | CognitionStack constructor verification | queued |
-| #500 | speech-demo ensureQwen3SharedLibrary missing | queued |
-| #501 | consumer-guide stale cognition references | queued |
+| #502 | contributor-guide stale cognition refs | queued, next |
+| #503 | post-extraction debris sweep | queued |
 
-**Queue health:** 5 stale items (landed+closed but unchecked). 3 actionable items remaining (#494, #500, #501). Next session should clean stale items first.
+**Unpublished:** 4 commits on main ahead of origin. `canonical_sync.py publish` to push.
