@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-977-pid5-facet-personality-classification
+branch: issue-1105-unify-prompt-assembly
 issue-repo: casehubio/neocortex
 status: active
 covers: 1050
@@ -13,6 +13,7 @@ flyway-next-v: unknown
 check: 878
 done: 
 active: casehubio/neocortex#976
+active_ref: casehubio/neocortex#1105
 
 ## Queue
 - [x] casehubio/neocortex#916 — QdrantCbrRecordStore 4-arg recordOutcome
@@ -99,3 +100,4 @@ active: casehubio/neocortex#976
 - [x] casehubio/neocortex#1070 — Wire-pid5Facets-config
 - [x] casehubio/neocortex#1071 — Extract-addPersonalityMetadata
 - [x] casehubio/neocortex#1072 — Remove-hasPid5-strengthen-evals
+- [ ] casehubio/neocortex#1105 — Unify prompt assembly across eidos neocortex and agency
