@@ -14,7 +14,12 @@ Facts checked against code during the decision review. Later decisions rely on t
 - **Tag pollution in STT vocabulary is real.** `ConversationVocabulary.addFromText` strips characters outside `[a-z']`. `[gesture:doublefacepalm]` therefore becomes the term `gesturedoublefacepalm` and enters the Whisper hint and the corrector dictionary.
 - **The speech-api `PromptSection` has no production composer.** `SocialPromptAssembler` does not exist in production code; `docs/guides/consumer-guide.md` L668 is stale. (Round 1 claimed `SocialPromptAssembler` composes sections when cognition is present. That was wrong and is corrected here.) The only implementers and composers are in `agentic-yaml` test code. The cognition path is `CognitionAvatarAdapter.wrapAssembler` (agency-core L51–75): it calls `base.assemble(...)` first, then appends neocortex `core.promptSections()` renderers through `CognitionRenderContext`. That is a different abstraction.
 - **Proactive speech is decided and prompted inside neocortex.** `CognitionAvatarAdapter.evaluateProactive` (L94–103) delegates to neocortex `ProactiveSpeechSupport.evaluateProactive(channelContext)`, which returns text or null. agency cannot add prompt sections to it, or add non-verbal outcomes, without a neocortex API change.
-- **Cognition has its own mood model.** agency-core `CircuitBreakerMoodMapper` emits neocortex `MoodSignal.DirectShift`, so cognition maintains a mood state.
+- **Cognition has its own mood model, readable in-repo.** agency-core `CircuitBreakerMoodMapper` emits neocortex `MoodSignal.DirectShift`. `CognitionCore.mood()` returns `MoodOrchestrator` (used in-repo at `agentic-yaml` test `CognitionStack` L474). `MoodOrchestrator.currentMood(agentId, tenantId)` returns `Optional<MoodState>`. `MoodState` is a continuous **PAD** vector (`pleasure`, `arousal`, `dominance`, each in [-1, 1], plus `cause`), keyed by `(agentId, tenantId)`; there is **no subjectId**. Two further facts:
+  - The per-agent state is created lazily on the first `record(...)`, so `currentMood` is empty until the first mood signal.
+  - PAD decays continuously on every tick.
+  - `core.mood()` may be absent when mood is disabled in cognition config.
+- **Capture state and turn state share one object.** `SpeechSession.handleStart` (L139–155) closes and reopens `stream`. `handleStop` (L204–229) finalises `stream`, nulls it, and reads `ringBuffer`/`ringBufferPos` in `identifySpeaker`. `handleAudio` writes `ringBuffer` from the receive thread.
+- **`PromptContext` requires non-null `agentId`/`tenantId`**, and `SpeechPromptAssembler.assemble(String, List<ConversationTurn>)` carries no context. `AvatarConfig.agentId()`/`tenantId()` are `Optional` and absent in the demo configuration.
 - **Demo client baseline.** The demo client imports **TalkingHead 1.8** (not 1.7) and `three@0.180.0`. It drives the body mixer from its own `requestAnimationFrame` loop (`tickBody`), separate from TalkingHead's loop. The #450-era build already has a client `case 'animation'` handler, but main's `AvatarMessage` has no `Animation` record, so #450 D5 was never completed server-side.
 - **Not yet verified (#458 code).** `BodyAnimationSystem` was only reviewed from the build copy (`target/classes`, 16 Nov). Known problems there:
   - `GESTURE_MAP` still references clips deleted in #458 (`thinker`, `shocked-recoil`, `hands-interlocked-chest`, `hit-chest`).
@@ -93,6 +98,9 @@ The client pairs a frame with a segment by `(turnSeq, index)`, never by arrival 
 - **`text`** is clean display text. The client builds the chat bubble from segments as they arrive, including segments with `hasAudio=false`. `Response` is removed: its content is the concatenation of the segment texts, and its ordering was inconsistent across paths.
 - **`Gesture`** completes #450 D5, whose server-side record was never added to `AvatarMessage`. It carries only a vocabulary tag; #450's raw `url`/`durationSec` form is superseded. It is used for gestures that are not tied to speech: cognition-driven non-verbal acts and attention bids (D8).
 - **`Mood`** sets the persistent mood baseline when cognition owns mood (D16).
+- **Client → server messages are part of the contract:** `PlaybackComplete(turnSeq)` and `UserActivity(kind)`.
+  - A conforming client sends `PlaybackComplete` for **every** `TurnComplete`. It sends it immediately when the turn has no audio-bearing segment, and otherwise when the last one has finished playing (D5).
+  - A client that never sends it still works. The server expires each unacknowledged turn (D10), so proactive suppression and the attention clock are driven by expiry alone, and their timing is coarser.
 
 **Alternatives:**
 - Optional `gesture` + `wordIndex`/`wordCount` on `Phonemes` (original choice). Rejected:
@@ -108,7 +116,7 @@ The client pairs a frame with a segment by `(turnSeq, index)`, never by arrival 
 **Sources:** AvatarMessage.java (main); #450 decisions D1, D5; built index.html `case 'animation'`; index.html L154–160, L229–233; SpeechWebSocket L160–187; blog 2026-11-13 L76 (multiple tags per response)
 **Exploration:** deep-analysis, revised under review with new evidence (#450 D5 lapse, viseme-gated delivery, concurrent turns)
 **Depends on:** D2, D10, D16
-**Status:** revised (round 1, R1-09, R1-10; round 2, R2-01: frame header, `hasAudio`, `turnSeq`; R2-04: `Mood` message)
+**Status:** revised (round 1, R1-09, R1-10; round 2, R2-01: frame header, `hasAudio`, `turnSeq`; R2-04: `Mood` message; round 3, R3-02: client→server contract and expiry fallback)
 
 ## D4: Gesture timing — the server owns speech time, the client owns animation time
 
@@ -156,7 +164,11 @@ Both effects push the stroke late, so the error is biased, not symmetric. Correc
 1. `TurnComplete(turnSeq)` has been received (D10).
 2. Every `hasAudio` segment of that turn has been played and its audio has ended.
 
-On leaving speaking, the client sends `PlaybackComplete(turnSeq)` to the server (D8, D10). Mid-turn queue drains, caused by slow synthesis of sentence N+1, do not change state. A 10 s safety timeout after the last audio ends forces idle if `TurnComplete` never arrives (dropped connection). The leave transition also respects D11: an in-flight gesture finishes before the base layer changes pool.
+The client acknowledges **every** `TurnComplete` with `PlaybackComplete(turnSeq)` (D3, D8, D10):
+- on leaving speaking;
+- **immediately** for turns that never enter speaking: zero-segment turns, all-`hasAudio=false` turns, or audio that cannot start because the `AudioContext` is still suspended by autoplay policy. In the suspended case the client also discards that turn's queued audio and shows its text.
+
+Mid-turn queue drains, caused by slow synthesis of sentence N+1, do not change state. A 10 s safety timeout after the last audio ends forces idle if `TurnComplete` never arrives (dropped connection). The leave transition also respects D11: an in-flight gesture finishes before the base layer changes pool.
 **Alternatives:**
 - Audio playback start/end of the queue (original choice). Rejected: `playNextQueued` sets `isPlaying = false` whenever the queue drains between sentences. With Kokoro, Audio8 or CosyVoice3, or with multi-sentence proactive speech, the pose flickers idle → speaking every sentence.
 - `Response` arrival. Rejected: it arrives early on the non-streaming and proactive paths and late on the streaming path (D2), and `Response` is removed anyway (D3).
@@ -166,7 +178,7 @@ On leaving speaking, the client sends `PlaybackComplete(turnSeq)` to the server 
 **Sources:** index.html `playNextQueued` L248–249, L299–307; BodyAnimationSystem.setSpeaking
 **Exploration:** quick, revised under review
 **Depends on:** D10, D11, D13
-**Status:** revised (round 1, R1-06; round 2, R2-10: `PlaybackComplete` on leave)
+**Status:** revised (round 1, R1-06; round 2, R2-10: `PlaybackComplete` on leave; round 3, R3-02: acknowledge every turn)
 
 ## D6: Morph target conflicts — strip at load, re-apply as additive expression curves through one face owner
 
@@ -216,7 +228,12 @@ On leaving speaking, the client sends `PlaybackComplete(turnSeq)` to the server 
   - **Register:** dramatic or theatrical tags are only for playful or role-play contexts. Their descriptions say so.
   - Mood markup is prompted only when the LLM owns mood (D16).
 - **Prompt composition: speech-api `PromptSection` is the canonical speech-prompt extension point.**
-  - `DefaultPromptAssembler` gains `PromptSection` composition (CDI `Instance<PromptSection>`, ordered). It is the first production composer of that SPI.
+  - `DefaultPromptAssembler` gains `PromptSection` composition. It is constructed with a plain `List<PromptSection>`, keeping speech-api framework-free ("no framework annotations — pure Java", #198 design). It is the first production composer of that SPI.
+  - **Ordering is an SPI contract.** `PromptSection` gains `default int order() { return 0; }`. Sections render in ascending `order()`, with ties broken by class name for determinism. `SpeechWebSocket` collects sections via CDI and sorts them by that contract. CDI `@Priority` was rejected because it would put a framework annotation into the SPI's semantics.
+  - **Context is an explicit parameter.** The assembler signature breaks: `SpeechPromptAssembler.assemble(PromptContext ctx, String userMessage, List<ConversationTurn> history)`. Every assembler, base or wrapper, sees the same context, and wrappers stop rebuilding it from closures.
+    - `AvatarCognition.wrapAssembler` loses its `agentId`/`tenantId`/`subjectIdSupplier` parameters, which become redundant.
+    - `SpeechSession` builds the `PromptContext` per turn from `AvatarConfig.agentId()`/`tenantId()`, falling back to explicit constants (`AvatarConfig.DEFAULT_AGENT_ID = "avatar"`, `DEFAULT_TENANT_ID = "default"`) when unconfigured. `subjectId` is the session's `currentSubjectId()`.
+    - The alternative of binding context at construction was rejected: it keeps the closure pattern and lets the base and the wrapper disagree about the context.
   - Neocortex `promptSections()` renderers stay cognition-internal. `CognitionAvatarAdapter.wrapAssembler` renders them after `base.assemble(...)`.
 - **User-reply path.** The cognition-wrapped assembler inherits the gesture section **because it delegates to `base.assemble(...)`**. That delegation is now a recorded contract of `AvatarCognition.wrapAssembler`: wrappers must enrich, not replace, the base prompt. A test asserts that a cognition-wrapped prompt contains the gesture section.
 - **Proactive path.** The prompt is built inside neocortex (`ProactiveSpeechSupport`). Getting the gesture section there needs a neocortex API that accepts caller-supplied prompt sections, filed as a peer issue (D17). Until it lands, proactive speech has no gesture instructions: it produces untagged text, which the segmenter handles as a no-cue turn. It is never extended by smuggling instruction text through `channelContext`.
@@ -243,7 +260,7 @@ On leaving speaking, the client sends `PlaybackComplete(turnSeq)` to the server 
 **Sources:** PromptSection (speech-api); CognitionAvatarAdapter.wrapAssembler L51–75, evaluateProactive L94–103; consumer-guide L668 (stale); application.properties system prompt; SpeechProducers `max_tokens: 80`
 **Exploration:** quick, revised under review
 **Depends on:** D2, D12, D16, D17
-**Status:** revised (round 1, R1-11, R1-12; round 2, R2-02: composition mechanism corrected; R2-03: proactive path dependency)
+**Status:** revised (round 1, R1-11, R1-12; round 2, R2-02: composition mechanism corrected; R2-03: proactive path dependency; round 3, R3-04: `PromptContext` parameter, `order()` contract)
 
 ## D8: Idle attention — server-owned, opt-in, cognition-driven when available
 
@@ -313,12 +330,36 @@ On leaving speaking, the client sends `PlaybackComplete(turnSeq)` to the server 
 ## D10: Turn framing and serialisation
 
 **Choice:**
-- **One active turn per session.** All turn work in a session runs on one per-session `TurnExecutor` (a single-thread, virtual-thread executor): user replies (`handleStop`, `handleText`) and proactive turns. This also makes `history` single-writer.
-  - STT streaming (`handleAudio`, partial polling) is **not** on the executor, so audio capture is never blocked.
-- **Proactive suppression.** The proactive tick (and `SilenceAttentionPolicy`) skips its evaluation while any of these is true:
+- **Two sides, with explicit field ownership.**
+  - The **capture side** runs on the connection's inbound thread. websockets-next delivers inbound messages for a connection serially (the default processing mode), so this side is single-threaded by framework contract.
+  - The **turn side** is one per-session `TurnExecutor` (single-thread, virtual-thread executor).
+  - They share no mutable state. The capture side hands immutable turn requests to the executor.
+
+  | Field(s) | Owner |
+  |---|---|
+  | `stream`, partial-poll thread, `sampleRate`, `ringBuffer`/`ringBufferPos`, `pendingEmbedding`, `enrollmentPending`, `explicitEnrollmentName`, `identifiedSpeaker`, `activeLlmModel`/`activeTtsModel` | capture side |
+  | `history`, prompt assembly, LLM, TTS, `turnSeq`, outbound `Segment`/audio/`TurnComplete`, cognition `recordInteraction` | turn side |
+  | floor/activity clock (last user activity, unacknowledged turns) | an atomic, lock-free state object written by both sides (capture side: `Start`/`Stop`/`Text`/`UserActivity`/`PlaybackComplete`; turn side: enqueue and complete) |
+
+- **`Stop` is split at the capture/turn boundary.** On the capture side, `Stop` does all of the following, then enqueues `UserTurn(cleanText, speakerLabel, llmModel, ttsModel)`:
+  - stop polling;
+  - `finalResult()`, close the stream, null it;
+  - speaker identification over a snapshot of the ring buffer, then reset the buffer;
+  - cleanup;
+  - send `Transcript`.
+
+  A `Start` that follows therefore always finds a finalised, closed stream, so no utterance is lost and no stream is finalised twice. `Text` likewise normalises and sends `Transcript` on the capture side, then enqueues. Speaker identification stays on the capture side because all its state (registry interaction, enrollment fields, `handleSpeakerIdentify`) lives there. Its cost (one embedding extraction) blocks only inbound processing for that connection, at a moment when no audio is flowing.
+- **One active turn per session.** The executor runs user turns and proactive turns, one at a time. It is the only writer of `history`.
+- **Proactive suppression at evaluation.** The proactive tick (and `SilenceAttentionPolicy`) skips its evaluation while any of these is true:
   - a turn is queued or in flight;
   - the floor is **listening** (a `Start` without `Stop`, or `UserActivity(typing)` within the last 5 s);
-  - a turn has completed without its `PlaybackComplete`.
+  - a turn has completed without its `PlaybackComplete` and has not expired.
+- **Proactive re-check at dequeue.** A proactive turn carries `evaluatedAt`, stamped when its evaluation began. When the executor dequeues it, the turn is **dropped** (and the drop logged) if any of the following happened after `evaluatedAt`:
+  - user activity (`Start`, `Text`, `UserActivity`);
+  - another turn's completion.
+
+  Content generated before the user spoke is stale by definition. Evaluation can take seconds when neocortex invokes an LLM inside `InnerLifeOrchestrator.tick`.
+- **Unacknowledged-turn expiry.** For each completed turn the server records `expiresAt = completedAt + Σ(segment audio durations) / minPlaybackRate + 5 s`. `minPlaybackRate` defaults to 0.6, the demo slider minimum, and is configurable in `AvatarConfig`. Zero-audio turns therefore expire after 5 s. On expiry the turn is treated as heard: suppression lifts, the attention clock resets, and a warning is logged. A late `PlaybackComplete` for an expired turn is ignored.
 - **User message during a proactive turn: queue.** The user turn runs immediately after the proactive turn's remaining synthesis. Superseding would need mid-turn TTS cancellation and client audio interruption, and audio interruption is out of scope (D13).
 - **`turnSeq`.** Every server-originated turn has one: user reply (streaming or non-streaming) or proactive. Every `Segment` and audio-frame header carries it (D3).
 - **`TurnComplete`.** After the last segment the server sends `TurnComplete(turnSeq, segmentCount, origin)`. This is emitted in a `finally` block, so error paths also close the turn (with `Error` before it). A turn with zero segments (LLM returned only markup or nothing) still sends `TurnComplete(…, 0, …)`, so the client leaves the thinking state.
@@ -329,6 +370,10 @@ On leaving speaking, the client sends `PlaybackComplete(turnSeq)` to the server 
   - The user never loses a sentence's text. Before, `Response` carried it; now it is the segment.
 
 **Alternatives:**
+- Queue the whole of `handleStop` on the executor (round-2 text). Rejected: `Stop` finalises capture state. Queued behind a proactive turn, it races a subsequent `Start`, which closes the un-finalised stream and refills the ring buffer. The queued `Stop` would then finalise the new stream and identify the wrong utterance.
+- Lock-guarded shared `SpeechSession` fields. Rejected: ownership by thread removes the shared state instead of guarding it.
+- Suppression checked only at evaluation. Rejected: a proactive turn evaluated before the user spoke would be delivered after the user's reply.
+- No expiry; rely on `PlaybackComplete`. Rejected: zero-audio turns, autoplay-suspended audio, and clients that don't implement the message would suppress proactive speech for the rest of the session.
 - No serialisation, with pairing fixed by frame headers alone. Rejected: headers make pairing correct, but interleaved turns would still interleave history writes, prompt assembly and the floor state.
 - Supersede the proactive turn on user input. Rejected for now: it needs audio interruption (recorded gap, D13).
 - A `final` flag on the last `Segment`. Rejected: on the streaming path the server does not know a sentence is last until the stream ends, after that sentence has been emitted.
@@ -338,9 +383,11 @@ On leaving speaking, the client sends `PlaybackComplete(turnSeq)` to the server 
 **Trade-offs:**
 - A user reply can wait behind a proactive turn's remaining synthesis (bounded by one or two sentences of TTS).
 - One more message per turn.
+- Neocortex is not told when a proactive turn is dropped at dequeue. Its inner-life state may assume the initiation was delivered. Delivery feedback is part of the neocortex peer issue (D17).
+- `sendTextAndAwait`/`sendBinaryAndAwait` are called from both sides (`Transcript` from capture, everything else from turn). This relies on the websockets-next connection send being thread-safe, to be confirmed during implementation. If it is not, outbound sends are funnelled through the executor.
 **Sources:** SpeechSession handleStop/handleText/handleProactiveSpeech; SpeechWebSocket streaming generator L84–113, proactive tick L160–187
 **Exploration:** surfaced in review (R1-06), extended (R2-01)
-**Status:** revised (round 2, R2-01: serialisation, suppression rules, TTS-failure contract, `turnSeq`)
+**Status:** revised (round 2, R2-01: serialisation, suppression rules, TTS-failure contract, `turnSeq`; round 3, R3-01: capture/turn split and field ownership; R3-02: expiry; R3-05: dequeue re-check)
 
 ## D11: Animation arbitration — layered base and gesture, base ducks under gestures
 
@@ -438,10 +485,12 @@ Arbitration rules:
 
 The demo's separate `tickBody` rAF loop is removed. Two independent rAF callbacks make the final pose depend on callback order and render timing.
 
-**Frame ordering uses public three.js render hooks.** This works whatever the spike finds.
-- **Bones.** `scene.onBeforeRender` runs after `scene.updateMatrixWorld()` and before skeleton upload. It runs `mixer.update(dt)` there, guarded so it runs once per `renderer.info.render.frame`, then calls `armature.updateMatrixWorld(true)`.
-- **Face.** `onBeforeRender` on the head mesh runs after TalkingHead has written its morphs and before morph influences are uploaded. The face compositor runs there.
-- These are to be verified on `three@0.180.0` during implementation. TalkingHead internals are never needed.
+**Frame ordering uses one public three.js render hook.** This works whatever the spike finds. `scene.onBeforeRender` on TalkingHead's scene runs after TalkingHead's frame step has written bones and morphs and called `renderer.render`. Inside `render`, it runs after `scene.updateMatrixWorld()`, and before any skeleton upload or draw. The single ordered step there, guarded to run once per `renderer.info.render.frame`, is:
+1. `mixer.update(dt)` for the body;
+2. `armature.updateMatrixWorld(true)`;
+3. the face compositor (D6) over **all** face meshes, i.e. every mesh with `viseme_*` targets (`Wolf3D_Head`, `Wolf3D_Teeth`, …). Visemes (layer 2) still write Teeth even though expression curves (layer 3) do not.
+
+These semantics are to be verified on `three@0.180.0` during implementation. TalkingHead internals are never needed.
 
 **Playback host, gated by a verification spike:** adopt TalkingHead 1.8's `speakAudio` as the host if all of the following hold:
 - (a) it accepts our viseme timeline and words/markers;
@@ -453,12 +502,13 @@ If all three hold, the custom audio queue and viseme rAF loop are deleted, and g
 - Leave ownership implicit, with three uncoordinated writers (status quo). Rejected: the result depends on update order, not on policy.
 - Adopt `speakAudio` unconditionally. Not taken without verification: the v1.8 API (marker semantics, pose-system interaction) was not confirmed.
 - Depend on a TalkingHead frame hook (round-1 point (d)). Rejected: three.js public hooks give deterministic ordering without coupling to TalkingHead internals.
+- Face compositor in the head mesh's `onBeforeRender` (round-2 text). Rejected: the face spans several meshes, and three.js opaque draw order (sorted by program, material and depth) does not guarantee that Head draws before Teeth. Per-mesh hooks would split one compositor across callbacks.
 **Rationale:** Settling ownership first is what makes D5, D6 and D11 implementable. Render hooks make the ownership table enforceable today, so the spike only decides the audio host. TalkingHead's own timeline would remove custom queue code and fits the IDEAS.md goal of keeping #457 contribution-friendly upstream, but only if it really yields the bones.
 **Trade-offs:** A spike before planning. `scene.onBeforeRender` is a single slot: the demo must not let other code overwrite it (wrap and chain if needed).
 **Sources:** built index.html L603–652 (TalkingHead 1.8, separate mixer, separate rAF); index.html L248–309 (custom queue and viseme loop); three.js `Object3D.onBeforeRender` / `Scene.onBeforeRender`; IDEAS.md (upstream contribution)
 **Exploration:** surfaced in review (R1-16)
 **Depends on:** D6, D11
-**Status:** revised (round 2, R2-06: render-hook ordering replaces spike point (d))
+**Status:** revised (round 2, R2-06: render-hook ordering replaces spike point (d); round 3, R3-06: face compositor moved into the single scene hook)
 
 ## D15: Keyword fallback — dropped
 
@@ -469,21 +519,42 @@ If all three hold, the custom audio queue and viseme rAF loop are deleted, and g
   - Substring matching misfires: `"hi "` matches `"sushi "`, `"yes"` matches `"eyes"`, `"love"` matches `"I'd love to help"`.
 - Server-side per-segment whole-word fallback through the cue path. Rejected for now: it overrides the LLM's deliberate choice of no gesture, which is the point of D7. It may be reintroduced, data-driven, if adherence logs show a model systematically emits no tags.
 **Rationale:** With a promptable vocabulary on the reply path, the fallback fills a gap that no longer exists, and does so with low precision.
-**Trade-offs:** Removes listed #457 scope (HANDOFF "What needs building" item 3), pending human confirmation (D17). With models that ignore instructions, gestures are rarer until the fallback is reconsidered.
+**Trade-offs:** Removes listed #457 scope (HANDOFF "What needs building" item 3). With models that ignore instructions, gestures are rarer until the fallback is reconsidered.
 **Sources:** body-animations.mjs KEYWORD_GESTURES / classifyResponse (build copy); built index.html KEYWORD_MOODS / detectMood
-**Exploration:** surfaced in review (R1-17)
+**Exploration:** surfaced in review (R1-17); endorsed by the reviewer on the merits (round 3)
 **Depends on:** D7
-**Status:** captured (round 1), scope removal awaiting human confirmation
+**Status:** captured (round 1); decided in round 3. The human was asked to confirm the scope removal in rounds 1 and 2 and answered `skip` both times. The reviewed recommendation is adopted as the decision, and the human can override it at any time before implementation planning.
 
 ## D16: Mood — one owner per configuration, persistent baseline vs turn-scoped override
 
-**Choice:** Displayed mood has exactly one owner, decided by configuration.
-- **Cognition supplies affect.** `AvatarCognition` exposes the current affect (`currentMood(agentId, tenantId, subjectId)`, mapped to the TalkingHead mood set).
-  - The server sends `Mood(state)` on change. Mood is checked after each proactive tick and after each `recordInteraction`.
-  - The LLM is **not** prompted for mood. Any `[mood:…]` it emits is stripped, and no `MoodCue` is sent.
-  - The LLM still sees cognition's mood through the neocortex prompt renderers, so its wording and the face agree.
-  - If the neocortex adapter can read mood state through an existing accessor, this is in-repo. Otherwise the accessor is part of the neocortex peer issue (D17). Until then, the next rule applies, with a single owner either way.
-- **No cognition affect available.** The LLM owns mood:
+**Choice:** Displayed mood has exactly one owner, decided **once per session, by configuration**.
+- **Cognition with mood enabled** (cognition configured and `core.mood()` present). Cognition owns mood from day one, in #457.
+  - **SPI.** `AvatarCognition` gains `boolean providesAffect()` (fixed at `initialize`) and `Optional<Affect> currentAffect(String agentId, String tenantId)`.
+    - `Affect(double pleasure, double arousal, double dominance)` is a renderer-neutral speech-api record. Neocortex types do not leak into speech-api.
+    - The signature matches the producer, `MoodOrchestrator.currentMood(agentId, tenantId)`: mood is per agent, so there is no `subjectId`.
+    - `CognitionAvatarAdapter` implements it in-repo from `MoodState`. Under the "variants only when a producer exists" rule, the producer exists, so this lands in #457.
+  - **Empty affect** (`currentAffect` empty because the mood state is created lazily on the first signal) means "at baseline". It maps to `neutral`. It does **not** hand ownership to the LLM.
+  - **Mapping in `speech-ws`.** A `MoodMapper` maps PAD to a discrete mood, driven by the `moods` section of the performance vocabulary (D12). Each mood entry declares its PAD region, so the mapping is avatar data, not code. The default regions are Mehrabian octants relative to the configured PAD baseline:
+
+    | Octant | Mood |
+    |---|---|
+    | +P +A (any D: exuberant / dependent) | `happy` |
+    | +P −A +D (relaxed) | `happy` |
+    | +P −A −D (docile) | `love` |
+    | −P +A +D (hostile) | `angry` |
+    | −P +A −D (anxious) | `fear` |
+    | −P −A +D (disdainful) | `disgust` |
+    | −P −A −D (bored) | `sad` |
+
+    - **Dead-zone.** If the Euclidean distance from the baseline is < 0.25, the mood is `neutral`.
+    - **`sleep`** is never produced by the mapping. It closes the eyes and has no conversational use.
+  - **Change detection on the mapped state, with hysteresis.**
+    - A new category is adopted only when the PAD point lies ≥ 0.1 inside that category's region (and outside the dead-zone by ≥ 0.05 to leave `neutral`).
+    - The candidate category must persist for a 5 s minimum dwell before it is adopted.
+    - `Mood(state)` is sent only when the adopted discrete state changes. Raw PAD decay never produces messages by itself.
+  - **When mood is sampled:** after each cognition tick, after each `recordInteraction`, and on `TurnComplete`.
+  - **LLM in this configuration:** not prompted for mood. Any `[mood:…]` it emits is stripped, and no `MoodCue` is sent. It still sees cognition's mood through the neocortex prompt renderers, so its wording and the face agree.
+- **No cognition, or cognition with mood disabled** (`core.mood()` absent, so `providesAffect()` is false). The LLM owns mood:
   - Moods are prompted from the vocabulary's `moods` section (D12) with descriptions, and validated against it.
   - Each `[mood:x]` becomes a **turn-scoped** `MoodCue(x, offsetMs)`. It applies at its offset and lasts until the turn's playback completes plus a hold (default 3 s). The face then returns to the session baseline (`neutral`).
   - A mood never persists across turns implicitly.
@@ -492,16 +563,21 @@ If all three hold, the custom audio queue and viseme rAF loop are deleted, and g
 
 **Alternatives:**
 - An LLM `MoodCue` with no lifecycle (round-1 text). Rejected: one `[mood:sad]` would persist for the rest of the session, and it competes with cognition's mood model. That is two owners of one channel, the class of defect fixed for attention in D8.
+- Decide ownership per call from `Optional` presence (round-2 text: "if the adapter can read mood state … otherwise the next rule applies"). Rejected: the state is created lazily, so ownership would flip from LLM to cognition at the first mood signal mid-session. Ownership is a configuration fact.
+- Send raw PAD to the client and map there. Rejected: the mapping and its hysteresis are policy, and they belong next to the vocabulary validation on the server. It would also make every client re-implement them.
+- Map PAD inside `CognitionAvatarAdapter` to TalkingHead names. Rejected: that hard-codes one renderer's mood set into agency-core. The PAD regions are avatar data in the vocabulary.
+- Nearest-prototype mapping (a PAD point per mood, pick the nearest). A viable alternative, but rejected for now: octants with a dead-zone are standard (Mehrabian), cheap to reason about, and make hysteresis margins well-defined at region boundaries. The vocabulary's per-mood region field can carry prototypes later without a protocol change.
 - No mood at all without cognition. Rejected: TalkingHead mood is a cheap, visible affect channel, and with a turn scope and a vocabulary the LLM is a reasonable owner when nothing better exists.
 - Reclassify LLM mood as a transient expression cue through the D6 compositor. Rejected: TalkingHead mood also drives idle face behaviour (eyes, blink cadence) beyond blendshape offsets. Expression curves cover gesture-local affect; mood is the turn or session baseline.
-**Rationale:** A persistent state needs one owner and a lifecycle. Cognition is the natural owner when it computes affect. Otherwise the LLM owns it per turn, with explicit decay.
+**Rationale:** A persistent state needs one owner and a lifecycle. Cognition computes affect continuously, so it owns mood whenever it is configured to. Otherwise the LLM owns it per turn, with explicit decay. Discrete display needs an explicit mapping, and change detection on the mapped state, or the face flaps as PAD decays across a boundary.
 **Trade-offs:**
-- A `Mood` message and a mood accessor on `AvatarCognition`.
-- The turn-scoped hold is a tunable heuristic.
-**Sources:** agency-core CircuitBreakerMoodMapper → neocortex MoodSignal; built index.html L199–221 (TalkingHead moods, detectMood); TalkingHead `setMood`
-**Exploration:** surfaced in review (R2-04)
-**Depends on:** D2, D3, D12, D17
-**Status:** captured (round 2)
+- A `Mood` message, `providesAffect`/`currentAffect` on `AvatarCognition`, and an `Affect` record in speech-api.
+- Hysteresis margins, dwell time, dead-zone radius and the turn-scoped hold are tunables (`AvatarConfig`).
+- Octants are coarse: `love` vs `happy` is decided by dominance alone.
+**Sources:** neocortex `MoodOrchestrator.currentMood(agentId, tenantId)` → `Optional<MoodState>` (PAD in [-1, 1], lazy state creation); `CognitionCore.mood()` (agentic-yaml test CognitionStack L474); agency-core CircuitBreakerMoodMapper → MoodSignal; Mehrabian PAD octants; built index.html L199–221 (TalkingHead moods, detectMood); TalkingHead `setMood`
+**Exploration:** surfaced in review (R2-04), revised (R3-03)
+**Depends on:** D2, D3, D12
+**Status:** revised (round 3, R3-03: in-repo cognition mood, PAD mapping, hysteresis, configuration-fixed ownership)
 
 ## D17: Cross-repo sequencing
 
@@ -509,31 +585,31 @@ If all three hold, the custom audio queue and viseme rAF loop are deleted, and g
 1. **#458 lands via `work-end`** (D1).
 2. **Connectors peer issue lands first.** Mark timing in `casehub-connectors-voice-spi`: `TextMark`/`MarkTiming`, `MarkTimingEnricher`, and the VITS guarded-exact implementation (D4). #457 **blocks** on it. It is small and well-bounded, and the alternative is an interim timing shim in the wrong layer.
 3. **#457 ships everything else in-repo:**
-   - segmenter, consumer forms and turn serialisation (D2, D9, D10);
-   - protocol (D3);
+   - segmenter, consumer forms, turn serialisation and the capture/turn split (D2, D9, D10);
+   - protocol, including the client→server contract (D3);
    - client floor, layers and face compositor (D5, D11, D13, D6, D14);
    - performance vocabulary and SPI (D12);
-   - `DefaultPromptAssembler` section composition and the gesture section (D7);
+   - `PromptContext`-parameterised assemblers, `DefaultPromptAssembler` section composition and the gesture section (D7);
    - opt-in `SilenceAttentionPolicy` (D8);
-   - LLM-owned turn-scoped mood (D16);
+   - **cognition-owned mood via `currentAffect`, and LLM-owned turn-scoped mood (D16)**;
    - adherence logging (D15).
 4. **Neocortex peer issue lands behind #457** (non-blocking). It adds:
    - caller-supplied prompt sections for proactive speech (D7);
    - a non-verbal proactive outcome (D8);
-   - a mood accessor if one does not already exist (D16).
+   - delivery feedback for proactive initiations dropped at dequeue (D10).
 
-   The agency follow-up then widens `AvatarCognition` (`ProactiveAct`, `currentMood`) when each producer exists.
+   The agency follow-up then widens `AvatarCognition.evaluateProactive` to `ProactiveAct` once that producer exists. The mood accessor is no longer part of this issue: it already exists (D16).
 
    **Interim behaviour (cognition configured):**
    - proactive speech without gestures;
    - no non-verbal attention bids;
-   - LLM-owned turn-scoped mood.
+   - mood is cognition-owned if cognition mood is enabled, otherwise LLM-owned and turn-scoped.
 **Alternatives:**
 - Block #457 on neocortex too. Rejected: neocortex's changes need cognition-design work (inner-life decision variants). The interim behaviour is degraded but correct, not a workaround: absent capabilities, not fake ones.
 - Interim connectors shim inside `speech-ws`. Rejected (D4).
 - Do everything in one cross-repo branch set. Rejected: per-issue landing (D1 rationale).
-**Rationale:** The dependency direction is fixed by the code. Mark timing is an SPI that #457 consumes. The proactive and mood changes need decisions made inside neocortex, which agency must not fake.
-**Trade-offs:** #457 starts only after the connectors change lands. Cognition configurations reach full parity only after the neocortex follow-up.
-**Sources:** casehub-connectors-voice-spi (SynthesisOptions/Result); CognitionAvatarAdapter → neocortex ProactiveSpeechSupport; round-1 human decision (`skip`)
-**Exploration:** surfaced in review (R2-03)
-**Status:** captured (round 2), awaiting human confirmation together with D15's scope removal
+**Rationale:** The dependency direction is fixed by the code. Mark timing is an SPI that #457 consumes. The proactive changes need decisions made inside neocortex, which agency must not fake. Mood needs no neocortex change, because its producer is already readable.
+**Trade-offs:** #457 starts only after the connectors change lands. Cognition configurations reach full proactive parity only after the neocortex follow-up.
+**Sources:** casehub-connectors-voice-spi (SynthesisOptions/Result); CognitionAvatarAdapter → neocortex ProactiveSpeechSupport; neocortex MoodOrchestrator; human decisions rounds 1 and 2 (`skip`)
+**Exploration:** surfaced in review (R2-03); endorsed by the reviewer on the merits (round 3)
+**Status:** revised (round 3, R3-03: mood accessor removed from the neocortex issue; dequeue-drop feedback added). Decided in round 3: the human was asked to confirm this sequencing in rounds 1 and 2 and answered `skip` both times, so the reviewed recommendation is adopted as the decision. The human can override it at any time before implementation planning.
