@@ -613,3 +613,157 @@ If all three hold, the custom audio queue and viseme rAF loop are deleted, and g
 **Sources:** casehub-connectors-voice-spi (SynthesisOptions/Result); CognitionAvatarAdapter → neocortex ProactiveSpeechSupport; neocortex MoodOrchestrator; human decisions rounds 1 and 2 (`skip`)
 **Exploration:** surfaced in review (R2-03); endorsed by the reviewer on the merits (round 3)
 **Status:** revised (round 3, R3-03: mood accessor removed from the neocortex issue; dequeue-drop feedback added). Decided in round 3: the human was asked to confirm this sequencing in rounds 1 and 2 and answered `skip` both times, so the reviewed recommendation is adopted as the decision. The human can override it at any time before implementation planning.
+
+---
+
+## TalkingHead Fork Decisions (D18–D24)
+
+These decisions revise the client-side architecture by forking TalkingHead with clean extension points, replacing the workaround-based approach in D14/D6/D11.
+
+## D18: Fork approach — clean extension points for upstream contribution
+
+**Choice:** Fork met4citizen/TalkingHead into casehubio/TalkingHead. Add four clean extension points designed as proper abstractions that benefit all TalkingHead users, not CaseHub-specific hacks. The fork is a staging ground for upstream PRs. If met4citizen accepts them, the fork dissolves. If not, we maintain a thin overlay that tracks upstream releases.
+
+The four extension points (D20–D23): bone ownership with canonical names, ordered morph layer registry, external mixer registration, and lifecycle events via EventTarget.
+
+**Alternatives:**
+- Minimal fork — quick hooks only (bare `if (excluded)` guards and a post-morph callback). Rejected: works but feels grafted on, unlikely to be accepted upstream.
+- Deep fork — restructure TalkingHead internals. Rejected: too invasive, can't track upstream, too much work for temporary divergence.
+- Wrapper, not fork — use existing API (`opt.update(dt)`, `setFixedValue`, `avatarOnly`). Rejected: source analysis confirmed `updateMorphTargets` runs AFTER `opt.update(dt)` so morph writes are clobbered, and `updatePoseBase` overwrites all bones every frame with no opt-out. The existing hooks are genuinely insufficient.
+**Rationale:** The verified frame order (`updatePoseBase` → `mixer.update` → `updatePoseDelta` → dynamic bones → `opt.update(dt)` → `updateMorphTargets` → render) means external systems cannot compose with TalkingHead through its current API. Bones are written before the hook; morphs are written after. Clean extension points solve this for everyone, not just CaseHub, and align with the IDEAS.md goal of contributing the body animation system upstream.
+**Trade-offs:** Maintaining a fork until upstream accepts. The extension points are non-breaking additions — existing TalkingHead users see no change — but they require understanding TalkingHead's internals to implement correctly.
+**Sources:** TalkingHead 1.8 source (`animate()` frame order); IDEAS.md (upstream contribution); D14 (render loop workaround); D6 (face compositing workaround)
+**Exploration:** deep-analysis (source code analysis via subagent + README API review)
+**Status:** captured
+
+## D19: Distribution — vendored local file, checked into agency repo
+
+**Choice:** Vendor the built `talkinghead.mjs` from the casehubio fork into `speech-demo/src/main/resources/META-INF/resources/vendor/talkinghead.mjs`. Check it into the agency repo. Update the import map from the jsdelivr CDN URL to `"talkinghead": "./vendor/talkinghead.mjs"`. No CI changes, no npm publishing, no build chain modifications.
+
+When upstream accepts the PRs: revert the import map URL to the upstream CDN path and delete the vendor file. If external consumers need the fork before upstream accepts, they can point their import map at `cdn.jsdelivr.net/gh/casehubio/TalkingHead@<tag>/modules/talkinghead.mjs` — jsdelivr serves any public GitHub fork automatically.
+
+**Alternatives:**
+- jsdelivr from GitHub tag as primary distribution. Rejected for now: adds a tag-management workflow. The vendored file is simpler for a temporary arrangement.
+- npm publish under `@casehub` scope. Rejected: adds npm publishing overhead for something intended to be temporary.
+- Gitignore + document copy step. Rejected: adds dev setup friction and "why isn't the avatar loading" FAQ.
+- Git submodule. Rejected: submodules add clone friction (`--recursive`, `submodule update`) and complicate future CI.
+**Rationale:** The fork is intended to be temporary — a staging ground for upstream PRs. Vendoring a single JS file is the lightest approach that "just works" on clone. No infrastructure to build or tear down.
+**Trade-offs:** ~200KB JS file in git. Must manually re-vendor when the fork changes. Acceptable for a temporary arrangement.
+**Sources:** jsdelivr GitHub CDN documentation; current import map in index.html L11
+**Exploration:** quick (web search + analysis)
+**Status:** captured
+
+## D20: Bone ownership — canonical bone vocabulary with rig mappings
+
+**Choice:** TalkingHead gains a canonical bone vocabulary — rig-agnostic names (`hips`, `spine`, `spine1`, `neck`, `head`, `leftShoulder`, `leftUpperArm`, `leftHand`, `leftIndexProximal`, etc.) with mappings to actual bone names per rig convention (Mixamo, RPM, VRM). External systems claim bones by canonical name:
+
+```javascript
+head.claimBones(['spine', 'spine1', 'spine2', 'hips',
+                 'leftUpperArm', 'rightUpperArm', ...]);
+head.releaseBones(['spine', 'spine1']);
+```
+
+Convenience groups expand to canonical names:
+```javascript
+head.claimBoneGroup('body');  // → spine + hips + arms + legs
+head.claimBoneGroup('hands'); // → all finger bones
+head.releaseBoneGroup('body');
+```
+
+TalkingHead's `updatePoseBase` and `updatePoseDelta` skip claimed bones. The canonical vocabulary is the primitive; groups are sugar.
+
+**Alternatives:**
+- Bone group mask only (coarse-grained predefined groups). Rejected: not fine-grained enough — some users may want to claim specific bones (e.g., one arm for IK) while TalkingHead animates the rest.
+- Per-bone set with raw rig names. Rejected: brittle across avatar rigs — Mixamo uses `mixamorig:Spine`, RPM uses `Spine`, VRM uses different conventions. Callers would need rig-specific code.
+- Callback filter per bone per frame. Rejected: per-bone function call overhead every frame, and the predicate would still need rig-specific bone names.
+**Rationale:** Different avatar rigs use different bone naming conventions. A canonical mapping layer solves a real cross-rig problem for all TalkingHead users, not just CaseHub. TalkingHead already does implicit rig mapping internally — this formalizes it as a first-class concept. Fine-grained per-bone with convenience groups gives maximum flexibility without requiring rig knowledge from callers.
+**Trade-offs:** Defining and maintaining the canonical vocabulary and rig mappings. Discovering a new rig convention requires adding a mapping.
+**Sources:** TalkingHead source `updatePoseBase`/`updatePoseDelta`; Mixamo/RPM/VRM bone naming conventions; D14 (body bone ownership)
+**Exploration:** deep-analysis
+**Depends on:** D18
+**Status:** captured
+
+## D21: Morph write pipeline — ordered layer registry
+
+**Choice:** TalkingHead gains an ordered morph layer registry. Each layer has a name, an ordinal, and a blend mode (`replace`, `additive`, `max`). TalkingHead registers its own writers (blink, mood, visemes, eyes) as layer 0. External systems register additional layers at higher ordinals:
+
+```javascript
+head.registerMorphLayer('gestureExpressions', {
+  order: 10,
+  blend: 'additive',
+  channels: ['browDownLeft', 'mouthFrownLeft', ...],
+  update: (dt, influences) => { /* write to influences */ }
+});
+```
+
+The pipeline runs all layers in declared order. Each layer writes to named morph channels. The `additive` blend mode adds to the current value and clamps to [0,1]. The `replace` mode overwrites. This replaces the per-frame compositor hack from D6/D14 with a first-class concept inside TalkingHead.
+
+**Alternatives:**
+- Single post-morph callback (`opt.postMorphUpdate`). Rejected: single-consumer — only one listener. No ordering contract between multiple consumers.
+- Channel claim (like bones). Rejected: pure ownership split prevents composition. We want visemes AND expression curves on the same channels (additive blending), not exclusive ownership.
+**Rationale:** Face compositing is fundamentally about ordered, blended layers — TalkingHead's blink/mood/eyes, then visemes, then gesture expressions. The existing `updateMorphTargets` hardcodes one layer. The registry makes it N layers, composable, and each layer's blend mode is explicit. This is the D6/D14 face compositor, promoted from a workaround in `scene.onBeforeRender` to a TalkingHead-native concept.
+**Trade-offs:** Layer registry adds complexity to TalkingHead's render loop. The ordering contract must be documented clearly.
+**Sources:** TalkingHead source `updateMorphTargets` (frame order); D6 (expression curve compositing); D14 (face compositor via onBeforeRender)
+**Exploration:** deep-analysis
+**Depends on:** D18
+**Status:** captured
+
+## D22: Animation integration — register external mixers
+
+**Choice:** TalkingHead accepts external `AnimationMixer` registrations with an update contract and bone claims:
+
+```javascript
+head.registerMixer(bodyMixer, {
+  priority: 10,
+  boneClaim: ['spine', 'spine1', 'spine2', 'hips',
+              'leftUpperArm', 'rightUpperArm', ...]
+});
+```
+
+TalkingHead calls `mixer.update(dt)` in its frame loop at the correct point (after its own pose updates, before morph writes). The `boneClaim` is shorthand for `claimBones()` — the mixer's bones are claimed when registered and released when unregistered. TalkingHead's internal pose system and the external mixer coexist: each owns its claimed bones.
+
+This replaces the separate `tickBody` rAF loop in the demo (which creates ordering indeterminacy between two independent animation loops) with a single coordinated frame step.
+
+**Alternatives:**
+- Bone claim alone (run our mixer in `opt.update(dt)`). Rejected: `opt.update(dt)` runs after `updatePoseDelta` and before `updateMorphTargets`. With bone claims, our bone writes would stick, but the mixer update timing would be ad-hoc — it runs at the wrong point in the frame relative to TalkingHead's own mixer and dynamic bones.
+- GLB support in `playAnimation`. Rejected: doesn't support our layered base+gesture logic (D11). We need our own mixer with our own arbitration rules.
+**Rationale:** External animation is a first-class use case for TalkingHead (Mixamo FBX is already supported). GLB animation from an external mixer is the same concept with a different loader. Coordinating the update timing in one frame loop eliminates the ordering bugs that two independent rAF loops create.
+**Trade-offs:** TalkingHead becomes responsible for calling external mixer updates, which couples their lifecycles.
+**Sources:** TalkingHead source `animate()` frame order; index.html L648-652 (separate `tickBody` rAF loop); D11 (layered base+gesture); D14 (render loop)
+**Exploration:** deep-analysis
+**Depends on:** D18, D20
+**Status:** captured
+
+## D23: Lifecycle events — EventTarget / addEventListener
+
+**Choice:** TalkingHead extends `EventTarget` (or mixes it in) and dispatches standard DOM events at state transitions:
+
+- `statechange` — idle, speaking, listening, animating (with `detail: { from, to }`)
+- `moodchange` — with `detail: { mood, previous }`
+- `audiostart` / `audioend` — per utterance
+
+Standard DOM event pattern — familiar to web developers, composable with `AbortController`, multi-consumer by design.
+
+**Alternatives:**
+- Callback options (`opt.onStateChange`, etc.). Rejected: single-consumer, matches the existing `opt.update` pattern but doesn't compose for multiple listeners.
+- Skip lifecycle events. Rejected: while #457's client knows state from protocol messages, lifecycle events are genuinely useful for all TalkingHead consumers — anyone driving an avatar from external audio needs to know when playback starts/ends.
+**Rationale:** EventTarget is the standard web platform mechanism for observable state. TalkingHead already has internal state transitions that consumers need to observe (the streaming API has `onAudioStart`/`onAudioEnd` callbacks, but only for streaming sessions). Promoting these to EventTarget unifies the observation model.
+**Trade-offs:** EventTarget adds a small API surface. The state machine must be documented precisely.
+**Sources:** TalkingHead source (internal state transitions); DOM EventTarget specification; `streamStart` callbacks (existing per-session observation)
+**Exploration:** quick
+**Depends on:** D18
+**Status:** captured
+
+## D24: Issue scope — separate issue for the TalkingHead fork
+
+**Choice:** Create a new agency issue for the TalkingHead fork work (casehubio/TalkingHead repo setup + four extension points + vendored build). #457 depends on it. The fork issue produces the vendored `talkinghead.mjs` with the extension points; #457 consumes it.
+
+**Alternatives:**
+- Fold into #457. Rejected: the fork work is independently reviewable and the per-issue-landing convention means each issue gets its own landing SHA.
+- Separate issue per extension point. Rejected: maps well to upstream PRs but adds overhead for the agency side. The four extension points are cohesive — they're one "make TalkingHead composable" change.
+**Rationale:** The fork is a prerequisite with its own review scope (JavaScript changes in a different repo). Keeping it separate from #457 (Java + JavaScript integration work in agency) makes both reviewable independently.
+**Trade-offs:** One more issue to manage. The fork issue must land (or at least produce the vendored file) before #457 implementation starts.
+**Sources:** working-style branch-closure convention; D1 (per-issue landing rationale)
+**Exploration:** quick
+**Depends on:** D18
+**Status:** captured
