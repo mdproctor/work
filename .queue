@@ -1,18 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/agency
-status: active
-covers: 
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
-active-issue: #494
-
-## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -31,10 +16,21 @@ active-issue: #494
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
 - [x] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
 - [x] casehubio/agency#493 — PersonalityEvolutionConfig compile failures
-- [ ] casehubio/agency#494 — CognitionStack constructor verification ← done on issue-494-cognitionstack-constructor-verification
+- [x] casehubio/agency#494 — CognitionStack constructor verification
 - [x] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
 - [x] casehubio/agency#490 — Adopt unified prompt assembly from eidos-api
-- [ ] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing ← done on issue-500-speech-demo-ensureqwen3sharedlibrary
-- [ ] casehubio/agency#501 — consumer-guide stale cognition references ← done on issue-501-consumer-guide-stale-cognition-refs
-- [ ] casehubio/agency#502 — contributor-guide-stale-cognition-refs
+- [x] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing
+- [x] casehubio/agency#501 — consumer-guide stale cognition references
+- [ ] casehubio/agency#502 — contributor-guide-stale-cognition-refs        ← active
 - [ ] casehubio/agency#503 — post-extraction-debris-sweep
+
+## State
+branch: 
+issue-repo: casehubio/agency
+status: active
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
+active-issue: #494
