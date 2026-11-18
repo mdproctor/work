@@ -1,11 +1,11 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-1119-hygiene-adaptation-phase
 issue-repo: casehubio/neocortex
 status: active
-covers: 
-active_ref: 
+covers: 1119
+active_ref: casehubio/neocortex#1119
 
 ## Queue
 - [ ] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
