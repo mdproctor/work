@@ -34,3 +34,5 @@ active-issue: #490
 - [ ] casehubio/agency#494 — CognitionStack constructor verification
 - [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
 - [ ] casehubio/agency#490 — Adopt unified prompt assembly from eidos-api
+- [ ] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing
+- [ ] casehubio/agency#501 — consumer-guide stale cognition references
