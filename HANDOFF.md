@@ -1,75 +1,75 @@
 # HANDOFF — casehub-neocortex
 
-## Last Session
+## Active Branch
 
-Completed three issues in one session — the memory hygiene migration plus two immediate follow-ups. All landed on main, published to origin.
+`issue-1136-speech-pipeline-integration` — scaffolded with empty plan commit, ready for implementation.
 
-**#1115 — Receive memory hygiene implementation from agency#447** (M/Med)
+## Issue: casehubio/neocortex#1136
 
-- 11 types in cognition-api: 4 SPIs (`ConfidenceScorer`, `ConsolidationSummariser`, `IntegrityChecker`, `SemanticIntegrityChecker`) + 7 value types (`RetentionConfig`, `RetentionScore`, `HygieneEvent`, `HygieneTick`, `MaintenanceTick`, `IntegrityViolation`, `ViolationType`)
-- 8 implementations in cognition: `MemoryHygieneOrchestratorImpl`, `MemoryHygieneScheduler`, `ArousalScorer`, `SurpriseScorer`, `CompositeConfidenceScorer`, `WeightedScorer`, `DefaultIntegrityChecker`, `NoOpSemanticIntegrityChecker`, `NoOpConsolidationSummariser`
-- 5 default bean producers in `CognitionDefaultBeans`
-- Design spec + implementation plan in workspace
+Three additions enabling richer avatar behaviour when cognition is configured. None blocking — agency#457 ships with degraded-but-correct interim for each.
 
-**#1121 — Code review cleanups** (S/Low)
+### 1. Caller-supplied prompt sections for proactive speech
 
-- Striped lock array (16 stripes) replacing unbounded `ConcurrentHashMap<String, ReentrantLock>`
-- Canonical `Subject.of("memory", entityId)` replacing deprecated 4-arg `EraseRequest`
-- O(n) `Set<String>` lookup replacing O(n²) stream scan for survivor filtering
+**Where:** `cognition/.../prompt/ProactiveSpeechSupport.java` (30 lines)
 
-**#1120 — LLM-backed ConsolidationSummariser** (S/Low)
+`evaluateProactive(channelContext)` builds its own prompt. The speech pipeline can't inject gesture instructions. Fix: accept `List<CognitionPromptRenderer>` that gets appended to the proactive prompt.
 
-- `LlmConsolidationSummariser` using `SessionPipeline` with `ClearingPolicy.EVERY_CALL`
-- CDI producer auto-selects LLM when `SessionPipeline` available, NoOp otherwise
-- Enables the consolidation path in `MemoryHygieneOrchestratorImpl` — previously dead under NoOp
+Thread sections through `InnerLifeOrchestrator.tick()` → `doTick()` into the LLM call. The system prompt is a constant `SYSTEM_PROMPT` string — additional sections need appending.
 
-**Key design decisions:**
+**Key files:**
+- `cognition-api/.../CognitionPromptRenderer.java` — the SPI (render + blockTag + sectionTier)
+- `cognition/.../prompt/ProactiveSpeechSupport.java` — entry point
+- `cognition/.../innerlife/InnerLifeOrchestrator.java` — `tick()` and `doTick()`
 
-- Evolution types (11 files) excluded — they implement agency-specific SPIs. Tracked in #1119 for a neocortex-native consolidation phase approach.
-- Agency's `ReflectionStore` replaced by existing neocortex `ReflectionOrchestrator` — no capability lost.
-- Agency's `ContentSummariser` replaced by `ConsolidationSummariser` SPI — simpler text-in/text-out contract.
+### 2. Non-verbal proactive outcome (InnerLifeTick.NonVerbal)
 
-**Tests:** 30 across 5 test files, full cognition module (1196 tests) green.
+**Where:** `cognition-api/.../innerlife/InnerLifeTick.java`
 
-**Blog:** "The Migration That Needed a Scalpel" — revised with follow-up sections on the cleanups and LLM summariser.
+Currently sealed: `Silent` + `Initiated`. Add `NonVerbal(String tag)` for attention bids via gesture.
 
-## Issues Filed This Session
+`InnerLifeOrchestrator.doTick()` decides Initiated/Silent based on LLM score + drive state. Non-verbal path needs drive-based decision logic (e.g. high affiliation drive + silence duration → knock gesture).
 
-| # | Title | Scale | Complexity | Status |
-|---|-------|-------|------------|--------|
-| #1119 | Memory hygiene parameter adaptation via consolidation phase | M | Med | Open — scheduled in queue |
-| #1120 | LLM-backed ConsolidationSummariser implementation | S | Low | **Closed** |
-| #1121 | Memory hygiene: tickLocks + EraseRequest + filter | S | Low | **Closed** |
+`ProactiveSpeechSupport.evaluateProactive()` switch needs the new case.
 
-## Also This Session — CognitiveLifecycle follow-ups
+### 3. Delivery feedback for dropped proactive turns
 
-**#1111 — Defensive tag fallback** (XS/Low) — `getSimpleName()` returns `""` for anonymous classes; falls back to `getName()`. Landed as `46705bb8`.
+**Where:** `cognition/.../innerlife/InnerLifeOrchestrator.java`
 
-**#1110 — Salience computation** (S/Low) — `CognitionPromptRenderer` gains `default SectionTier sectionTier()`. `contributeBlocks()` maps CORE→1.0, CONTEXTUAL→0.6, SUPPLEMENTARY→0.3, null→0.5. Landed as `00cc4281`.
+New method: `reportDropped(agentId, turnId, Instant userActivityAt)`. When TurnExecutor drops a stale proactive turn, this tells neocortex so inner-life state doesn't assume delivery.
 
-Both from #1105 (CognitiveLifecycle SPI, landed earlier this session).
+`AgentState` tracks `consecutiveInitiationsWithoutResponse` — a dropped turn should decrement the initiation count or be treated as not-sent.
+
+### Design reference
+
+Full design in agency `specs/issue-457-integrate-m2m-animation-library/decisions.md` D7, D8, D10, D17.
+
+## Queue
+
+| # | Issue | Title | Scale | Complexity | Status |
+|---|-------|-------|-------|------------|--------|
+| 1 | #1119 | Memory hygiene parameter adaptation via consolidation phase | M | Med | queued |
+| 2 | #1132 | Implement LivedDispositionSource | S | Low | queued |
+| 3 | #1135 | Extend bridge to compose AMPD facets | S | Med | queued |
+| 4 | #1136 | Speech pipeline integration | M | Med | **active** |
+
+## This Session
+
+- Reviewed eidos design for `DispositionProfileStore` — identified double-composition risk in `EffectiveCognitiveDefaults` and lossy projection of three-channel facet model
+- Eidos revised to `LivedDispositionSource` read-only SPI with authored-as-parameter signature (eidos#245, landed)
+- Filed neocortex#1132 (implement LivedDispositionSource) and #1135 (facet composition extension)
+- Closed eidos#235 as superseded by #245
+- Fixed stale references on #1135
+- Cleaned queue: removed 11 stale done items (#882-#888, #1121, #1120, #1110, #1111)
+- Scaffolded #1136
 
 ## Cross-Repo State
 
 | Repo | Issue | Status |
 |------|-------|--------|
-| eidos | #240 | **Landed** — `AssembledPrompt.model` field |
-| neocortex | #1105 | **Closed** — CognitiveLifecycle SPI |
-| neocortex | #1115 | **Closed** — Memory hygiene received |
-| neocortex | #1110, #1111 | **Closed** — Salience + tag fallback |
-| agency | #447 | **OPEN** — Move remaining cognitive code (memory hygiene landed in neocortex; evolution types excluded, tracked in #1119) |
-| agency | #490 | **OPEN** — Adopt CognitiveLifecycle, delete dead speech-api types. Blocked by #447 |
-
-## Immediate Next Step
-
-Queue has remaining items including #887 (Image capture), #888 (Captcha inbox), #1119 (hygiene adaptation), #1110 (closed), #1111 (closed). Agency#447 is unblocked and ready for a fresh session.
-
-## References
-
-- `specs/issue-1115-receive-memory-hygiene/2026-11-18-receive-memory-hygiene-design.md` — design spec
-- `plans/2026-11-18-receive-memory-hygiene.md` — implementation plan
-- `blog/2026-11-18-mdp10-the-migration-that-needed-a-scalpel.md` — diary entry
-- `blog/2026-11-18-mdp09-the-interface-that-was-already-there.md` — CognitiveLifecycle diary
-- `specs/issue-1105-unify-prompt-assembly/2026-11-18-unify-prompt-assembly-design.md` — prompt unification spec
-- casehubio/agency#447 — parent migration issue
-- casehubio/agency#490 — blocked downstream (adopt CognitiveLifecycle)
+| eidos | #245 | **Landed** — LivedDispositionSource SPI + findEffective() |
+| eidos | #235 | **Closed** — superseded by #245 |
+| eidos | #243 | Parked — convenience model assembler not needed |
+| neocortex | #1132 | **Open** — implement LivedDispositionSource (unblocked) |
+| neocortex | #1135 | **Open** — extend bridge for AMPD facets (depends on #1132) |
+| neocortex | #1136 | **Open, active** — speech pipeline integration |
+| agency | #457 | **Open** — speech pipeline (ships without #1136 changes) |
