@@ -71,15 +71,35 @@ Ported D7 prompt composition to eidos-api types. `GesturePromptSection` became a
 - casehubio/connectors#303 (CLOSED) — TextMark/MarkTiming in voice-spi
 - casehubio/neocortex#1136 (CLOSED) — Proactive prompt sections, non-verbal outcomes
 
-### Follow-up issues filed (8 items in queue)
+### What this session delivered — Integration batch (#505-#512)
 
-| # | Title | Priority |
-|---|-------|----------|
-| #505 | Remove dead protocol types (Response, Phonemes, Animation, Timing) | XS — cleanup |
-| #506 | Adopt speakAudio for viseme rendering (lips frozen) | M — avatar quality |
-| #507 | Streaming TTS early PlaybackComplete (shared segmentIndex) | S — correctness |
-| #508 | Add type discriminator to Cue serialization | XS — robustness |
-| #509 | Audio-duration-aware turn expiry (not fixed 5s) | S — correctness |
-| #510 | Face compositing — morph layer registry for expression curves (D6) | M — avatar quality |
-| #511 | Mood ownership — cognition PAD mapping + LLM turn-scoped (D16) | M — feature |
-| #512 | Mark timing — gesture stroke sync with TTS word onsets (D4) | M — feature |
+All 8 follow-up issues from Batch 3 completed and closed. 10 commits on main, 183 tests passing.
+
+**Protocol cleanup (#505):** Removed dead `Response`, `Phonemes`, `Animation`, `Timing` message types — records, codec cases, tests. Updated CLAUDE.md protocol listing.
+
+**Lip sync (#506):** Adopted TalkingHead's `speakAudio()` for viseme rendering. Converts `VisemeFrame` format to flat arrays (`visemes[]`, `vtimes[]`, `vdurations[]`). Gesture/mood cues route as timed marker callbacks. Custom `playQueue` retained as fallback for audio-only mode.
+
+**Streaming race fix (#507):** `isFinal` flag in binary frame header byte 1 prevents early `PlaybackComplete` with streaming TTS. One-behind buffer on server ensures only last chunk carries `isFinal=1`. Client gates segment completion on final chunk in both speakAudio and fallback paths.
+
+**Cue type safety (#508):** Explicit `"type"` discriminator in Cue JSON serialization (`"gesture"` / `"mood"`). Client checks `cue.type` instead of field presence.
+
+**Duration-aware expiry (#509):** Turn expiry tracks cumulative estimated audio duration (`chars x 80ms`). Formula: `completedAt + totalAudioMs / minPlaybackRate + 5s`. `minPlaybackRate` configurable via `casehub.avatar.min-playback-rate` (default 0.6).
+
+**Face compositing (#510):** Morph target tracks extracted from GLB clips at load time, converted to named expressions via reverse `morphTargetDictionary`, filtered to expression allow-list. `gestureExpressions` morph layer registered via TalkingHead D21 registry with additive blending. Expression weights follow gesture ducking.
+
+**Mood ownership (#511):** Two paths per D16. Cognition: `AvatarCognition.currentAffect()` → `MoodMapper` PAD→discrete with dead-zone/hysteresis/dwell. LLM: turn-scoped `MoodCue` with 3s decay. Client priority: turn override > baseline > neutral.
+
+**Mark timing (#512):** `Cue` records gain `charOffset` from segmenter tag positions. `TurnExecutor` builds `TextMark` entries, passes to `SynthesisOptions.marks`, applies `MarkTiming` from TTS result. Client computes `trigger = max(0, offsetMs - strokeMs - 150)`.
+
+**Review fixes:** Streaming cue dedup (visemes/cues attached only to first chunk per segment). Morph layer lifecycle (unregister on bodyAnim dispose).
+
+**Blog:** "The protocol that couldn't feel" — protocol correctness vs experiential completeness.
+
+### Follow-up issues filed (4 items in queue)
+
+| # | Title | Scale | Complexity |
+|---|-------|-------|------------|
+| #513 | MoodMapper dead-zone-to-null transition lacks dwell | XS | Low |
+| #514 | Streaming TTS mark timing — word-boundary fallback | S | Med |
+| #515 | Verify WebSocket thread safety for concurrent sends | XS | Low |
+| #516 | MorphTargetInfluences regex — support named targets | XS | Low |
