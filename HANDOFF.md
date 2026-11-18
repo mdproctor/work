@@ -35,38 +35,44 @@ All 23 original poses addressed. 68 animations in `m2m-animations.glb`.
 
 **Multi-listed clips:** dab (positive + self-amusing), clapping (agreement + positive), knock (emphasis + attention), dance-simple/dance-arm-pump (dance + positive)
 
-## Next Issue — #457 Integrate M2M animations with TalkingHead
+## Active — #457 Integrate M2M animations with TalkingHead
 
-**Status:** OPEN, scaffolded, ready for next session
+**Status:** OPEN — design and planning complete, ready for implementation
+**Branch:** `issue-457-integrate-m2m-animation-library` (empty — needs rebase after #458 lands)
 
-### What exists
+### Design completed (17 decisions, 3 adversarial review rounds)
 
-- `body-animations.mjs` has the complete playback system: taxonomy, pool selection (speaking/idle), gesture tag resolution (40+ mappings), keyword fallback (10 patterns), crossfade, head bone exclusion
-- All 68 clips tested in animation-test.html
+Full spec: `specs/issue-457-integrate-m2m-animation-library/2026-11-18-m2m-animation-integration-design.md`
+Full decisions: `specs/issue-457-integrate-m2m-animation-library/decisions.md`
+Implementation plan: `plans/2026-11-18-m2m-animation-integration.md` (14 tasks, 7 batches)
 
-### What needs building
+### Architecture summary
 
-1. **Speaking-state wiring** — connect TalkingHead speech start/stop to speaking/idle pool switching
-2. **LLM gesture tag parsing** — extract `[gesture:tag]` from response text, route to GESTURE_MAP, trigger clip
-3. **Keyword fallback** — scan responses without tags for keyword matches
-4. **Morph target layering** — compose body animation frowns with TalkingHead's viseme/expression system
-5. **Idle attention** — silence timeout triggers knock/interact from idle.attention pool
+- **Server-side `UtteranceSegmenter`** — single parser for `[gesture:tag]`/`[mood:tag]`, strips before TTS, all 3 speech paths
+- **Turn-framed protocol** — replaces `Phonemes`/`Response` with `Segment`/`TurnComplete`/`Gesture`/`Mood`. Binary audio frames carry 8-byte identity headers.
+- **Mark timing** — SSML-style `TextMark`/`MarkTiming` via connectors voice-spi for word-level gesture sync
+- **Session capture/turn split** — capture side (STT, speaker ID) and turn side (LLM, TTS, outbound) share no mutable state via `TurnExecutor`
+- **Performance vocabulary** — `avatar-performance.json` as single source of truth for taxonomy, pools, gestures, moods. `PerformanceVocabulary` SPI in speech-api.
+- **Animation layering** — base layer (pool cycling) + gesture layer (one-shots). Base ducks under gestures.
+- **Face compositor** — single `scene.onBeforeRender` hook: TalkingHead base → visemes → gesture expression curves (additive, clamped)
+- **Floor states** — idle/listening/thinking/speaking with per-state pools
+- **Mood ownership** — cognition-owned (PAD→discrete with hysteresis) or LLM-owned (turn-scoped with decay)
+- **Keyword fallback dropped** — adherence logging instead, speaking pool provides continuous motion
 
-### Key files
+### Prerequisites before implementation
 
-| File | What |
-|------|------|
-| `speech-demo/.../animations/m2m-animations.glb` | 68-clip production bundle |
-| `speech-demo/.../animations/body-animations.mjs` | Full taxonomy + playback system |
-| `speech-demo/target/.../animation-test.html` | Visual test page (not in src — target only) |
-| `speech-demo/.../avatar.glb` | RPM avatar |
+1. **Land #458** via `work-end` — code not on main yet
+2. **File + land connectors issue** — `TextMark`/`MarkTiming` in `casehub-connectors-voice-spi` (blocks Batch 3)
+3. **File neocortex issue** — proactive prompt sections, non-verbal outcomes (non-blocking, follows #457)
+4. **TalkingHead spike** — verify `speakAudio` API (Batch 0, Task 1)
 
-### Testing
+### Key scope changes from review
 
-```bash
-# Serve test page
-python3 -m http.server 8888 --directory speech-demo/target/classes/META-INF/resources
-# Open http://localhost:8888/animation-test.html
-```
+- Protocol is a breaking change (Phonemes/Response removed)
+- Keyword fallback dropped (D15) — was in original scope
+- Cognition mood ownership added (D16) — not in original scope
+- Cross-repo dependency on connectors (D17)
 
-The test page has URL hash state for clip + camera position. Cache-busting on GLB URL.
+### Ideas logged
+
+- Contribute body animation system (BodyAnimationSystem + M2M CC0 library + gesture tag protocol) to met4citizen/TalkingHead upstream — see IDEAS.md
