@@ -129,7 +129,7 @@ if (item.gesture && bodyAnim) {
 }
 ```
 
-Remove the existing gesture-from-Response logic in the `'response'` case — gestures now come via Phonemes/audio queue sync. Keep the keyword fallback (`classifyResponse`) as a safety net for sentences with no server-extracted gesture.
+Remove the gesture-triggering logic from the `'response'` case — gestures now fire from the Phonemes/audio queue for proper sync. The `'response'` handler still strips tags for display text and detects mood (this is unchanged from #458). Keep the keyword fallback (`classifyResponse`) as a safety net for sentences where the server extracted no gesture.
 
 ### 5. Client: Speaking pool switching
 
