@@ -1,15 +1,15 @@
 # Work Plan —
 
 ## State
-branch: issue-503-post-extraction-debris-sweep
+branch: issue-457-integrate-m2m-animation-library
 issue-repo: casehubio/agency
 status: active
+covers: 457
 project-sha: 
 date: 
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
-active-issue: #494
 
 ## Queue
 - [x] casehubio/agency#376 — Issue #376
@@ -27,13 +27,6 @@ active-issue: #494
 - [x] casehubio/agency#452 — Kokoro-voice-distillation
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
-- [x] casehubio/agency#458 — Author-23-conversational-body-poses
-- [x] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
-- [x] casehubio/agency#493 — PersonalityEvolutionConfig compile failures
-- [x] casehubio/agency#494 — CognitionStack constructor verification
-- [x] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
-- [x] casehubio/agency#490 — Adopt unified prompt assembly from eidos-api
-- [x] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing
-- [x] casehubio/agency#501 — consumer-guide stale cognition references
-- [x] casehubio/agency#502 — contributor-guide-stale-cognition-refs
-- [x] casehubio/agency#503 — post-extraction-debris-sweep
+- [ ] casehubio/agency#458 — Author-23-conversational-body-poses
+- [ ] casehubio/agency#457 — Avatar-demo-integrate-M2M-animation-library
+- [ ] casehubio/agency#491 — Fork-TalkingHead-with-composable-extension-points
