@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-457-integrate-m2m-animation-library
+branch: 
 issue-repo: casehubio/agency
 status: active
-covers: 498
+covers: casehubio/agency#513
 project-sha: 
 date: 
 design-repo: 
@@ -28,11 +28,16 @@ flyway-next-v: none
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
-- [ ] casehubio/agency#505 — Remove-dead-protocol-types
-- [ ] casehubio/agency#506 — Adopt-speakAudio-for-visemes
-- [ ] casehubio/agency#507 — Streaming-TTS-early-PlaybackComplete
-- [ ] casehubio/agency#508 — Cue-type-discriminator
-- [ ] casehubio/agency#509 — Audio-duration-aware-expiry
-- [ ] casehubio/agency#510 — Face-compositing-morph-layers
-- [ ] casehubio/agency#511 — Mood-ownership-D16
-- [ ] casehubio/agency#512 — Mark-timing-D4
+- [x] casehubio/agency#505 — Remove-dead-protocol-types
+- [x] casehubio/agency#506 — Adopt-speakAudio-for-visemes
+- [x] casehubio/agency#507 — Streaming-TTS-early-PlaybackComplete
+- [x] casehubio/agency#508 — Cue-type-discriminator
+- [x] casehubio/agency#509 — Audio-duration-aware-expiry
+- [x] casehubio/agency#510 — Face-compositing-morph-layers
+- [x] casehubio/agency#511 — Mood-ownership-D16
+- [x] casehubio/agency#512 — Mark-timing-D4
+- [x] casehubio/agency#513 — MoodMapper-dwell-null-transition
+- [x] casehubio/agency#514 — Streaming-TTS-mark-timing-fallback
+- [x] casehubio/agency#515 — WebSocket-thread-safety-verify
+- [x] casehubio/agency#516 — MorphTarget-named-regex
+- [ ] casehubio/agency#517 — Replace-80L-with-MS_PER_CHAR
