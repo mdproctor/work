@@ -59,4 +59,4 @@ wip_commit_project=done
 _exec_ok:wip_commit_workspace=yes
 wip_commit_workspace=done
 lifecycle_next=done
-advance_issue_mechanical_attempt=1
+advance_issue_mechanical_attempt=2
