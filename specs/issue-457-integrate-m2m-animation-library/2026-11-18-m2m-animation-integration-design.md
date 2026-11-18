@@ -2,17 +2,18 @@
 
 **Issue:** casehubio/agency#457
 **Date:** 2026-11-18
-**Decisions:** See `decisions.md` for full rationale, alternatives, and trade-offs (D1–D17, reviewed across 3 adversarial rounds).
+**Decisions:** See `decisions.md` for full rationale, alternatives, and trade-offs (D1–D17, reviewed across 3 adversarial rounds; D18–D24 for TalkingHead fork approach).
 
 ## Overview
 
 Wire the M2M animation library (68 clips authored in #458) into TalkingHead's speech pipeline with proper audio-gesture synchronisation, turn framing, morph target compositing, and mood ownership. The result is a production-grade avatar speech pipeline, not a demo integration.
 
-## Prerequisites (D1, D17)
+## Prerequisites (D1, D17, D24)
 
 1. **Land #458** via `work-end` first. Recreate #457 branch from updated main.
-2. **Connectors peer issue** (mark timing SPI) must land before #457 implementation starts.
-3. **Neocortex peer issue** (proactive prompt sections, non-verbal outcomes) follows #457, non-blocking.
+2. **TalkingHead fork issue** (D24) — fork casehubio/TalkingHead, implement four extension points (D20–D23: bone ownership, morph layer registry, external mixer registration, lifecycle events), vendor built `talkinghead.mjs` into agency. Replaces the verification spike.
+3. **Connectors peer issue** (mark timing SPI) must land before #457 implementation starts.
+4. **Neocortex peer issue** (proactive prompt sections, non-verbal outcomes) follows #457, non-blocking.
 
 ## Architecture
 
@@ -74,20 +75,24 @@ They share no mutable state. The capture side hands immutable `UserTurn` request
 | thinking | user stop/text sent | `thinking` (neutral attentive stances) |
 | speaking | first audio-bearing segment plays | `speaking` |
 
-### Animation Layering (D11)
+### Animation Layering (D11, D22)
 
-Two concurrent layers in `BodyAnimationSystem`:
+`BodyAnimationSystem`'s `AnimationMixer` is registered with TalkingHead via `head.registerMixer(bodyMixer, { boneClaim: [...] })` (D22). TalkingHead calls `bodyMixer.update(dt)` in its frame loop, eliminating the separate `tickBody` rAF loop.
+
+Two concurrent layers within our mixer:
 - **Base layer**: looping pool clip. Pool changes only swap the base.
 - **Gesture layer**: one-shot clip. Base ducks to weight 0 during gesture, fades back when gesture finishes.
 
 A pool change during a gesture swaps the base underneath with no visible effect.
 
-### Face Compositing (D6, D14)
+### Face Compositing (D6, D14, D21)
 
-One `scene.onBeforeRender` hook orders all writers per frame:
-1. TalkingHead: blink, mood, eyes (base)
-2. Visemes: replace `viseme_*` channels
-3. Gesture expression curves: added to expression channels, clamped to [0,1], weight follows gesture layer
+The TalkingHead fork's morph layer registry (D21) orders all face writers per frame:
+1. Layer 0 (TalkingHead internal): blink, mood, eyes (base)
+2. Viseme layer (registered, `replace` mode): `viseme_*` channels
+3. Gesture expression layer (registered, `additive` mode): expression channels, clamped to [0,1], weight follows gesture layer
+
+This replaces the `scene.onBeforeRender` workaround from the original design. Each layer is registered via `head.registerMorphLayer()` and TalkingHead runs them in declared order.
 
 Morph target tracks are stripped from body clips at load. Expression curves (brow, mouthFrown, mouthSmile, cheek, noseSneer, mouthPucker) are extracted name-keyed from the animation bundle's mesh dictionary, applied through the avatar's dictionary.
 
@@ -127,23 +132,30 @@ Server-owned, opt-in via `AvatarConfig`:
 
 No keyword fallback. The speaking pool provides continuous motion. Tag adherence is logged per turn. Revisit data-driven if models ignore instructions.
 
-## Verification Spike (D14)
+## TalkingHead Fork (D18–D24)
 
-Before implementation planning: verify TalkingHead 1.8 `speakAudio`:
-- (a) accepts our viseme timeline and markers
-- (b) markers fire on the audio clock
-- (c) body-pose system can be prevented from writing non-head bones
+The original design included a verification spike to test whether TalkingHead's existing API was sufficient. Source analysis of TalkingHead 1.8 (frame order: `updatePoseBase` → `mixer.update` → `updatePoseDelta` → dynamic bones → `opt.update(dt)` → `updateMorphTargets` → render) confirmed that the existing hooks are insufficient: bones are overwritten before the hook, morphs are overwritten after.
 
-If all pass, adopt as playback host. If any fails, keep custom audio queue.
+**Resolution:** Fork met4citizen/TalkingHead into casehubio/TalkingHead with four clean extension points designed for upstream contribution:
+
+1. **Bone ownership (D20)** — canonical bone vocabulary with rig mappings (Mixamo, RPM, VRM). `claimBones()` / `releaseBones()` by canonical name. Convenience groups (`claimBoneGroup('body')`). `updatePoseBase`/`updatePoseDelta` skip claimed bones.
+2. **Morph layer registry (D21)** — ordered layers with blend modes (`replace`, `additive`, `max`). TalkingHead's internal writers are layer 0. External systems register additional layers.
+3. **External mixer registration (D22)** — `registerMixer(mixer, { boneClaim })`. TalkingHead calls `mixer.update(dt)` at the correct frame position. Eliminates separate rAF loops.
+4. **Lifecycle events (D23)** — EventTarget / addEventListener. `statechange`, `moodchange`, `audiostart`/`audioend`.
+
+**Distribution (D19):** Vendored `talkinghead.mjs` checked into agency repo at `speech-demo/.../vendor/talkinghead.mjs`. Import map updated from jsdelivr CDN to local path. No CI changes. When upstream accepts the PRs, revert to upstream CDN URL.
+
+**Playback host: `speakAudio` adopted.** With the fork providing bone ownership and morph layers, all three original spike conditions are met by construction. The custom audio queue is deleted. Gesture cues become `speakAudio` markers.
 
 ## Cross-Repo Changes
 
 | Repo | Change | Blocking? |
 |------|--------|-----------|
+| casehubio/TalkingHead (fork) | Bone ownership API (D20), morph layer registry (D21), external mixer registration (D22), lifecycle events (D23) | Yes — blocks #457 (separate issue, D24) |
 | connectors | `TextMark`/`MarkTiming` in voice-spi, `MarkTimingEnricher`, VITS guarded-exact | Yes — blocks #457 |
 | agency (speech-api) | `PerformanceVocabulary` SPI, `PromptSection` composition, `PromptContext` param, `Affect` record, `AvatarCognition.currentAffect` | In-repo |
 | agency (speech-ws) | `UtteranceSegmenter`, `Segment`/`TurnComplete`/`Gesture`/`Mood` protocol, capture/turn split, `TurnExecutor`, `SilenceAttentionPolicy`, `GesturePromptSection`, `MoodMapper` | In-repo |
-| agency (speech-demo) | `avatar-performance.json`, `body-animations.mjs` data-free rewrite, `index.html` floor states + layered animation + face compositor + new protocol | In-repo |
+| agency (speech-demo) | Vendored `talkinghead.mjs` (D19), `avatar-performance.json`, `body-animations.mjs` vocabulary-driven rewrite with registered mixer + morph layers, `index.html` floor states + `speakAudio` playback + new protocol | In-repo |
 | neocortex | Caller-supplied proactive prompt sections, non-verbal proactive outcome, delivery feedback | No — follows #457 |
 
 ## Testing
