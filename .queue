@@ -1,16 +1,16 @@
 # Work Plan —
 
 ## State
-branch: issue-490-unified-prompt-assembly
+branch: issue-493-personality-evolution-config-fix
 issue-repo: casehubio/agency
 status: active
-covers: 490
+covers: 493
 project-sha: 
 date: 
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
-active-issue: #490
+active-issue: #493
 
 ## Queue
 - [x] casehubio/agency#376 — Issue #376
