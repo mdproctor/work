@@ -38,51 +38,73 @@ All 23 original poses addressed. 68 animations in `m2m-animations.glb`.
 
 ## Active — #457 Integrate M2M animations with TalkingHead
 
-**Status:** IN PROGRESS — Batch 1 complete, Batches 2–6 remain
+**Status:** IN PROGRESS — Batches 1–2 complete, Batches 3+ remain
 **Branch:** `issue-457-integrate-m2m-animation-library`
 
-### What this session delivered
+### What previous sessions delivered
 
 **TalkingHead fork (#491) — COMPLETE, pushed to GitHub:**
 - Forked `met4citizen/TalkingHead` into `casehubio/TalkingHead`
-- 4 extension points added (207 lines, non-breaking):
-  - **Bone ownership (D20):** canonical vocabulary, `claimBones`/`releaseBones`/`claimBoneGroup`/`releaseBoneGroup`, guards in `updatePoseBase`/`updatePoseDelta`/neck/hips
-  - **Morph layer registry (D21):** `registerMorphLayer`/`unregisterMorphLayer`, ordered blend modes (`replace`/`additive`/`max`), runs after `updateMorphTargets`
-  - **External mixer registration (D22):** `registerMixer`/`unregisterMixer`, coordinated frame update with auto bone claiming
-  - **Lifecycle events (D23):** EventTarget delegation, `statechange`/`moodchange`/`audiostart`/`audioend`
-- Bug fix: cache invalidation on avatar change (stale `_morphMeshes` and `_registeredMixers`)
-- Vendored into agency at `speech-demo/.../vendor/talkinghead.mjs`, import map updated
+- 4 extension points added (207 lines, non-breaking): bone ownership (D20), morph layer registry (D21), external mixer registration (D22), lifecycle events (D23)
+- Bug fix: cache invalidation on avatar change
+- Vendored into agency at `speech-demo/.../vendor/talkinghead.mjs`
 
-**#457 Batch 1: Foundation — COMPLETE (3 tasks):**
+**Batch 1: Foundation — COMPLETE:**
 - `PerformanceVocabulary` SPI in speech-api (gestureTags, moods, clips)
 - `avatar-performance.json` — 68 clips, full taxonomy, pools, 55 gesture tags, 8 moods
-- `JsonPerformanceVocabulary` — Jackson-backed implementation (7 tests)
-- Protocol types: `Segment`, `TurnComplete`, `Gesture`, `Mood`, `PlaybackComplete`, `UserActivity`, `Cue` sealed interface (6 new codec tests, 126 total passing)
-- `UtteranceSegmenter` — server-side `[gesture:tag]`/`[mood:tag]` parser with vocabulary validation, sentence splitting, forward binding (13 tests, 139 total passing)
+- `JsonPerformanceVocabulary` — Jackson-backed implementation
+- Protocol types: `Segment`, `TurnComplete`, `Gesture`, `Mood`, `PlaybackComplete`, `UserActivity`, `Cue` sealed interface
+- `UtteranceSegmenter` — server-side tag parser with vocabulary validation, sentence splitting, forward binding
 
-**Design work:**
-- Brainstormed fork approach (D18–D24), revised D6/D11/D14/D17
-- Updated spec and implementation plan for fork approach
-- Verification spike replaced by fork, `speakAudio` adopted as playback host
+### What this session delivered — Batch 2: Server Session Refactor
+
+**PromptSection composition (D7):**
+- `SpeechPromptAssembler.assemble()` gains `PromptContext` overload (default method, backward compatible)
+- `DefaultPromptAssembler` accepts composable `List<PromptSection>` — sections contribute text to system prompt when context is provided
+- `GesturePromptSection` renders promptable gesture tags and moods from vocabulary into LLM prompt with placement rules
+
+**Capture/Turn split (D10, D13):**
+- `UserTurn` — immutable record from capture side to turn side
+- `FloorState` — volatile lock-free state tracking for proactive suppression (listening, turn-in-flight, unacknowledged turns with expiry tracking)
+- `TurnExecutor` — single virtual-thread executor serialising turn processing. Owns history, prompt assembly, LLM, TTS, outbound messages. Emits Segment + TurnComplete (new protocol) alongside legacy Response + Phonemes for client backward compat. Proactive turns suppressed during floor activity and dropped when stale at dequeue
+- `SpeechSession` refactored from 535 lines to thin capture-side coordinator. Turn processing fully delegated to TurnExecutor
+- `SpeechWebSocket` dispatches `PlaybackComplete` and `UserActivity` messages; proactive tick checks `FloorState.shouldSuppressProactive()` before evaluation
+
+**Review fixes:**
+- `recordCognitionInteraction` was broken (always passed empty lastAssistant after history moved to TurnExecutor) — fixed via `lastAssistantText()` on TurnExecutor
+- FloorState transition ordering: swapped `onTurnComplete` before `onTurnEnd` to close a brief suppression gap
+
+**Tests:** 173 total passing (34 new: 8 section composition, 4 GesturePromptSection, 12 FloorState, 14 TurnExecutor, minus 4 timing tests adapted to verify TurnComplete)
 
 **Filed issues:**
-- #491 — Fork TalkingHead with composable extension points (DONE)
-- #492 — UtteranceSegmenter position tracking fragile (deferred from review)
+- #495 — TurnExecutor unacknowledged-turn expiry timer (FloorState has state, no timer polls it)
+- #496 — Wire StreamingTextToSpeech path in TurnExecutor (only non-streaming TTS ported)
+- #497 — TurnExecutor.executeUserTurn swallows InterruptedException
+- #498 — SilenceAttentionPolicy (D8) — idle attention bids after silence
+- #499 — Remove legacy Response/Phonemes/Timing emission after client update
 
-### What's next — Batch 2: Server Session Refactor
+**Blog entry:** "The session that couldn't listen and talk" — capture/turn split architecture, threading model, FloorState coordination
 
-This is the heaviest batch. It restructures `SpeechSession` per D10:
-- **Task 5:** Capture/Turn split, `TurnExecutor`, `FloorState` — the core concurrency fix
-- **Task 6:** `PromptSection` composition, `GesturePromptSection` — wires vocabulary into prompts
+### What's next — Batch 3+
+
+The remaining work for #457 is client-side wiring and TTS timing:
+- **Client-side floor states** (D13) — idle/listening/thinking/speaking pool switching in body-animations.mjs, driven by Segment/TurnComplete messages
+- **Animation layering** (D11) — base layer + gesture layer with ducking in BodyAnimationSystem
+- **Face compositing** (D6, D14) — morph layer registry for expression curves from body animations
+- **Mark timing** (D4) — `TextMark`/`MarkTiming` in voice-spi for gesture synchronisation (BLOCKED by connectors peer issue)
+- **Mood ownership** (D16) — cognition vs LLM mood with hysteresis mapping
 
 ### Prerequisites still open
 
 1. ~~Land #458~~ ✅ Done
 2. ~~TalkingHead fork~~ ✅ Done (#491)
-3. **Connectors issue** — `TextMark`/`MarkTiming` in voice-spi (blocks Batch 3)
-4. **Neocortex issue** — proactive prompt sections, non-verbal outcomes (non-blocking)
+3. ~~Server session refactor~~ ✅ Done (Batch 2)
+4. **Connectors issue** — `TextMark`/`MarkTiming` in voice-spi (blocks Batch 3 mark timing)
+5. **Neocortex issue** — proactive prompt sections, non-verbal outcomes (non-blocking)
 
 ### Known issues from code review
 
-- #492: UtteranceSegmenter `indexOf` fragile with duplicate sentences; trailing tag `+2` lookahead is a magic number; space collapse shifts tag positions. Non-blocking for Batch 1, becomes important at Batch 3 (mark timing)
+- #492: UtteranceSegmenter `indexOf` fragile with duplicate sentences; trailing tag `+2` lookahead; space collapse shifts tag positions
+- #497: TurnExecutor.executeUserTurn catches Exception broadly (swallows InterruptedException)
 - Pre-existing: `ModelProvisioningService.ensureQwen3SharedLibrary()` stubbed out (connectors dependency gap)
+- Legacy protocol messages (Response, Phonemes) still emitted alongside new protocol — #499 tracks removal
