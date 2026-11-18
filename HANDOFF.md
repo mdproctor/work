@@ -2,27 +2,43 @@
 
 ## Last Session
 
-Completed five issues from the **#875 web capture pipeline** epic (#882–#886). Two remain (#887, #888).
+Completed **#1115 — Receive memory hygiene implementation from agency#447**. Landed on main, published to origin.
 
 **What was built:**
 
-- **#882 — HtmlDocumentParser** (`corpus-management-parsers`): HTML → positional markdown via readability4j (article extraction) + flexmark (HTML→markdown conversion). Started hand-rolled (314 lines), rewrote with libraries (131 lines). Setext→ATX heading post-processor for DefaultStructuralChunker compatibility. 21 tests.
+- **Memory hygiene value types + SPIs in cognition-api:** `ConfidenceScorer`, `ConsolidationSummariser` (new — replaces agency's `ContentSummariser`), `IntegrityChecker`, `SemanticIntegrityChecker` SPIs. `RetentionConfig`, `RetentionScore`, `HygieneEvent`, `HygieneTick`, `MaintenanceTick`, `IntegrityViolation`, `ViolationType` value types.
 
-- **#883 — WebCaptureService** (`corpus-management`): web-cache domain metadata conventions (`url`, `fetched_at`, `http_status`, `content_type`, `ttl_days`, `capture_method`). URL-based dedup within TTL. Stale re-fetch creates versioned entry with `updates` relationship. `findByMetadataField` added to CorpusEntryStore SPI with SQLite `json_extract` implementation. 10 tests.
+- **Implementations in cognition:** `MemoryHygieneOrchestratorImpl` (implements the pre-existing `MemoryHygieneOrchestrator` SPI — retention scoring, eviction, consolidation, per-agent locking), `MemoryHygieneScheduler` (composes orchestrator + `ReflectionOrchestrator` + `IntegrityChecker`), `ArousalScorer`/`SurpriseScorer` (dual `ContentScorer` + `ConfidenceScorer`), `CompositeConfidenceScorer`/`WeightedScorer`, `DefaultIntegrityChecker`, `NoOpSemanticIntegrityChecker`, `NoOpConsolidationSummariser`. 5 default bean producers in `CognitionDefaultBeans`.
 
-- **#884 — webCapture MCP tool** (`corpus-management`): corpus-first web fetch on CorpusApi. Cache hit returns stored content (zero network). Cache miss fetches via HttpClient or pre-rendered HTML, parses via `HtmlToMarkdownParser` SPI, stores via WebCaptureService. `HtmlToMarkdownParser` @FunctionalInterface in corpus-management-api keeps Tika/PDFBox deps out of corpus-management. Backward-compatible CorpusApiBean constructor.
+- **25 tests** across 4 test files, 1196 total cognition module tests green.
 
-- **#885 — PDF visual archive**: optional `artifactRef` parameter on webCapture and WebCaptureService for agent-provided PDF snapshots (e.g. Playwright page.pdf()). Does not block text capture.
+**Key design decisions:**
 
-- **#886 — TTL-based curation**: `WebCacheCurationService.purgeExpired()` — scans web-cache entries past TTL, checks access-renewal via RetrievalTracker.findRetrievedDocumentIds(), exempts archived entries. 7 tests.
+- Evolution types (7 agency `social/memory/evolution/` + 4 `social/cognition/evolution/`) excluded — they implement agency-specific SPIs (`ImprovementProposalSource`, `RegressionEvaluator`, etc.). Tracked in #1119 for a neocortex-native consolidation phase approach instead.
+- Agency's `ReflectionStore`/`ReflectionQueryStore` replaced by existing neocortex `ReflectionOrchestrator` — no capability lost.
+- Agency's `ContentSummariser` replaced by `ConsolidationSummariser` SPI — simpler text-in/text-out contract.
+- Agency's `KeyedLock` replaced by inline `ConcurrentHashMap<String, ReentrantLock>`.
 
-**Blog:** "The Corpus That Grows Itself" revised with implementation insights — library reuse, SPI decoupling, access-as-curation. Two SVGs created.
+**Code review findings (filed):** #1121 — unbounded tickLocks growth, deprecated `EraseRequest` constructor, O(n²) survivor filtering. Three inline fixes applied (null guard, stale gap state, redundant condition).
+
+**Blog:** "The Migration That Needed a Scalpel" — decomposing cross-repo migrations, first-principles analysis of evolution types.
+
+## Issues Filed This Session
+
+| # | Title | Scale | Complexity |
+|---|-------|-------|------------|
+| #1119 | Memory hygiene parameter adaptation via consolidation phase | M | Med |
+| #1120 | LLM-backed ConsolidationSummariser implementation | S | Low |
+| #1121 | Memory hygiene: unbounded tickLocks + deprecated EraseRequest + O(n²) filter | S | Low |
 
 ## Immediate Next Step
 
-Pick up **#887** (Image capture and LLM description) and **#888** (Captcha inbox) to complete epic #875.
+Queue position 5/7. Check `.queue` for the next active issue.
 
 ## References
 
-- `docs/blog/2026-11-09-mdp01-the-corpus-that-grows-itself.md` — revised blog entry
-- Branch: `issue-882-html-positional-markdown-parser` — 9 commits, all tests green
+- `specs/issue-1115-receive-memory-hygiene/2026-11-18-receive-memory-hygiene-design.md` — design spec
+- `plans/2026-11-18-receive-memory-hygiene.md` — implementation plan
+- `blog/2026-11-18-mdp10-the-migration-that-needed-a-scalpel.md` — diary entry
+- casehubio/agency#447 — parent migration issue
+- casehubio/agency#490 — blocked downstream (adopt CognitiveLifecycle)
