@@ -9,17 +9,23 @@ All 23 original poses addressed. 68 animations in `m2m-animations.glb`.
 
 ## Active — #457 Integrate M2M animations with TalkingHead
 
-**Status:** IMPLEMENTATION COMPLETE — awaiting rebase conflict resolution + work-end
-**Branch:** `issue-457-integrate-m2m-animation-library` (20 commits)
-**Tests:** 184 passing (speech-ws)
+**Status:** REBASED — needs #490 reconciliation then work-end
+**Branch:** `issue-457-integrate-m2m-animation-library` (19 commits, rebased onto canonical main)
+**Tests:** not building — #490 reconciliation incomplete
 
-### Blocker: rebase conflicts against canonical main
+### Blocker: #490 type migration (AssembledPrompt, PromptContext, PromptSection)
 
-Canonical main gained commits from other slots (`7eebc28c` — `ensureQwen3SharedLibrary → ensureQwen3Binary` rename, plus SpeechSession changes) that conflict with this branch's heavy refactoring. Three conflict sites:
-- `ModelProvisioningService.java` — method rename (trivial)
-- `SpeechSession.java` — three regions (the capture/turn split rewrote most of this file)
+The rebase onto canonical main completed. Import fixes applied. Remaining issue:
 
-Resolution approach: rebase the branch onto canonical main, resolve the three `SpeechSession` conflicts by taking the branch's refactored version and applying main's small changes into it. Then re-mark squash review and re-run `work-end`.
+Main's #490 (`refactor: adopt unified prompt assembly from eidos-api`) **deleted** `PromptContext`, `PromptSection`, and `AssembledPrompt` from speech-api, replacing them with eidos-api types. Our branch's D7 **added** `PromptContext`, `PromptSection`, `DefaultPromptAssembler` section composition, and `GesturePromptSection` — all built on the speech-api types that #490 removed.
+
+**What needs to happen:**
+1. Restore `PromptContext` and `PromptSection` in speech-api (they're new types our branch created, not the ones #490 deleted — the names overlap but the content is different) OR port them to eidos-api equivalents
+2. Fix `SpeechPromptAssembler` — our branch added a `PromptContext` overload that references the deleted type
+3. Fix `DefaultPromptAssembler` and `GesturePromptSection` — both import `PromptContext` and `PromptSection`
+4. Run full test suite, re-mark squash review, run work-end
+
+**Key context:** #490 moved `AssembledPrompt` to `io.casehub.eidos.api.AssembledPrompt` (import already fixed). The `PromptContext` and `PromptSection` types are **new speech-api SPIs created by this branch** (D7) that happen to share names with types #490 deleted. They should be restored as new files, not ported.
 
 ### What previous sessions delivered
 
