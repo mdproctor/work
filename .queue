@@ -36,3 +36,5 @@ active-issue: #494
 - [x] casehubio/agency#490 — Adopt unified prompt assembly from eidos-api
 - [ ] casehubio/agency#500 — speech-demo ensureQwen3SharedLibrary missing ← done on issue-500-speech-demo-ensureqwen3sharedlibrary
 - [ ] casehubio/agency#501 — consumer-guide stale cognition references ← done on issue-501-consumer-guide-stale-cognition-refs
+- [ ] casehubio/agency#502 — contributor-guide-stale-cognition-refs
+- [ ] casehubio/agency#503 — post-extraction-debris-sweep
