@@ -1,16 +1,16 @@
 # Work Plan —
 
 ## State
-branch: issue-447-neocortex-cognitive-migration
+branch: issue-490-unified-prompt-assembly
 issue-repo: casehubio/agency
 status: active
-covers: 447
+covers: 490
 project-sha: 
 date: 
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
-active-issue: #447
+active-issue: #490
 
 ## Queue
 - [x] casehubio/agency#376 — Issue #376
@@ -33,3 +33,4 @@ active-issue: #447
 - [ ] casehubio/agency#493 — PersonalityEvolutionConfig compile failures
 - [ ] casehubio/agency#494 — CognitionStack constructor verification
 - [ ] casehubio/agency#447 — Remove residual cognitive code complete neocortex migration
+- [ ] casehubio/agency#490 — Adopt unified prompt assembly from eidos-api
