@@ -1,52 +1,42 @@
 # HANDOFF — casehub-agency
 
-## Session summary (2026-11-18, session 3)
+## Session summary (2026-11-18, session 4)
 
-Landed #447 (remove residual cognitive code — complete neocortex migration). Filed #493, #494. Scaffolded #490 for next session.
+Landed #490 (adopt unified prompt assembly from eidos-api). Filed #500, #501. Unpublished — 2 commits on canonical, 3 on workspace.
 
 ### Landed
 
 | # | SHA | Summary |
 |---|-----|---------|
-| #447 | `effef119` | Delete 28 files (1429 lines) of memory hygiene code migrated to neocortex#1115. Re-wire AgencyBeans/AgencyAutoConfiguration. Update agentic-yaml imports. |
+| #490 | `7b769bcf` | Delete 3 speech-api duplicates (AssembledPrompt, PromptSection, PromptContext). Thin AvatarCognition to extend CognitiveLifecycle. CognitionAvatarAdapter gains promptSections(). speech-ws switches to eidos-api AssembledPrompt (userPrompt→userMessage). agentic-yaml test code migrated to CognitionPromptRenderer. |
 
-**Published:** agency canonical (3 commits) + workspace (8 commits) pushed to origin.
+**Blog:** `docs/blog/2026-11-18-mdp02-three-prompts-one-answer.md`
+**Also fixed:** Extracted inline SVG in prior entry (`2026-11-18-mdp01-the-bridge-that-outlived-its-reason.md`) to `images/memory-hygiene-migration.svg` for Typora/CommonMark rendering.
 
-**Blog:** `docs/blog/2026-11-18-mdp01-the-bridge-that-outlived-its-reason.md`
+**Unpublished:** agency canonical (2 commits) + workspace (3 commits) not yet pushed. Run `canonical_sync.py publish` to push.
 
 ### Filed
 
 | # | Title | Scale | Complexity |
 |---|-------|-------|------------|
-| #493 | PersonalityEvolutionConfig compile failures (pre-existing) | S | Low |
-| #494 | CognitionStack constructor verification | XS | Low |
+| #500 | speech-demo: ensureQwen3SharedLibrary missing from Provisioner | XS | Low |
+| #501 | consumer-guide: stale SocialAvatarCognition and prompt section references | S | Low |
 
-### Next: #490 — Adopt unified prompt assembly from eidos-api
+### Pre-existing blockers
 
-**Branch:** `issue-490-unified-prompt-assembly` (created, on main HEAD)
-**Scale:** M | **Complexity:** Med
-
-**What it does:**
-- Delete 3 speech-api duplicates: `PromptSection`, `PromptContext`, `AssembledPrompt`
-- Keep speech-specific: `SpeechPromptAssembler`, `ConversationTurn`
-- Thin `AvatarCognition` to extend `CognitiveLifecycle` (from cognition-api, neocortex#1105)
-- Simplify `CognitionAvatarAdapter` — cognitive lifecycle delegation to neocortex
-- Update `speech-ws` to depend on eidos-api `AssembledPrompt` + cognition-api `CognitiveLifecycle`
-- Update agentic-yaml test code (`ConversationRunner`, `DirectivePromptSection`, `CognitionDiagnostic`)
-
-**Prerequisites (all landed):**
-- eidos#240 — `AssembledPrompt` with optional `model` field
-- neocortex#1105 — `CognitiveLifecycle` in cognition-api
-
-**Key context:**
-- The issue body has a complete spec — brainstorming can be light or skipped
-- neocortex cognition module must be installed locally (`mvn install -DskipTests` on cognition + cognition-api)
-- #493 (PersonalityEvolutionConfig) blocks full build of agency-spring and agentic-yaml — fix first or work around
+- **#493** (PersonalityEvolutionConfig compile failures) — blocks full build of `agency` CDI module, `agency-spring`, and `agentic-yaml` test compilation. The agentic-yaml test code changes from #490 are correct but can't be verified until #493 is fixed.
+- **#494** (CognitionStack constructor verification) — queued, low priority.
 
 ### Queue
 
 | # | Title | Status |
 |---|-------|--------|
-| #490 | Adopt unified prompt assembly from eidos-api | **active** |
+| #458 | Author 23 conversational body poses | stale — landed in prior session, not checked off |
+| #457 | Avatar demo integrate M2M animation library | stale — landed in prior session, not checked off |
 | #493 | PersonalityEvolutionConfig compile failures | queued |
 | #494 | CognitionStack constructor verification | queued |
+| #447 | Remove residual cognitive code | stale — landed session 3 |
+| #500 | speech-demo ensureQwen3SharedLibrary missing | queued |
+| #501 | consumer-guide stale cognition references | queued |
+
+**Queue health:** 3 items are stale (landed but not checked off from prior sessions). Next session should clean the queue before starting new work.
