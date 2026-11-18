@@ -7,13 +7,13 @@
 > editing. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Focal issue:** #457 — Avatar demo: integrate M2M animation library with idle cycle and LLM-tagged gestures
-**Issue group:** #457 (depends on landed #458)
+**Issue group:** #457 (depends on landed #458 and TalkingHead fork issue)
 
 **Goal:** Wire 68 M2M body animation clips into the avatar speech pipeline with audio-synced gesture triggering, turn-framed protocol, session concurrency safety, morph target compositing, and mood ownership.
 
-**Architecture:** Server-side `UtteranceSegmenter` parses gesture/mood tags per-sentence, feeds clean text to TTS and tagged cues to the client via `Segment` messages. Client plays gestures from an audio-synced playback queue using mark timing from the TTS SPI. `BodyAnimationSystem` runs two layers (base pool + gesture one-shot) with expression curve compositing via a single `scene.onBeforeRender` hook. Session concurrency is solved by capture/turn thread separation.
+**Architecture:** Server-side `UtteranceSegmenter` parses gesture/mood tags per-sentence, feeds clean text to TTS and tagged cues to the client via `Segment` messages. Client delivers audio and visemes through TalkingHead's `speakAudio` API with `markers` for gesture timing. `BodyAnimationSystem` runs two layers (base pool + gesture one-shot), registered with TalkingHead via the fork's `registerMixer` API (D22). Expression curves compose via the fork's morph layer registry (D21). Session concurrency is solved by capture/turn thread separation.
 
-**Tech Stack:** Java 22 (speech-ws, speech-api), JavaScript ES modules (body-animations.mjs, index.html), three.js 0.180.0, TalkingHead 1.8, Jackson (JSON vocabulary), JUnit 5 + Mockito (tests)
+**Tech Stack:** Java 22 (speech-ws, speech-api), JavaScript ES modules (body-animations.mjs, index.html), three.js 0.180.0, TalkingHead 1.8 (casehubio fork, vendored), Jackson (JSON vocabulary), JUnit 5 + Mockito (tests)
 
 ## Global Constraints
 
@@ -22,185 +22,34 @@
 - speech-demo targets browser ES modules via import maps (no bundler)
 - All protocol changes are breaking — `Phonemes` and `Response` are removed
 - `PerformanceVocabulary` SPI lives in speech-api; JSON implementation in speech-demo
+- TalkingHead fork (casehubio/TalkingHead) must land before Batch 4 (client animation)
 - Connectors mark timing SPI must land before Batch 3 (D4 integration)
+- Vendored `talkinghead.mjs` from fork checked into `speech-demo/.../vendor/` (D19)
 - IntelliJ MCP required for all structural code operations
 
 ## Prerequisites (not implementation tasks)
 
 Before starting Batch 1:
 1. **Land #458** via `work-end`. Recreate #457 branch from updated main.
-2. **File connectors issue:** `TextMark`/`MarkTiming` in `casehub-connectors-voice-spi`, `MarkTimingEnricher`, VITS guarded-exact. Blocks Batch 3.
-3. **File neocortex issue:** Caller-supplied proactive prompt sections, non-verbal proactive outcome, delivery feedback. Non-blocking — follows #457.
+2. **TalkingHead fork issue** (D24): fork casehubio/TalkingHead, implement four extension points (D20–D23), vendor built `talkinghead.mjs` into agency. Blocks Batch 4 (client animation). Replaces the verification spike (original Batch 0).
+3. **File connectors issue:** `TextMark`/`MarkTiming` in `casehub-connectors-voice-spi`, `MarkTimingEnricher`, VITS guarded-exact. Blocks Batch 3.
+4. **File neocortex issue:** Caller-supplied proactive prompt sections, non-verbal proactive outcome, delivery feedback. Non-blocking — follows #457.
 
 ---
 
-## Batch 0: TalkingHead Verification Spike
+## Batch 0: TalkingHead Fork Prerequisite (separate issue, D24)
 
-### Task 1: Verify TalkingHead 1.8 speakAudio API
+**This batch is handled by the TalkingHead fork issue, not #457.** It produces the vendored `talkinghead.mjs` with four extension points. #457's Batches 1–3 (server-side) can proceed in parallel; Batch 4+ (client-side) blocks on this.
 
-**Files:**
-- Create: `speech-demo/src/main/resources/META-INF/resources/spike-speakaudio.html`
-- Test: manual browser test
+The fork issue implements in casehubio/TalkingHead:
+1. **Bone ownership (D20)** — canonical bone vocabulary, rig mappings, `claimBones()`/`releaseBones()`, convenience groups
+2. **Morph layer registry (D21)** — ordered layers with blend modes, `registerMorphLayer()`
+3. **External mixer registration (D22)** — `registerMixer(mixer, { boneClaim })`, coordinated frame update
+4. **Lifecycle events (D23)** — EventTarget: `statechange`, `moodchange`, `audiostart`/`audioend`
 
-**Interfaces:**
-- Consumes: TalkingHead 1.8 from CDN (already in import map)
-- Produces: spike result recorded in decisions.md D14 — determines whether Batches 4–5 use TalkingHead's audio host or the custom queue
+When complete: vendor the built `talkinghead.mjs` into `speech-demo/src/main/resources/META-INF/resources/vendor/talkinghead.mjs` and update the import map (D19).
 
-This spike determines client audio architecture. All three checks must pass to adopt `speakAudio`:
-
-- [ ] **Step 1: Create spike test page**
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>speakAudio Spike</title>
-<script type="importmap">
-{ "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js/+esm",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
-    "talkinghead": "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.8/modules/talkinghead.mjs"
-} }
-</script>
-</head>
-<body>
-<div id="container" style="width:600px;height:400px"></div>
-<button id="test">Run Spike</button>
-<pre id="log"></pre>
-<script type="module">
-import { TalkingHead } from "talkinghead";
-
-const log = document.getElementById("log");
-function print(msg) { log.textContent += msg + "\n"; }
-
-const head = new TalkingHead(document.getElementById("container"), {
-  ttsEndpoint: null, lipsyncModules: ["en"],
-  cameraView: "upper", cameraRotateEnable: true
-});
-
-await head.showAvatar({ url: "./avatar.glb", body: "F", avatarMood: "neutral", lipsyncLang: "en" });
-print("Avatar loaded.");
-
-document.getElementById("test").onclick = async () => {
-  // Check (a): does speakAudio exist and accept our format?
-  print("Check (a): speakAudio API existence...");
-  if (typeof head.speakAudio !== "function") {
-    print("FAIL: speakAudio not found on TalkingHead instance");
-    return;
-  }
-  print("  speakAudio exists. Checking parameter signature...");
-
-  // Create a simple test audio (1s silence at 16kHz)
-  const ctx = new AudioContext();
-  const buf = ctx.createBuffer(1, 16000, 16000);
-  const wavBytes = encodeWav(buf);
-
-  // Try calling with visemes and markers
-  try {
-    // Check if it accepts markers/words alongside visemes
-    const visemes = [{ viseme: "sil", startMs: 0, endMs: 500, weight: 1.0 }];
-    const markers = [{ name: "gesture:nod", time: 0.3 }];
-
-    // Try the call — we just want to know if it throws on the shape
-    await head.speakAudio(wavBytes, { visemes, markers });
-    print("  PASS (a): speakAudio accepted visemes + markers");
-  } catch (e) {
-    print("  Result (a): " + e.message);
-    // Try without markers
-    try {
-      await head.speakAudio(wavBytes, {});
-      print("  speakAudio works without markers — markers not supported");
-    } catch (e2) {
-      print("  FAIL (a): speakAudio rejects even basic call: " + e2.message);
-    }
-  }
-
-  // Check (b): do markers fire callbacks?
-  print("Check (b): marker callback timing...");
-  // This depends on what (a) revealed about the API shape
-  // Record marker event times if the API supports them
-  print("  (manual observation required — see console for events)");
-
-  // Check (c): can we prevent body pose writes?
-  print("Check (c): body bone ownership...");
-  const armature = head.armature;
-  if (!armature) {
-    print("  FAIL (c): no armature exposed");
-  } else {
-    const spine = armature.getObjectByName("Spine");
-    if (spine) {
-      const before = spine.quaternion.clone();
-      // Let TalkingHead run a frame
-      await new Promise(r => requestAnimationFrame(r));
-      const after = spine.quaternion.clone();
-      const changed = !before.equals(after);
-      print("  Spine changed after frame: " + changed);
-      if (changed) {
-        print("  TalkingHead writes body bones — need to find disable mechanism");
-      } else {
-        print("  PASS (c): TalkingHead does not touch Spine");
-      }
-    } else {
-      print("  Spine bone not found — check bone names");
-    }
-  }
-
-  print("\nSpike complete. Record results in D14.");
-};
-
-function encodeWav(audioBuf) {
-  const samples = audioBuf.getChannelData(0);
-  const buffer = new ArrayBuffer(44 + samples.length * 2);
-  const view = new DataView(buffer);
-  const sr = audioBuf.sampleRate;
-  // WAV header
-  writeString(view, 0, "RIFF");
-  view.setUint32(4, 36 + samples.length * 2, true);
-  writeString(view, 8, "WAVE");
-  writeString(view, 12, "fmt ");
-  view.setUint32(16, 16, true); view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true); view.setUint32(24, sr, true);
-  view.setUint32(28, sr * 2, true); view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeString(view, 36, "data");
-  view.setUint32(40, samples.length * 2, true);
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-  }
-  return new Uint8Array(buffer);
-}
-
-function writeString(view, offset, str) {
-  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-}
-</script>
-</body>
-</html>
-```
-
-- [ ] **Step 2: Run the spike in a browser**
-
-Start the speech-demo dev server:
-```bash
-mvn --batch-mode quarkus:dev -pl speech-demo
-```
-
-Open `http://localhost:8080/spike-speakaudio.html`. Click "Run Spike". Record the three check results.
-
-- [ ] **Step 3: Record spike outcome**
-
-Update decisions.md D14 with the spike result:
-- If all three pass → "Adopt speakAudio as playback host" — Batches 4–5 use TalkingHead audio
-- If any fails → "Keep custom audio queue" — Batches 4–5 use the custom `playQueue` with D3 header-based pairing
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add speech-demo/src/main/resources/META-INF/resources/spike-speakaudio.html
-git commit -m "spike(#457): verify TalkingHead 1.8 speakAudio API (D14)"
-```
+**This replaces the original Batch 0 verification spike.** Source analysis confirmed `speakAudio` supports `markers`/`mtimes`, and the fork solves bone/morph ownership. The spike's three questions are answered by construction.
 
 ---
 
@@ -1012,21 +861,47 @@ git commit -m "feat(#457): SilenceAttentionPolicy (D8), adherence logging (D15)"
 
 ## Batch 4: Client Animation Engine
 
-After this batch: `body-animations.mjs` loads from vocabulary, runs layered animation with expression curves, and has a floor state machine. No protocol wiring yet.
+**Requires:** TalkingHead fork (Batch 0 / D24) must have landed — the vendored `talkinghead.mjs` with extension points must be in `vendor/`.
+
+After this batch: `body-animations.mjs` loads from vocabulary, registers its mixer and morph layers with TalkingHead via fork APIs, runs layered animation with expression curves, and has a floor state machine. No protocol wiring yet.
 
 ### Task 10: body-animations.mjs Vocabulary-Driven Rewrite + Layered Animation
 
 **Files:**
 - Modify: `speech-demo/src/main/resources/META-INF/resources/animations/body-animations.mjs`
+- Modify: `speech-demo/src/main/resources/META-INF/resources/index.html` (import map, remove rAF loop)
 - Test: manual browser test via animation picker
 
 **Interfaces:**
-- Consumes: `avatar-performance.json` (Task 2)
-- Produces: `BodyAnimationSystem` with vocabulary-driven pools, base+gesture layers (D11), floor states (D13). Consumed by Task 12 (protocol integration).
+- Consumes: `avatar-performance.json` (Task 2), TalkingHead fork APIs (`registerMixer`, `claimBones`)
+- Produces: `BodyAnimationSystem` with vocabulary-driven pools, base+gesture layers (D11), floor states (D13), registered with TalkingHead (D22). Consumed by Task 12 (protocol integration).
 
-- [ ] **Step 1: Rewrite BodyAnimationSystem to load from vocabulary**
+- [ ] **Step 0: Update import map to vendored TalkingHead fork**
+
+Change `index.html` import map from:
+```
+"talkinghead": "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.8/modules/talkinghead.mjs"
+```
+to:
+```
+"talkinghead": "./vendor/talkinghead.mjs"
+```
+
+- [ ] **Step 1: Rewrite BodyAnimationSystem to load from vocabulary and register with TalkingHead**
 
 Delete all data constants (`TAXONOMY`, `GESTURE_MAP`, `KEYWORD_GESTURES`, `SPEAKING_POOL_REFS`, `IDLE_POOL_REFS`). Replace with a `fetch("animations/avatar-performance.json")` in `load()`. Build all runtime structures from the fetched data.
+
+In `load()`, register the mixer with TalkingHead via the fork API:
+```javascript
+head.registerMixer(this._mixer, {
+  boneClaim: ['spine', 'spine1', 'spine2', 'hips',
+              'leftUpperArm', 'rightUpperArm', 'leftForeArm', 'rightForeArm',
+              'leftHand', 'rightHand', 'leftUpLeg', 'rightUpLeg',
+              'leftLeg', 'rightLeg', 'leftFoot', 'rightFoot']
+});
+```
+
+Delete the separate `tickBody` rAF loop from `index.html` — TalkingHead now calls `mixer.update(dt)` in its own frame loop.
 
 - [ ] **Step 2: Implement two-layer animation (D11)**
 
@@ -1124,7 +999,7 @@ git add speech-demo/
 git commit -m "feat(#457): vocabulary-driven BodyAnimationSystem with layered animation (D11, D12, D13)"
 ```
 
-### Task 11: Expression Curves and Face Compositor
+### Task 11: Expression Curves and Morph Layer Registration
 
 **Files:**
 - Modify: `speech-demo/src/main/resources/META-INF/resources/animations/body-animations.mjs`
@@ -1132,8 +1007,8 @@ git commit -m "feat(#457): vocabulary-driven BodyAnimationSystem with layered an
 - Test: manual browser test
 
 **Interfaces:**
-- Consumes: `BodyAnimationSystem` (Task 10), TalkingHead scene
-- Produces: face compositor via `scene.onBeforeRender` hook (D14). Expression curves from body clips compose with visemes.
+- Consumes: `BodyAnimationSystem` (Task 10), TalkingHead fork morph layer API (`registerMorphLayer`)
+- Produces: registered morph layers for visemes and expression curves (D21). Compositing handled natively by TalkingHead's layer pipeline.
 
 - [ ] **Step 1: Extract expression curves at load (D6)**
 
@@ -1172,39 +1047,41 @@ _extractExpressionCurves(clip, bundleMeshes) {
 }
 ```
 
-- [ ] **Step 2: Implement face compositor in scene.onBeforeRender (D14)**
+- [ ] **Step 2: Register morph layers with TalkingHead fork (D21)**
 
-Replace the separate `tickBody` rAF loop in `index.html`. Use a single `scene.onBeforeRender` hook:
+Register two morph layers via the fork API. TalkingHead's blink/mood/eyes are layer 0 (internal). Our layers compose on top:
 
 ```javascript
-// In index.html, after avatar loads:
-const scene = head.scene || head._scene;
-const bodyClock = new THREE.Clock();
-let lastFrame = -1;
+// Register viseme layer (replace mode — overwrites viseme_* channels)
+head.registerMorphLayer('visemes', {
+  order: 10,
+  blend: 'replace',
+  channels: ['viseme_aa', 'viseme_E', 'viseme_I', 'viseme_O', 'viseme_U',
+             'viseme_PP', 'viseme_SS', 'viseme_TH', 'viseme_DD', 'viseme_FF',
+             'viseme_kk', 'viseme_nn', 'viseme_RR', 'viseme_CH', 'viseme_sil'],
+  update: (dt, influences) => {
+    // Write current viseme weights (driven by speakAudio playback)
+  }
+});
 
-scene.onBeforeRender = (renderer) => {
-  const frame = renderer.info.render.frame;
-  if (frame === lastFrame) return;
-  lastFrame = frame;
-
-  // 1. body mixer update
-  bodyAnim.update(bodyClock.getDelta());
-  bodyAnim.model.updateMatrixWorld(true);
-
-  // 2. face compositor — TalkingHead already wrote base (blink, mood, eyes)
-  // 3. visemes already written by our playback loop (layer 2)
-  // 4. gesture expression curves (layer 3) — additive, clamped
-  if (bodyAnim.currentExpressionCurves) {
+// Register gesture expression layer (additive — adds to expression channels)
+head.registerMorphLayer('gestureExpressions', {
+  order: 20,
+  blend: 'additive',
+  channels: Array.from(EXPRESSION_ALLOW),
+  update: (dt, influences) => {
+    if (!bodyAnim.currentExpressionCurves) return;
     const weight = bodyAnim.gestureWeight;
     for (const [name, value] of bodyAnim.currentExpressionCurves) {
-      const idx = headMesh.morphTargetDictionary[name];
-      if (idx !== undefined) {
-        headMesh.morphTargetInfluences[idx] = Math.min(1,
-          headMesh.morphTargetInfluences[idx] + value * weight);
+      if (influences[name] !== undefined) {
+        influences[name] = Math.min(1, influences[name] + value * weight);
       }
     }
   }
-};
+});
+```
+
+This replaces the `scene.onBeforeRender` workaround from the original plan. TalkingHead's native layer pipeline handles ordering and blending.
 ```
 
 - [ ] **Step 3: Test shrug frown visibility, commit**
@@ -1213,7 +1090,7 @@ Play the shrug gesture. Verify mouthFrown shows on the avatar's face. Verify dur
 
 ```bash
 git add speech-demo/
-git commit -m "feat(#457): expression curve extraction, face compositor via onBeforeRender (D6, D14)"
+git commit -m "feat(#457): expression curve extraction, morph layer registration (D6, D21)"
 ```
 
 ---
@@ -1222,15 +1099,15 @@ git commit -m "feat(#457): expression curve extraction, face compositor via onBe
 
 After this batch: client speaks the new protocol, gestures fire audio-synced, floor states transition correctly, mood displays.
 
-### Task 12: New Protocol Handler and Audio Header Parsing
+### Task 12: New Protocol Handler and speakAudio Integration
 
 **Files:**
 - Modify: `speech-demo/src/main/resources/META-INF/resources/index.html`
 - Test: manual browser test
 
 **Interfaces:**
-- Consumes: `Segment`, `TurnComplete`, `Gesture`, `Mood` messages from server (Task 5)
-- Produces: working chat display from `Segment.text`, audio playback with header-based pairing
+- Consumes: `Segment`, `TurnComplete`, `Gesture`, `Mood` messages from server (Task 5), TalkingHead `speakAudio` with markers
+- Produces: working chat display from `Segment.text`, audio playback via `speakAudio` with gesture markers
 
 - [ ] **Step 1: Replace ws.onmessage handlers for new protocol**
 
@@ -1272,37 +1149,60 @@ ws.onmessage = (evt) => {
       // Keep: transcript, timing, error, partial, speakerPrompt, speakerIdentified
     }
   } else {
-    // Binary audio — parse 8-byte header
+    // Binary audio — parse 8-byte header, deliver via speakAudio
     handleAudioFrame(evt.data);
   }
 };
 ```
 
-- [ ] **Step 2: Parse audio frame headers**
+- [ ] **Step 2: Parse audio frames and deliver via TalkingHead speakAudio**
+
+Replace the custom `playQueue` with TalkingHead's `speakAudio` API. Each audio frame is paired with its segment's visemes and gesture cues, then delivered to TalkingHead:
 
 ```javascript
-function handleAudioFrame(data) {
+async function handleAudioFrame(data) {
   const header = new DataView(data.buffer || data, 0, 8);
-  const version = header.getUint8(0);
   const segIndex = header.getUint16(2, true);
   const turnSeq = header.getUint32(4, true);
+  const audioBytes = new Uint8Array(data.slice(8));
 
-  const audioBytes = data.slice(8); // actual WAV data
   const key = segmentKey(turnSeq, segIndex);
   const seg = pendingSegments.get(key);
+  if (!seg) return;
 
-  // Pair with segment, queue for playback
-  playQueue.push({
-    audio: null, // decode async
-    visemes: seg ? seg.visemes : null,
-    cues: seg ? seg.cues : null,
-    turnSeq: turnSeq,
-    segIndex: segIndex,
-    rawAudio: audioBytes
-  });
-  if (!isPlaying) playNextQueued();
+  // Decode audio
+  if (!audioCtx) audioCtx = new AudioContext();
+  const audioBuf = await audioCtx.decodeAudioData(audioBytes.buffer);
+
+  // Build speakAudio input with visemes and gesture markers
+  const r = { audio: audioBuf };
+  if (seg.visemes && seg.visemes.length > 0) {
+    r.visemes = seg.visemes.map(v => v.viseme);
+    r.vtimes = seg.visemes.map(v => v.startMs);
+    r.vdurations = seg.visemes.map(v => v.endMs - v.startMs);
+  }
+
+  // Gesture cues become markers (timed callbacks)
+  if (seg.cues && seg.cues.length > 0) {
+    const rate = parseFloat(document.getElementById("speed").value);
+    r.markers = [];
+    r.mtimes = [];
+    for (const cue of seg.cues) {
+      if (cue.type === "gesture") {
+        const strokeMs = bodyAnim.strokeMs(cue.tag) || 0;
+        const triggerMs = Math.max(0, cue.offsetMs / rate - strokeMs);
+        r.markers.push(() => bodyAnim.playGesture(cue.tag));
+        r.mtimes.push(triggerMs);
+      }
+    }
+  }
+
+  // Deliver to TalkingHead — it handles queuing, viseme rendering, and marker firing
+  head.speakAudio(r);
 }
 ```
+
+Delete the custom `playQueue`, `playNextQueued`, `isPlaying`, and the viseme rAF loop. TalkingHead's `speakAudio` owns audio playback, viseme rendering (through the registered morph layer), and gesture marker timing.
 
 - [ ] **Step 3: Send PlaybackComplete and UserActivity**
 
@@ -1442,7 +1342,6 @@ After this batch: everything works end-to-end. Stale docs updated.
 - Modify: `speech-ws/src/main/java/io/casehub/agency/speech/ws/SpeechWebSocket.java` (wire attention)
 - Modify: `docs/guides/consumer-guide.md` (fix stale SocialPromptAssembler reference)
 - Modify: `speech-demo/src/main/resources/application.properties` (enable attention for demo)
-- Delete: `speech-demo/src/main/resources/META-INF/resources/spike-speakaudio.html`
 - Test: end-to-end manual verification
 
 **Interfaces:**
@@ -1474,13 +1373,7 @@ casehub.avatar.attention.second-bid-seconds=75
 
 Update `docs/guides/consumer-guide.md` L668 — replace stale `SocialPromptAssembler` reference with `DefaultPromptAssembler` + `PromptSection` composition pattern.
 
-- [ ] **Step 4: Clean up spike file**
-
-```bash
-git rm speech-demo/src/main/resources/META-INF/resources/spike-speakaudio.html
-```
-
-- [ ] **Step 5: Full end-to-end verification**
+- [ ] **Step 4: Full end-to-end verification**
 
 Run the demo and verify ALL of:
 - [ ] Gestures fire at approximately the right word during speech
@@ -1495,7 +1388,7 @@ Run the demo and verify ALL of:
 - [ ] Animation picker still works
 - [ ] Avatar model switching still works
 
-- [ ] **Step 6: Run full test suite, commit**
+- [ ] **Step 5: Run full test suite, commit**
 
 ```bash
 mvn --batch-mode test
@@ -1508,7 +1401,7 @@ git commit -m "feat(#457): attention wiring, docs fix, final integration (D8, D1
 ## References
 
 - [2026-11-18-m2m-animation-integration-design.md] — design spec
-- [decisions.md D1–D17] — reviewed decisions with full rationale
+- [decisions.md D1–D24] — reviewed decisions with full rationale (D18–D24: TalkingHead fork)
 - [SpeechSession.java:239-245] — handleStop streaming path
 - [SpeechSession.java:175-176] — handleProactiveSpeech
 - [AvatarMessage.java] — current protocol (replaced by D3)
