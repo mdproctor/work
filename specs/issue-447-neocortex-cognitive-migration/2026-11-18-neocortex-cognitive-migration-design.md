@@ -29,10 +29,10 @@ Delete the 20 `social/memory/` source files and their 9 test files from agency �
 | `ViolationType` | `cognition-api/memory/ViolationType` |
 | `SemanticIntegrityChecker` | `cognition-api/memory/SemanticIntegrityChecker` |
 | `NoOpSemanticIntegrityChecker` | `cognition/memory/NoOpSemanticIntegrityChecker` |
-| `ReflectionStore` | (evaluate — may be dead or folded into neocortex reflection) |
-| `NoOpReflectionStore` | (evaluate — may be dead) |
-| `ReflectionQueryStore` | (evaluate — agency's extends neocortex's; check if still needed) |
-| `NoOpReflectionQueryStore` | (evaluate — may be dead) |
+| `ReflectionStore` | Dead — only consumer was agency's MemoryHygieneScheduler; neocortex's version uses ReflectionOrchestrator instead |
+| `NoOpReflectionStore` | Dead — delete with ReflectionStore |
+| `ReflectionQueryStore` | Redundant — identical to `neocortex.memory.ReflectionQueryStore` (both have findSince, countSince, findSalient). Replace all agency references with neocortex's version |
+| `NoOpReflectionQueryStore` | Redundant — replace with neocortex equivalent or inline no-op |
 | `RetentionConfig` | `cognition-api/memory/RetentionConfig` |
 | `RetentionScore` | `cognition-api/memory/RetentionScore` |
 | `HygieneEvent` | `cognition-api/memory/HygieneEvent` |
@@ -77,11 +77,12 @@ Delete the 20 `social/memory/` source files and their 9 test files from agency �
 
 ### AgencyBeans
 
-1. **Remove** `noOpReflectionStore()` producer — evaluate if still needed
+1. **Remove** `noOpReflectionStore()` producer — dead; neocortex uses ReflectionOrchestrator
 2. **Remove** `noOpSemanticIntegrityChecker()` producer — now in neocortex
-3. **Remove** `noOpReflectionQueryStore()` producer — evaluate if still needed
+3. **Remove** `noOpReflectionQueryStore()` producer — replace with neocortex's ReflectionQueryStore
 4. **Remove** `neocortexMemoryHygieneSpi()` producer — the adapter bridge is dead
-5. **Update** `MemoryHygieneOutcomeProvider` wire-up (D4) — point at neocortex's `MemoryHygieneOrchestratorImpl` via CDI
+5. **Update** `narrativePipeline()` — change `ReflectionQueryStore` parameter type from `io.casehub.agency.social.memory.ReflectionQueryStore` to `io.casehub.neocortex.memory.ReflectionQueryStore`
+6. **Update** `MemoryHygieneOutcomeProvider` wire-up (D4) — point at neocortex's `MemoryHygieneOrchestratorImpl` via CDI
 
 ### AgencyAutoConfiguration
 
