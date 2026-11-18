@@ -4,7 +4,7 @@
 branch: issue-457-integrate-m2m-animation-library
 issue-repo: casehubio/agency
 status: active
-covers: 495
+covers: 497
 project-sha: 
 date: 
 design-repo: 
@@ -28,7 +28,6 @@ flyway-next-v: none
 - [x] casehubio/agency#449 — Avatar-reusable-mosaic-component
 - [x] casehubio/agency#455 — CC0-motion-base-tagged-animation-library
 - [x] casehubio/agency#458 — Author-23-conversational-body-poses
-- [ ] casehubio/agency#495 — TurnExecutor-expiry-timer
 - [ ] casehubio/agency#496 — StreamingTTS-path
 - [ ] casehubio/agency#497 — InterruptedException-handling
 - [ ] casehubio/agency#498 — SilenceAttentionPolicy
