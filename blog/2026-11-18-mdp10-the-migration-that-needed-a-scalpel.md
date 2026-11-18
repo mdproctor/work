@@ -50,6 +50,16 @@ The satisfying part: neocortex's `MemoryHygieneOrchestrator` interface had been 
 
 The CDI activation is clean. Five new default bean producers in `CognitionDefaultBeans`: `RetentionConfig.DEFAULT`, `CompositeConfidenceScorer` with arousal + surprise weights, `DefaultIntegrityChecker`, `NoOpSemanticIntegrityChecker`, `NoOpConsolidationSummariser`. When the cognition module is on the classpath with a `CbrRecordStore`, memory hygiene activates. When it's not, the `Instance<MemoryHygieneOrchestrator>` in the factory resolves to nothing and `CognitionCore` skips the tick — same as before.
 
+## Finishing the cut
+
+Three things needed attention after the core landed.
+
+The orchestrator used a `ConcurrentHashMap<String, ReentrantLock>` for per-agent tick serialisation — one lock per agent:tenant pair, never evicted. Fine for a small deployment, but the map grows without bound. I replaced it with a fixed 16-stripe `ReentrantLock` array. Same serialisation guarantee, zero growth. The original agency code had the same unbounded map; migrating code is a good time to fix inherited debt.
+
+The `EraseRequest` for evicted memories was using a deprecated 4-arg constructor that wraps the entity ID in `Subject.of("unknown", entityId)`. The `"unknown"` subject type is a lossy placeholder. Since eviction always targets a CBR memory, `Subject.of("memory", entityId)` is the right canonical form.
+
+The consolidation path — where similar surviving memories are merged into one — was dead. `NoOpConsolidationSummariser` returns empty string, so the merge always skipped. I added `LlmConsolidationSummariser`: when `SessionPipeline` is available, the CDI producer swaps in the LLM implementation automatically. The prompt is minimal — merge these fragments, preserve the facts, don't add information. `ClearingPolicy.EVERY_CALL` keeps consolidation calls stateless. When no LLM is available, the NoOp default keeps eviction and integrity checking working; only consolidation degrades.
+
 ## The pattern
 
 Cross-repo migrations that move "everything in this directory" tend to drag integration code across boundaries. The fix is tedious but straightforward: read every file and ask what it depends on. If it implements the destination's SPIs or uses only the destination's types, it moves. If it implements the source's SPIs or depends on the source's infrastructure, it stays. The directory structure is not the architecture.
