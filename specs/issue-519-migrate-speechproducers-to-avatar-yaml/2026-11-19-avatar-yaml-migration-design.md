@@ -23,6 +23,11 @@ Tier 1 (lowest):  @DefaultBean              → sensible zero-config defaults
 
 Each YAML section independently produces its bean. Missing sections fall back to tier 1.
 
+**CDI precedence mechanism:** Tier 1 beans use `@DefaultBean`, which Quarkus suppresses when any normal-priority bean of the same type exists. Tier 2 synthetic beans are registered as **normal-priority** (not `@DefaultBean`). To avoid `AmbiguousResolutionException` when a tier 3 app producer coexists with a tier 2 synthetic bean, each build step introspects `BeanDiscoveryFinishedBuildItem` for existing app-level producers of the same type and **skips synthetic bean registration** when found. This gives clean three-tier precedence:
+- No app producer + no YAML → tier 1 `@DefaultBean` fires
+- YAML present, no app producer → tier 2 synthetic bean fires, suppresses tier 1
+- App producer exists → build step skips tier 2, app producer fires, suppresses tier 1
+
 ### Component Overview
 
 ```
@@ -49,16 +54,21 @@ avatar.yaml ──▶ AgenticYamlProcessor ──▶ AvatarConfigBuildItem
 
 **Location:** `io.casehub.agency.core.yaml.compiler`
 
-**AvatarCompiler** — composition root. Takes an `AvatarDefinition`, delegates to per-type registries, returns assembled runtime beans.
+**AvatarCompiler** — composition root. Takes an `AvatarDefinition`, delegates to per-type registries, returns a `CompiledAvatar` in a single pass.
 
 ```java
 public class AvatarCompiler {
-    public Map<String, TextToSpeech> compileTtsRegistry(TtsSpec tts);
-    public StreamingSpeechToText compileStt(SttSpec stt);
-    public CleanupConfig compileCleanup(CleanupConfigSpec cleanup);
-    public CorrectionHooks compileCorrectionHooks();
+    public CompiledAvatar compile(AvatarDefinition definition);
+
+    public record CompiledAvatar(
+            @Nullable TtsModelRegistry ttsModelRegistry,
+            @Nullable TextToSpeech defaultTts,
+            @Nullable StreamingSpeechToText stt,
+            @Nullable CleanupConfig cleanupConfig) {}
 }
 ```
+
+The compile method builds TTS engines once, picks the first voice as `defaultTts`, and delegates STT/cleanup to their respective registries. Null sections produce null fields — the build step gates bean registration on non-null.
 
 **TtsEngineRegistry** — resolves `TtsEngineSpec` → `Map<String, TextToSpeech>`. Dispatches on `type`:
 
@@ -82,117 +92,170 @@ Lip-sync wrapping follows the `lipSync` field on `TtsEngineSpec`:
 | `zipformer` | `SherpaOnnxStreamingSpeechToText.withDefaults()` |
 | `whisper-fallback` (default) | Whisper with Zipformer fallback |
 
-**CleanupRegistry** — resolves `CleanupConfigSpec` → `CleanupConfig`. Discovers available `TextFilter` implementations (filler removal, casing, punctuation, GECToR) and filters by `maxDestructiveness`.
+**CleanupRegistry** — resolves `CleanupConfigSpec` → `CleanupConfig`. Instantiates filters from a hardcoded list in order of increasing destructiveness:
+
+1. `FillerRemovalFilter` (destructiveness 0) — always available
+2. `CasingFilter` (destructiveness 1) — always available
+3. `PunctuationFilter.withDefaults()` (destructiveness 2) — requires ONNX model, try-catch graceful degradation
+4. `GectorFilter.withDefaults()` (destructiveness 3) — requires ONNX model, try-catch graceful degradation
+
+Filters with `destructiveness > maxDestructiveness` are excluded. Filters whose native model fails to load are silently skipped (logged at WARNING). This matches the existing `SpeechProducers.cleanupConfig()` pattern exactly.
 
 Follows the existing `KokoroConfigRegistry`/`SherpaConfigRegistry` pattern — stateless resolvers, spec record → runtime instance.
 
 ### agentic-yaml — Spec changes
 
-**TtsEngineSpec** — add optional `lipSync` field:
+**TtsEngineSpec** — add optional `lipSync` field, change `clonedVoices` to boolean:
 
 ```java
 public record TtsEngineSpec(
         String type,
         List<TtsVoiceSpec> voices,
-        @Nullable List<String> clonedVoices,
+        boolean cloneDiscovery,
         @Nullable LipSyncMode lipSync) {
     // lipSync defaults to AUTO when null
+    // cloneDiscovery: when true, discover cloned voices from .wav files on disk via Qwen3VoicePool
 }
 ```
+
+The existing `@Nullable List<String> clonedVoices` is replaced with `boolean cloneDiscovery` (`@JsonAlias("cloned-voices")`). Jackson can deserialize `cloned-voices: true` into a boolean. The voice pool discovers available voices from disk at startup — no explicit enumeration needed. Only Qwen3 supports cloned voices; the compiler ignores `cloneDiscovery` for other engine types.
 
 ```java
 public enum LipSyncMode { AUTO, ENABLED, DISABLED }
 ```
 
+### agentic-yaml — JDK 22+ conditional compilation
+
+The new `AvatarCompiler`, `TtsEngineRegistry`, `SttRegistry`, and `CleanupRegistry` reference FFM-based types from `connectors-voice-sherpa` (`VitsTextToSpeech`, `SherpaOnnxTextToSpeech`, `KokoroTextToSpeech`, `Qwen3TextToSpeech`, `WhisperSpeechToText`, etc.). These classes must be excluded from compilation in the default Maven profile and only compiled in the `jdk22+` profile, matching the existing treatment of `KokoroConfigRegistry`, `SherpaConfigRegistry`, and `Audio8ConfigRegistry`.
+
+On JDK < 22, no YAML-driven speech beans are produced. Apps on JDK < 22 must provide their own CDI producers or rely on `@DefaultBean` defaults from `connectors-voice-sherpa` (which also requires JDK 22+).
+
 ### agentic-yaml-deployment — Build step extensions
 
-New build steps in `AgenticYamlProcessor`:
+A single build step compiles the `AvatarDefinition` once via the recorder and registers all synthetic beans from the compiled result. Each bean type is registered only when (a) the YAML section is present and (b) no app-level producer for that type exists in `BeanDiscoveryFinishedBuildItem`.
 
 ```java
 @BuildStep
 @Record(RUNTIME_INIT)
-SyntheticBeanBuildItem registerTtsModelRegistry(
-        AgenticRecorder recorder, AvatarConfigBuildItem avatarConfig) {
-    if (avatarConfig.definition() == null || avatarConfig.definition().tts() == null)
-        return null;
-    // recorder creates TtsModelRegistry from definition
-}
+List<SyntheticBeanBuildItem> registerAvatarSpeechBeans(
+        AgenticRecorder recorder,
+        AvatarConfigBuildItem avatarConfig,
+        BeanDiscoveryFinishedBuildItem beanDiscovery) {
+    if (avatarConfig.definition() == null) return List.of();
 
-@BuildStep
-@Record(RUNTIME_INIT)
-SyntheticBeanBuildItem registerStt(
-        AgenticRecorder recorder, AvatarConfigBuildItem avatarConfig) {
-    if (avatarConfig.definition() == null || avatarConfig.definition().stt() == null)
-        return null;
-    // recorder creates StreamingSpeechToText from definition
-}
+    var def = avatarConfig.definition();
+    RuntimeValue<AvatarCompiler.CompiledAvatar> compiled = recorder.compileAvatar(def);
+    var beans = new ArrayList<SyntheticBeanBuildItem>();
 
-@BuildStep
-@Record(RUNTIME_INIT)
-SyntheticBeanBuildItem registerCleanupConfig(
-        AgenticRecorder recorder, AvatarConfigBuildItem avatarConfig) {
-    if (avatarConfig.definition() == null || avatarConfig.definition().cleanup() == null)
-        return null;
-    // recorder creates CleanupConfig from definition
-}
+    // TtsModelRegistry — only if tts section present and no app producer
+    if (def.tts() != null && !hasAppBean(beanDiscovery, TtsModelRegistry.class)) {
+        beans.add(SyntheticBeanBuildItem.configure(TtsModelRegistry.class)
+                .scope(Singleton.class)
+                .runtimeValue(recorder.extractTtsModelRegistry(compiled))
+                .done());
+    }
 
-@BuildStep
-@Record(RUNTIME_INIT)
-SyntheticBeanBuildItem registerDefaultTts(
-        AgenticRecorder recorder, AvatarConfigBuildItem avatarConfig) {
-    if (avatarConfig.definition() == null) return null;
-    // first voice in first engine as default TextToSpeech
-}
+    // Default TextToSpeech — from first voice in first engine
+    if (def.tts() != null && !def.tts().engines().isEmpty()
+            && !hasAppBean(beanDiscovery, TextToSpeech.class)) {
+        beans.add(SyntheticBeanBuildItem.configure(TextToSpeech.class)
+                .scope(Singleton.class)
+                .runtimeValue(recorder.extractDefaultTts(compiled))
+                .done());
+    }
 
-@BuildStep
-@Record(RUNTIME_INIT)
-SyntheticBeanBuildItem registerCorrectionHooks(
-        AgenticRecorder recorder, AvatarConfigBuildItem avatarConfig) {
-    if (avatarConfig.definition() == null) return null;
-    // recorder creates CorrectionHooks from TranscriptCorrector + ConversationVocabulary
+    // StreamingSpeechToText
+    if (def.stt() != null && !hasAppBean(beanDiscovery, StreamingSpeechToText.class)) {
+        beans.add(SyntheticBeanBuildItem.configure(StreamingSpeechToText.class)
+                .scope(Singleton.class)
+                .runtimeValue(recorder.extractStt(compiled))
+                .done());
+    }
+
+    // CleanupConfig
+    if (def.cleanup() != null && !hasAppBean(beanDiscovery, CleanupConfig.class)) {
+        beans.add(SyntheticBeanBuildItem.configure(CleanupConfig.class)
+                .scope(Singleton.class)
+                .runtimeValue(recorder.extractCleanup(compiled))
+                .done());
+    }
+
+    // CorrectionHooks — assembled lazily from CDI-resolved TranscriptCorrector + ConversationVocabulary
+    if (!hasAppBean(beanDiscovery, CorrectionHooks.class)) {
+        beans.add(SyntheticBeanBuildItem.configure(CorrectionHooks.class)
+                .scope(Singleton.class)
+                .createWith(recorder.correctionHooksCreator())
+                .done());
+    }
+
+    return beans;
 }
 ```
 
-Each build step checks its section independently — partial YAML is valid.
+Each section is independently gated — partial YAML is valid. `hasAppBean()` introspects `BeanDiscoveryFinishedBuildItem` for existing normal-priority producers.
 
 ### agentic-yaml runtime — Recorder extensions
 
-New methods in `AgenticRecorder`:
+The recorder compiles once and returns a `CompiledAvatar` from which individual beans are extracted:
 
 ```java
 @Recorder
 public class AgenticRecorder {
     // existing methods...
 
-    public RuntimeValue<TtsModelRegistry> createTtsModelRegistry(AvatarDefinition definition) {
-        var compiler = new AvatarCompiler();
-        var models = compiler.compileTtsRegistry(definition.tts());
-        return new RuntimeValue<>(new TtsModelRegistry(models));
+    public RuntimeValue<AvatarCompiler.CompiledAvatar> compileAvatar(AvatarDefinition definition) {
+        return new RuntimeValue<>(new AvatarCompiler().compile(definition));
     }
 
-    public RuntimeValue<StreamingSpeechToText> createStt(AvatarDefinition definition) {
-        var compiler = new AvatarCompiler();
-        return new RuntimeValue<>(compiler.compileStt(definition.stt()));
+    public RuntimeValue<TtsModelRegistry> extractTtsModelRegistry(
+            RuntimeValue<AvatarCompiler.CompiledAvatar> compiled) {
+        return new RuntimeValue<>(compiled.getValue().ttsModelRegistry());
     }
 
-    public RuntimeValue<CleanupConfig> createCleanupConfig(AvatarDefinition definition) {
-        var compiler = new AvatarCompiler();
-        return new RuntimeValue<>(compiler.compileCleanup(definition.cleanup()));
+    public RuntimeValue<TextToSpeech> extractDefaultTts(
+            RuntimeValue<AvatarCompiler.CompiledAvatar> compiled) {
+        return new RuntimeValue<>(compiled.getValue().defaultTts());
     }
 
-    public RuntimeValue<TextToSpeech> createDefaultTts(AvatarDefinition definition) {
-        var compiler = new AvatarCompiler();
-        var models = compiler.compileTtsRegistry(definition.tts());
-        // first entry as default
-        return new RuntimeValue<>(models.values().iterator().next());
+    public RuntimeValue<StreamingSpeechToText> extractStt(
+            RuntimeValue<AvatarCompiler.CompiledAvatar> compiled) {
+        return new RuntimeValue<>(compiled.getValue().stt());
     }
 
-    public RuntimeValue<CorrectionHooks> createCorrectionHooks() {
-        var compiler = new AvatarCompiler();
-        return new RuntimeValue<>(compiler.compileCorrectionHooks());
+    public RuntimeValue<CleanupConfig> extractCleanup(
+            RuntimeValue<AvatarCompiler.CompiledAvatar> compiled) {
+        return new RuntimeValue<>(compiled.getValue().cleanupConfig());
+    }
+
+    // CorrectionHooks uses createWith() — resolves CDI beans lazily at runtime
+    public Function<SyntheticCreationalContext<CorrectionHooks>, CorrectionHooks>
+            correctionHooksCreator() {
+        return ctx -> {
+            var corrector = Arc.container().instance(TranscriptCorrector.class).get();
+            var vocabulary = Arc.container().instance(ConversationVocabulary.class).get();
+            return new CorrectionHooks(
+                    corrector::correct,
+                    response -> {
+                        vocabulary.addFromText(response);
+                        corrector.addVocabulary(vocabulary.terms().toArray(String[]::new));
+                    },
+                    vocabulary::asPromptHint);
+        };
     }
 }
 ```
+
+**CompiledAvatar** — immutable result record:
+
+```java
+public record CompiledAvatar(
+        @Nullable TtsModelRegistry ttsModelRegistry,
+        @Nullable TextToSpeech defaultTts,
+        @Nullable StreamingSpeechToText stt,
+        @Nullable CleanupConfig cleanupConfig) {}
+```
+
+`AvatarCompiler.compile(AvatarDefinition)` builds the full result in a single pass — TTS engines are instantiated once and shared between `ttsModelRegistry` and `defaultTts`.
 
 ### speech-api — Type relocations (D9)
 
@@ -332,7 +395,7 @@ cleanup:
 
 **Authoritative in AvatarDefinition YAML:** `sampleRate`, `minPlaybackRate`, `speed`, `ttsVoice`, `cameraView`, `model`, `tts`, `stt`, `cleanup`.
 
-`SpeechWebSocket.onOpen()` reads physical-layer values from `AvatarConfigBean.definition()` when available, falls back to `AvatarConfig` for backward compatibility during migration.
+`SpeechWebSocket.onOpen()` continues reading physical-layer values from `AvatarConfig` (SmallRye properties). When `avatar.yaml` is present, the deployment recorder produces the speech engine beans — `SpeechWebSocket` doesn't need to read `AvatarConfigBean` directly. The `AvatarConfig.sampleRate()` and `AvatarConfig.minPlaybackRate()` properties remain functional for backward compatibility but are deprecated in favour of YAML.
 
 ## Testing
 
@@ -364,9 +427,9 @@ cleanup:
 - avatar.yaml in speech-demo
 - SpeechProducers cleanup
 
-**Out of scope:**
+**Out of scope (follow-up issues to file):**
 - Extending YAML for speaker diarization/embedding/registry (D4 — these are @DefaultBean infrastructure)
-- Frontend index.html changes (separate follow-up — config endpoint already exists)
+- Frontend index.html update to consume `/api/avatar/config` endpoint (issue #519 bullet 5 — the config endpoint already exists from #449; the frontend integration is a separate UI concern. File a follow-up issue before closing #519.)
 - AgentProvider YAML surface (deployment-specific, stays CDI)
 
 ## References
