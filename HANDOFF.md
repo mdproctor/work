@@ -1,105 +1,73 @@
 # HANDOFF — casehub-agency (slot 223)
 
-## Completed — #458 Author 23 conversational body poses (CLOSED)
+## Active — #449 Avatar reusable mosaic component with YAML configuration
 
-**Branch:** `issue-458-author-23-conversational-body-poses` (landed on main, squashed 153 → 5 commits)
-**Landed SHA:** `fbf4a5ce`
+**Branch:** `issue-449-avatar-mosaic-component` (3 commits on branch, not yet landed)
+**Status:** All 5 plan tasks complete. Code review fixes applied. Blog written. Follow-up issues filed and scheduled.
 
-All 23 original poses addressed. 68 animations in `m2m-animations.glb`.
+### What this session delivered
 
-## Active — #457 Integrate M2M animations with TalkingHead
+**Agency — YAML spec + deployment (3 commits):**
+- `AvatarDefinition`, `TtsSpec`, `TtsEngineSpec`, `TtsVoiceSpec`, `SttSpec` — 5 Jackson-deserializable records in `agentic-yaml/spec/`
+- `TtsVoiceSpec` supports both string shorthand (`- af_heart`) and object form (`- name: af_heart, model: custom`)
+- `AvatarConfigBuildItem` + build steps in `AgenticYamlProcessor` — discovers `META-INF/avatar.yaml`
+- `AvatarConfigBean` + `AvatarConfigResource` — REST endpoint at `/api/avatar/config` serving compiled config JSON
+- `AgenticRecorder.createAvatarConfigBean()` — registers bean as CDI singleton via Quarkus recorder
+- 7 serialization tests passing
 
-**Status:** LANDED — `467c25de` on canonical main
-**Branch:** `issue-457-integrate-m2m-animation-library` (landed, 21 commits)
-**Tests:** 182 passing (speech-ws)
+**Mosaic — component decomposition (4 commits on main):**
+- `AvatarSession` — shared EventTarget service extracted from `AvatarWsController`. Fetches config from `/api/avatar/config`, owns WebSocket, publishes typed events (`avatar:turn`, `avatar:audio`, `avatar:status`, `avatar:timing`, `avatar:config-loaded`, `avatar:config-changed`). 11 tests.
+- `casehub-avatar-controls` — data-driven LLM/voice/speed selectors from `AvatarSession.config`. Zero hardcoded options. 8 tests.
+- `.session` property added to `casehub-avatar`, `casehub-transcript`, `casehub-speech` — each subscribes to session events when set, falls back to existing property-based API for standalone use
+- `casehub-avatar-panel` refactored from 293-line monolith to 107-line thin shell — creates `AvatarSession` internally when none provided, passes it to all children via `.session`
+- Removed 88 hardcoded voice entries (the `VOICE_GROUPS` constant)
+- 60 total tests passing, typecheck clean
 
-### #490 reconciliation — completed
+**Code review fixes applied:**
+- CRITICAL: build steps were inserted into main agency repo via IntelliJ MCP, not the slot copy — re-applied to slot
+- Panel `_session` getter returns nullable with optional chaining at all call sites
+- `casehub-speech` session property typed with structural interface instead of `any`
+- `casehub-transcript` binds session in `connectedCallback` for consistency
 
-Ported D7 prompt composition to eidos-api types. `GesturePromptSection` became a standalone class with `render()`. `DefaultPromptAssembler` takes an optional `GesturePromptSection` directly. `SpeechPromptAssembler` returned to its single-method `@FunctionalInterface` form. `PromptContext` parameter removed from `TurnExecutor`.
+**Design spec:** `docs/specs/2026-11-19-avatar-mosaic-component-design.md`
+**Blog entry:** "The Avatar Is Not the Agent" — body/mind separation in avatar architecture
 
-### What previous sessions delivered
+### Cross-repo commits (mosaic)
 
-**TalkingHead fork (#491) — COMPLETE, pushed to GitHub:**
-- Forked `met4citizen/TalkingHead` into `casehubio/TalkingHead`
-- 4 extension points: bone ownership (D20), morph layer registry (D21), mixer registration (D22), lifecycle events (D23)
-- Vendored into agency at `speech-demo/.../vendor/talkinghead.mjs`
+4 commits on `main` in `casehub-mosaic`:
+- `b81c1f73` — extract AvatarSession service
+- `7dc5774c` — add casehub-avatar-controls
+- `99823d2b` — decompose avatar panel
+- `7e56a6ee` — review fixes (null safety, type safety, session binding)
 
-**Batch 1: Foundation — COMPLETE:**
-- `PerformanceVocabulary` SPI in speech-api
-- `avatar-performance.json` — 68 clips, full taxonomy, 4 pools (idle/listening/thinking/speaking), 55 gesture tags, 8 moods
-- Protocol types: `Segment`, `TurnComplete`, `Gesture`, `Mood`, `PlaybackComplete`, `UserActivity`, `Cue`
-- `UtteranceSegmenter` — server-side tag parser with vocabulary validation
+### Issues filed
 
-**Batch 2: Server Session Refactor — COMPLETE:**
-- `PromptSection` composition in `DefaultPromptAssembler` + `GesturePromptSection` (D7)
-- Capture/turn split: `UserTurn`, `FloorState`, `TurnExecutor` (D10, D13)
-- `SpeechSession` refactored from 535 lines to thin capture-side coordinator
+| # | Repo | Title | Scale | Complexity |
+|---|------|-------|-------|------------|
+| #518 | agency | Add kebab-case `@JsonProperty` aliases to AvatarDefinition | XS | Low |
+| #519 | agency | Migrate speech-demo SpeechProducers to AvatarDefinition YAML | M | Med |
+| mosaic#326 | mosaic | Deprecate AvatarWsController — replaced by AvatarSession | XS | Low |
+| mosaic#327 | mosaic | Rename types.ts AvatarConfig to avoid confusion with AvatarSessionConfig | XS | Low |
 
-### What this session delivered — Batch 3: Client-Side Floor States + Cleanup Sweep
+### Queue
 
-**Client-side floor states (D13):**
-- `BodyAnimationSystem` rewritten — data-driven from `avatar-performance.json`, floor state machine (idle/listening/thinking/speaking), base+gesture animation layering with weight ducking (D11)
-- Module reduced from 407 → 169 lines (data moved to JSON)
-- Deleted: hardcoded `TAXONOMY`, `GESTURE_MAP`, `KEYWORD_GESTURES`, `parseGestureTags`, `classifyResponse`
+```
+- [x] #424
+- [x] #449 ← this session (all tasks complete, branch not yet landed)
+- [ ] #518 — Add kebab-case aliases (XS/Low)
+- [ ] #519 — Migrate speech-demo to YAML (M/Med)
+```
 
-**Client protocol handling (D3, D5):**
-- `index.html` handles `segment`, `turnComplete`, `gesture`, `mood` messages
-- Parses 8-byte binary audio frame headers for turn/segment pairing
-- Floor state transitions: thinking (send/stop), listening (mic), speaking (first audio), idle (turn complete + all played)
-- Sends `playbackComplete` and `userActivity` back to server
-- Registers body mixer with TalkingHead via `registerMixer`/`boneClaim` (D22)
-- Deleted: custom viseme rAF loop, viseme mesh discovery, tag parsing, mood detection, separate tickBody loop
+### To land #449
 
-**Bug fixes:**
-- #492: UtteranceSegmenter — cumulative offsets (duplicate sentences), boundary-based trailing (variable whitespace), collapse-aware positions
-- #495: Turn expiry timer — virtual thread polls FloorState every 2s
-- #497: InterruptedException handling — restored interrupted status in TurnExecutor
-- #499: Removed legacy Response/Phonemes emission, added 8-byte binary frame header
-- #496: Wired StreamingTextToSpeech path in TurnExecutor
-- #498: SilenceAttentionPolicy — opt-in idle attention bids after 30s/75s silence
+The branch has 3 commits. Before landing:
+1. Run `git-squash` on the branch (3 commits — may compact to 2)
+2. Run `work-end` ceremony — will rebase onto main and FF-merge
 
-**Code review fixes:**
-- `handleStop` missing `recordCognitionInteraction` (mic-based speech skipped cognition memory)
-- `SilenceAttentionPolicy` bid reset when silence drops below threshold
-- Removed unused `THREE` import from index.html
+The mosaic commits are already on main (not gated by the ceremony).
 
-**Tests:** 184 total passing (11 new this session)
+### Known issues
 
-**Blog entry:** "The floor the avatar never had" — floor state machine, protocol bridge, animation layering
-
-**Cross-repo issues filed:**
-- casehubio/connectors#303 (CLOSED) — TextMark/MarkTiming in voice-spi
-- casehubio/neocortex#1136 (CLOSED) — Proactive prompt sections, non-verbal outcomes
-
-### What this session delivered — Integration batch (#505-#512)
-
-All 8 follow-up issues from Batch 3 completed and closed. 10 commits on main, 183 tests passing.
-
-**Protocol cleanup (#505):** Removed dead `Response`, `Phonemes`, `Animation`, `Timing` message types — records, codec cases, tests. Updated CLAUDE.md protocol listing.
-
-**Lip sync (#506):** Adopted TalkingHead's `speakAudio()` for viseme rendering. Converts `VisemeFrame` format to flat arrays (`visemes[]`, `vtimes[]`, `vdurations[]`). Gesture/mood cues route as timed marker callbacks. Custom `playQueue` retained as fallback for audio-only mode.
-
-**Streaming race fix (#507):** `isFinal` flag in binary frame header byte 1 prevents early `PlaybackComplete` with streaming TTS. One-behind buffer on server ensures only last chunk carries `isFinal=1`. Client gates segment completion on final chunk in both speakAudio and fallback paths.
-
-**Cue type safety (#508):** Explicit `"type"` discriminator in Cue JSON serialization (`"gesture"` / `"mood"`). Client checks `cue.type` instead of field presence.
-
-**Duration-aware expiry (#509):** Turn expiry tracks cumulative estimated audio duration (`chars x 80ms`). Formula: `completedAt + totalAudioMs / minPlaybackRate + 5s`. `minPlaybackRate` configurable via `casehub.avatar.min-playback-rate` (default 0.6).
-
-**Face compositing (#510):** Morph target tracks extracted from GLB clips at load time, converted to named expressions via reverse `morphTargetDictionary`, filtered to expression allow-list. `gestureExpressions` morph layer registered via TalkingHead D21 registry with additive blending. Expression weights follow gesture ducking.
-
-**Mood ownership (#511):** Two paths per D16. Cognition: `AvatarCognition.currentAffect()` → `MoodMapper` PAD→discrete with dead-zone/hysteresis/dwell. LLM: turn-scoped `MoodCue` with 3s decay. Client priority: turn override > baseline > neutral.
-
-**Mark timing (#512):** `Cue` records gain `charOffset` from segmenter tag positions. `TurnExecutor` builds `TextMark` entries, passes to `SynthesisOptions.marks`, applies `MarkTiming` from TTS result. Client computes `trigger = max(0, offsetMs - strokeMs - 150)`.
-
-**Review fixes:** Streaming cue dedup (visemes/cues attached only to first chunk per segment). Morph layer lifecycle (unregister on bodyAnim dispose).
-
-**Blog:** "The protocol that couldn't feel" — protocol correctness vs experiential completeness.
-
-### Follow-up issues filed (4 items in queue)
-
-| # | Title | Scale | Complexity |
-|---|-------|-------|------------|
-| #513 | MoodMapper dead-zone-to-null transition lacks dwell | XS | Low |
-| #514 | Streaming TTS mark timing — word-boundary fallback | S | Med |
-| #515 | Verify WebSocket thread safety for concurrent sends | XS | Low |
-| #516 | MorphTargetInfluences regex — support named targets | XS | Low |
+- `AvatarWsController` is orphaned in mosaic — still exported, still tested, no consumer. mosaic#326 tracks deprecation.
+- YAML uses camelCase property names. agency#518 tracks adding kebab-case aliases.
+- `speech-demo/SpeechProducers` still hardcodes all CDI wiring. agency#519 tracks migration to `AvatarDefinition` YAML.

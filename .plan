@@ -1,23 +1,26 @@
 # Work Plan — issue-424-multi-swarm-review-findings
 
 ## State
-branch: issue-424-multi-swarm-review-findings
+branch: issue-449-avatar-mosaic-component
 state: scaffolded
 project-sha: 
 date: 
 issue-repo: casehubio/agency
-covers: 364
+covers: 449
 design-repo: 
 design-section-hashes: 
 flyway-next-v: none
 
 ## Queue
-- [ ] casehubio/agency#424 — Issue #424 ← active
-  - [ ] Batch 1: Agency YAML Foundation
-    - [ ] Task 1: AvatarDefinition spec records + serialization tests
-    - [ ] Task 2: Deployment build step + recorder + REST endpoint
-  - [ ] Batch 2: Mosaic AvatarSession
-    - [ ] Task 3: Extract AvatarSession from AvatarWsController
-  - [ ] Batch 3: Mosaic Components
-    - [ ] Task 4: casehub-avatar-controls component
-    - [ ] Task 5: Session support + panel refactor
+- [x] casehubio/agency#424 — Issue #424
+- [ ] casehubio/agency#449 — Avatar-reusable-mosaic-component ← active
+  - [x] Batch 1: Agency YAML Foundation
+    - [x] Task 1: AvatarDefinition spec records + serialization tests
+    - [x] Task 2: Deployment build step + recorder + REST endpoint
+  - [x] Batch 2: Mosaic AvatarSession
+    - [x] Task 3: Extract AvatarSession from AvatarWsController
+  - [x] Batch 3: Mosaic Components
+    - [x] Task 4: casehub-avatar-controls component
+    - [x] Task 5: Session support + panel refactor
+- [ ] casehubio/agency#518 — Add-kebab-case-JsonProperty-aliases
+- [ ] casehubio/agency#519 — Migrate-speech-demo-to-AvatarDefinition-YAML
