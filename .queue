@@ -1,3 +1,17 @@
+# Work Plan —
+
+## State
+branch: issue-521-add-kebab-case-json-alias-to-speech-ws
+issue-repo: casehubio/agency
+status: active
+covers: casehubio/agency#520
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
+
+## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -29,16 +43,5 @@
 - [x] casehubio/agency#517 — Replace-80L-with-MS_PER_CHAR
 - [x] casehubio/agency#518 — issue 518
 - [x] casehubio/agency#520 — Add kebab-case @JsonAlias to all agentic-yaml spec records
-- [x] casehubio/agency#519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML
-- [ ] casehubio/agency#521 — Add-kebab-case-JsonAlias-to-speech-ws-protocol-DTOs        ← active
-
-## State
-branch: 
-issue-repo: casehubio/agency
-status: active
-covers: casehubio/agency#520
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
+- [ ] casehubio/agency#519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML
+- [ ] casehubio/agency#521 — Add-kebab-case-JsonAlias-to-speech-ws-protocol-DTOs ← active
