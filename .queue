@@ -45,3 +45,6 @@ flyway-next-v: none
 - [x] casehubio/agency#520 — Add kebab-case @JsonAlias to all agentic-yaml spec records
 - [ ] casehubio/agency#519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML ← active
 - [x] casehubio/agency#521 — Add-kebab-case-JsonAlias-to-speech-ws-protocol-DTOs
+- [ ] casehubio/agency#525 — Add /api/avatar/voices endpoint
+- [ ] casehubio/agency#527 — Update index.html config consumption
+- [ ] casehubio/agency#526 — Zero-Java avatar self-wiring extension
