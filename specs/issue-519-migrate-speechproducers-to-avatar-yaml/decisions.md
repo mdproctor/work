@@ -1,6 +1,6 @@
 ## D1: Bridge architecture — compiler/registry pattern
 
-**Choice:** Compiler/registry in agentic-yaml — per-engine-type registries translate `TtsEngineSpec` to `Map<String, TextToSpeech>`. An `AvatarCompiler` iterates `tts.engines`, calls the registry for each type, and merges results into a single `TtsModelRegistry`. Registries live in agentic-yaml alongside existing `KokoroConfigRegistry`, `SherpaConfigRegistry`, `Audio8ConfigRegistry`, using the existing `provided`-scope dependency on `casehub-connectors-voice-sherpa` (JDK 22+ profile).
+**Choice:** Compiler/registry in agentic-yaml — per-engine-type registries translate `TtsEngineSpec` to `Map<String, TextToSpeech>`. An `AvatarCompiler` iterates `tts.engines`, calls the registry for each type, and merges results into a single `TtsModelRegistry` (in speech-api; see D9). Registries live in agentic-yaml alongside existing `KokoroConfigRegistry`, `SherpaConfigRegistry`, `Audio8ConfigRegistry`, using the existing `provided`-scope dependency on `casehub-connectors-voice-sherpa` (JDK 22+ profile).
 **Alternatives:**
 - SPI registry — define factory interfaces in speech-api, CDI-discovered implementations per engine type. Extensible but premature: all engine implementations are in `casehub-connectors-voice-sherpa` and there are no cross-module providers. The SPI indirection adds factory interfaces, CDI discovery, and registration complexity without an immediate consumer. If a cross-module engine provider appears (cloud TTS, third-party), SPIs can be introduced at that point.
 - Direct coupling module — single module depends on both agentic-yaml and speech-sherpa. Same result as the compiler approach but adds an unnecessary module.
@@ -38,18 +38,25 @@
 **Depends on:** D1 (compiler/registry)
 **Status:** revised (R1-04 — moved from speech-ws to agentic-yaml deployment/recorder for transport independence)
 
-## D4: Infrastructure beans as @DefaultBean in connectors-voice-sherpa
+## D4: Infrastructure beans — split placement by visibility
 
-**Choice:** `casehub-connectors-voice-sherpa` provides `@DefaultBean` CDI producers for speaker diarization, embedding extraction, speaker registry, voiceprint store, transcript correction, conversation vocabulary, and correction hooks. Any app with connectors-voice-sherpa on classpath gets sensible defaults.
+**Choice:** Infrastructure beans are split across two assembly points based on type visibility:
+
+**connectors-voice-sherpa @DefaultBean:** `SpeakerDiarizationService`, `SpeakerEmbeddingExtractor`, `SpeakerRegistry`, `VoiceprintStore`, `TranscriptCorrector`, `ConversationVocabulary`. These types and their implementations are self-contained within connectors-voice-sherpa. Any app with connectors-voice-sherpa on classpath gets sensible defaults.
+
+**agentic-yaml deployment recorder:** `CorrectionHooks` (in speech-api; see D9). Assembled from `TranscriptCorrector` + `ConversationVocabulary` by the recorder when avatar.yaml configures speech (consistent with D3). `CorrectionHooks` cannot have a @DefaultBean in connectors-voice-sherpa because connectors-voice-sherpa cannot see the `CorrectionHooks` type (dependency flows agency → connectors, never connectors → agency). Without avatar.yaml, `CorrectionHooks` is absent — `SpeechWebSocket` handles this gracefully via `Instance<CorrectionHooks>.isResolvable()`.
+
 **Alternatives:**
+- All @DefaultBean in connectors-voice-sherpa — impossible for CorrectionHooks (cross-repo visibility).
+- @DefaultBean for CorrectionHooks in speech-ws — speech-ws cannot see `TranscriptCorrector`/`ConversationVocabulary` (they're in connectors-voice-sherpa; speech-ws only sees connectors-voice-spi transitively).
 - Extend YAML spec — add diarization, speaker, correction sections to AvatarDefinition. Full control but rarely varies.
 - Keep in SpeechProducers — only migrate TTS/STT/cleanup to YAML. Leaves hardcoded producers in demo app.
-**Rationale:** These are infrastructure, not configuration. They rarely vary between deployments. `@DefaultBean` lets apps override when needed without YAML boilerplate.
-**Trade-offs:** Less explicit than YAML; apps that need non-default wiring must provide CDI overrides.
-**Sources:** `SpeechProducers.java` lines 124-319
+**Rationale:** The split follows type visibility boundaries. Infrastructure beans whose types and implementations are self-contained in connectors get @DefaultBean there. CorrectionHooks crosses the connectors/agency boundary (type in speech-api, components in connectors-voice-sherpa), so it's assembled by the deployment recorder which sees both sides via provided-scope dependencies.
+**Trade-offs:** CorrectionHooks is unavailable without avatar.yaml unless the app provides its own CDI producer (tier 3). This is acceptable — the existing `SpeechWebSocket` already handles absence.
+**Sources:** `SpeechProducers.java` lines 124-319, `CorrectionHooks.java`, `SpeechWebSocket.java` line 117
 **Exploration:** quick
-**Depends on:** D1 (compiler/registry)
-**Status:** revised (R1-04 — clarified module name: `casehub-connectors-voice-sherpa`, not the ambiguous `speech-sherpa`)
+**Depends on:** D1 (compiler/registry), D3 (deployment recorder), D9 (CorrectionHooks relocation)
+**Status:** revised (R1-04, R2-02 — split bean placement by type visibility; CorrectionHooks assembly via recorder)
 
 ## D5: Lip-sync wrapping controlled by YAML with auto-detect default
 
@@ -114,4 +121,24 @@
 **Trade-offs:** Per-engine logic in the compiler. This is intentional — engine construction IS engine-specific.
 **Sources:** `SpeechProducers.java` (voice registration patterns), `TtsEngineSpec.java`, `TtsVoiceSpec.java`, `Qwen3VoicePool` (cloned voice discovery)
 **Exploration:** quick (surfaced by reviewer R1-08)
+**Status:** captured
+
+## D9: Type relocations — TtsModelRegistry and CorrectionHooks move to speech-api
+
+**Choice:** Move `TtsModelRegistry` and `CorrectionHooks` from `speech-ws` to `speech-api`.
+
+**TtsModelRegistry** (`record TtsModelRegistry(Map<String, TextToSpeech> models)`) depends only on `TextToSpeech` from `connectors-voice-spi`, which `speech-api` already depends on. It is a speech pipeline value type, not a WebSocket concern. The move is required by D3: the deployment recorder in agentic-yaml must produce `TtsModelRegistry` as a synthetic CDI bean, but agentic-yaml has no dependency on speech-ws — it depends on speech-api (provided scope).
+
+**CorrectionHooks** (`record CorrectionHooks(UnaryOperator<String>, Consumer<String>, Supplier<String>)`) depends only on JDK functional types — zero external dependencies. The move is required by D4: `CorrectionHooks` must be visible from the deployment recorder in agentic-yaml, which cannot see speech-ws types.
+
+**Import resolution after move:** `speech-ws` depends on `speech-api`, so existing references in `SpeechWebSocket.java` and `SpeechSession.java` resolve with a package change. `speech-demo`'s `SpeechProducers.java` transitively sees speech-api through speech-ws.
+
+**Alternatives:**
+- Keep in speech-ws, add speech-ws dependency to agentic-yaml — creates a dependency from compilation infrastructure (agentic-yaml) to transport (speech-ws). Architecturally wrong: agentic-yaml should not know about WebSocket transport.
+- Extract to a new speech-types module — adds a module for two small records. Unnecessary when speech-api is the natural home for speech pipeline value types.
+- Leave in speech-ws, produce beans in speech-ws — reverts D3's transport-independence principle. Rejected in R1-04.
+**Rationale:** Both types are speech pipeline value types with no WebSocket semantics. `speech-api` is the existing home for speech pipeline abstractions (`AvatarCognition`, `SpeechPromptAssembler`, `ConversationTurn`, `PerformanceVocabulary`). The design spec (`2026-11-19-avatar-mosaic-component-design.md` §Compiler, line 107) also assumes `TtsModelRegistry` is accessible to the compiler in agentic-yaml.
+**Trade-offs:** Breaking change to import paths in speech-ws and speech-demo. Mechanical migration.
+**Sources:** `TtsModelRegistry.java`, `CorrectionHooks.java`, `speech-api/pom.xml` (depends on connectors-voice-spi), `agentic-yaml/pom.xml` (depends on speech-api, not speech-ws)
+**Exploration:** quick (surfaced by reviewer R2-01, R2-02)
 **Status:** captured
