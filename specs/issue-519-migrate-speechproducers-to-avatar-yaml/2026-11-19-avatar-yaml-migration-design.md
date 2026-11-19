@@ -315,7 +315,7 @@ tts:
         - zm_yunyang
     - type: qwen3
       voices: [ryan, aiden, eric, dylan, serena, vivian]
-      cloned-voices: true
+      cloned-voices: true  # discover cloned voices from .wav files on disk via Qwen3VoicePool
 
 stt:
   type: whisper-fallback
