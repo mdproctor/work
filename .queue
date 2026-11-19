@@ -37,3 +37,4 @@ active_ref:
 - [ ] per-agent-RetentionConfig-adaptation (S / Med) []
 - [ ] personality-evolution-integration-tests (M / Med) []
 - [ ] CognitionCore-300-tick-scenario-validation (M / Med) []
+- [ ] edge-extraction-scaling (M / Med) []
