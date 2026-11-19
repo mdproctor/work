@@ -2,41 +2,39 @@
 
 ## Last Session
 
-Implemented #1132 — `EidosLivedDispositionSource` surfaces evolved personality from neocortex to eidos `findEffective()`. Single `@ApplicationScoped` class in `cognitive-eidos/` implementing `LivedDispositionSource` SPI. Uses `PersonalityStateSource` via CDI `Instance<>` for graceful degradation. Called `LivedComposition.profile()` directly rather than routing through `livedDescriptor()` — the existing bridge method drops `ampdFacets` and `situationalProfiles` when rebuilding the disposition.
+Maintenance sweep: 4 cognition module fixes, all TDD, all clean review.
 
-Code review: clean, no findings. Filed #1147 for the pre-existing `livedDescriptor()` field-drop bug. Updated #1060 spec follow-ups with #1132 (done), #1135, #1147.
+1. **#1174** — InnerLifeOrchestratorTest NPE: `mock(DriveProfile.class)` returned null for all accessors (Mockito record mocking pitfall). Replaced with real `DriveProfile` instance.
+2. **#1166** — ShadowArchetypePromptSection: when store present but scored empty and no archetype family found, prompt ended abruptly. Changed guard from `store == null` to `!archetypeResolved`.
+3. **#1069** — AppraisalTickParticipant: 8 ConcurrentHashMaps accumulated indefinitely. Added `evictIdle(Duration)` with `lastTickTimes` tracking, registered with `CacheEvictionScheduler`.
+4. **#1063** — ConsolidationScheduler starvation: `seedTenantsFromStore()` at startup, `registerTenant()` for participants, bounded starvation (run starved tenants even when busy, configurable `max-starvation-intervals` default 6).
+
+Filed: #1183 (extend evictIdle to 8 more orchestrators), #1184 (wire registerTenant into tick-time participants). Both queued.
+
+Blog: `docs/blog/2026-11-19-mdp03-four-fixes-four-patterns.md` — four patterns: Mockito records, guard variables, ConcurrentHashMap eviction, bounded starvation.
 
 ## Immediate Next Step
 
-Run `work continue` — queue active on #1135 (extend bridge to compose AMPD facets in findEffective()). This builds directly on #1132: same module, same bridge class, same composition utilities.
+Run `work continue` — queue active on #547 (edge extraction scaling, M/Med). This is unstarted — the session deferred it as a topic change. Fresh context recommended.
 
 ## Queue Status
 
 | # | Issue | Scale | Status |
 |---|-------|-------|--------|
-| 1135 | Extend bridge for AMPD facets | S/Med | **Active** — next |
-| 1143 | CBR persistence for learned retention | — | Open |
-| 1144 | Per-tenant RetentionConfig adaptation | — | Open |
-| 1147 | Fix livedDescriptor field-drop | XS/Low | Open (filed this session) |
-
-## Cross-Repo State
-
-| Repo | Issue | Status |
-|------|-------|--------|
-| eidos | #245 | **Landed** — LivedDispositionSource SPI + findEffective() |
-| neocortex | #1132 | **Closed** — EidosLivedDispositionSource implemented and landed |
-| neocortex | #1135 | **Open** — extend bridge for AMPD facets (queue active) |
-| neocortex | #1147 | **Open** — livedDescriptor drops ampdFacets/situationalProfiles |
-
-## Context for #1135
-
-The next issue composes AMPD facets (not just disposition profile terms) in `findEffective()`. Key files already read this session:
-- `EidosCognitiveProfileBridge.livedDescriptor()` — existing method, only composes profile terms
-- `LivedComposition.compose()` — already does facet composition at `DescriptorView` level (homeOffset + promoted + displacement)
-- `PersonalityStateSnapshot` — carries `facets` map with `FacetDisplacement(homeOffset, displacement, promoted)`
-- The gap: `EidosLivedDispositionSource.resolveEffective()` returns composed profile terms but authored facet scores unchanged
+| 547 | Edge extraction not scaling with entity growth | M/Med | **Active** — next |
+| 1172 | CognitionTestHarness CAPS trajectory accessor | — | Open |
+| 1171 | CAPS settling trajectory assertions | — | Open |
+| 1165 | DevelopmentalPhaseResolver MindMapNode tests | — | Open |
+| 1164 | SituationalSnapshotAccessorProducer tests | — | Open |
+| 964 | AmpdFacets YAML round-trip test | — | Open |
+| 1153 | SituationalPersonalityParticipant coverage | — | Open |
+| 1079 | EffectiveCognitiveDefaults field classification test | — | Open |
+| 1123 | Personality evolution integration tests | — | Open |
+| 930 | CognitionCore 300-tick scenario validation | — | Open |
+| 1183 | Extend evictIdle to remaining orchestrators | S/Low | Open (filed this session) |
+| 1184 | Wire registerTenant into tick-time participants | XS/Low | Open (filed this session) |
 
 ## References
 
-- Blog: `docs/blog/2026-11-18-mdp04-the-loop-that-closed-itself.md`
-- Design spec (#1060): `docs/specs/issue-1060-personality-evolution-orchestrator-never-ticked/2026-11-17-unified-personality-evolution-design.md`
+- Blog: `docs/blog/2026-11-19-mdp03-four-fixes-four-patterns.md`
+- Research: `docs/research/era7-personality-trait-integration-research.md`
