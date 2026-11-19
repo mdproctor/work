@@ -42,11 +42,11 @@
 
 - [ ] **Step 1: Move TtsModelRegistry to speech-api**
 
-Use `ide_move_file` to move `speech-ws/src/main/java/io/casehub/agency/speech/ws/TtsModelRegistry.java` to `speech-api/src/main/java/io/casehub/agency/speech/TtsModelRegistry.java`. IntelliJ will update imports in all dependent modules.
+Use `ide_move_file` to move `../../speech-api/src/main/java/io/casehub/agency/speech/TtsModelRegistry.java` to `speech-api/src/main/java/io/casehub/agency/speech/TtsModelRegistry.java`. IntelliJ will update imports in all dependent modules.
 
 - [ ] **Step 2: Move CorrectionHooks to speech-api**
 
-Use `ide_move_file` to move `speech-ws/src/main/java/io/casehub/agency/speech/ws/CorrectionHooks.java` to `speech-api/src/main/java/io/casehub/agency/speech/CorrectionHooks.java`. IntelliJ will update imports.
+Use `ide_move_file` to move `../../speech-api/src/main/java/io/casehub/agency/speech/CorrectionHooks.java` to `speech-api/src/main/java/io/casehub/agency/speech/CorrectionHooks.java`. IntelliJ will update imports.
 
 - [ ] **Step 3: Verify compilation**
 
@@ -153,7 +153,7 @@ Expected: FAIL — `cloneDiscovery` and `lipSync` fields don't exist yet
 
 - [ ] **Step 3: Create LipSyncMode enum**
 
-Create `agentic-yaml/src/main/java/io/casehub/agency/core/yaml/spec/LipSyncMode.java`:
+Create `../../agentic-yaml/src/main/java/io/casehub/agency/agentic/yaml/spec/LipSyncMode.java`:
 
 ```java
 package io.casehub.agency.core.yaml.spec;
