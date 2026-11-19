@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: issue-519-migrate-speechproducers-to-avatar-yaml
 issue-repo: casehubio/agency
 status: active
-covers: casehubio/agency#520
+covers: casehubio/agency#519
 project-sha: 
 date: 
 design-repo: 
