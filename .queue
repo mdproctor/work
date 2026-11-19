@@ -4,7 +4,7 @@
 branch: 
 issue-repo: casehubio/agency
 status: active
-covers: 
+covers: casehubio/agency#520
 project-sha: 
 date: 
 design-repo: 
@@ -42,4 +42,4 @@ flyway-next-v: none
 - [x] casehubio/agency#516 — MorphTarget-named-regex
 - [x] casehubio/agency#517 — Replace-80L-with-MS_PER_CHAR
 - [ ] casehubio/agency#518 — issue 518 ← done on issue-518-avatar-yaml-kebab-case-aliases
-- [ ] casehubio/agency#520 — Add kebab-case @JsonAlias to all agentic-yaml spec records
+- [ ] casehubio/agency#520 — Add kebab-case @JsonAlias to all agentic-yaml spec records ← active
