@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-1174-fix-innerlife-test-npe
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1143
@@ -35,3 +35,5 @@ active_ref:
 
 ## Deferred
 - [ ] per-agent-RetentionConfig-adaptation (S / Med) []
+- [ ] personality-evolution-integration-tests (M / Med) []
+- [ ] CognitionCore-300-tick-scenario-validation (M / Med) []
