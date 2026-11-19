@@ -5,7 +5,7 @@ date: 2026-11-19
 entry_type: note
 subtype: diary
 projects: [casehubio/agency]
-tags: [yaml, jackson, configuration, developer-experience]
+tags: [yaml, jackson, websocket, configuration, developer-experience]
 ---
 
 # The Config Your Fingers Expect
@@ -72,8 +72,27 @@ Now all three names resolve to the same field — the canonical `personalityEvol
 
 This is the general principle at work. `@JsonAlias` is additive. It doesn't rename or replace — it widens the set of names that resolve to a field. When a third convention arrives, another alias costs one annotation.
 
+## From config files to wire protocols
+
+The same pattern applies beyond YAML config. The avatar's WebSocket protocol uses JSON messages with a `type` discriminator — `playbackComplete`, `turnComplete`, `userActivity` — and multi-word fields like `sampleRate`, `llmModel`, `turnSeq`. Originally this was a hand-written Gson codec: 130 lines of `switch` statements building `JsonObject` instances field by field, with a mirrored decode path parsing each type manually. It worked, but it couldn't support aliases at all — Gson has no equivalent of `@JsonAlias`.
+
+![Codec migration](images/protocol-codec-migration.svg)
+
+Migrating to Jackson replaced 130 lines of manual codec with `ObjectMapper.writeValueAsString()` and `ObjectMapper.readValue()`. The sealed `AvatarMessage` hierarchy gets `@JsonTypeInfo` and `@JsonSubTypes` — Jackson handles the `type` discriminator automatically. The interesting part is that `@JsonSubTypes.Type` supports a `names` array (Jackson 2.12+) where the first entry is the canonical serialization name and subsequent entries are deserialization aliases:
+
+```java
+@JsonSubTypes.Type(value = PlaybackComplete.class,
+    names = {"playbackComplete", "playback-complete"}),
+@JsonSubTypes.Type(value = UserActivity.class,
+    names = {"userActivity", "user-activity"})
+```
+
+This means the same alias-not-rename principle applies to type discriminators, not just field names. The server always writes `"type":"playbackComplete"` — existing clients don't see a change. But a polyglot client can send `"type":"playback-complete"` and it resolves to the same type.
+
+One subtlety caught by the code review: the old Gson codec omitted null fields from the wire output. Jackson serializes all record components by default, including nulls. A `Start` message with no explicit model selection would suddenly grow `"llmModel":null,"ttsModel":null` in the output — technically backward-compatible but noisy and potentially surprising for clients checking `"llmModel" in msg`. The fix is `@JsonInclude(NON_NULL)` on the records with nullable fields, which restores the old codec's behaviour of only including fields that have values.
+
 ## The broader principle
 
-Config surfaces have two audiences with different conventions. The Java code that declares the shape of the config uses camelCase because that's what Java identifiers do. The YAML author who writes the config file expects kebab-case because that's what YAML conventions do. Neither audience is wrong. The serialization layer's job is to bridge the gap without forcing either side to adopt the other's convention.
+Config surfaces, wire protocols, and API payloads all share the same tension: the Java side uses camelCase because that's what identifiers do, and everyone else expects their own convention — kebab-case for YAML, potentially kebab-case or snake_case for JSON. Neither audience is wrong. The serialization layer's job is to bridge the gap without forcing either side to adopt the other's convention.
 
-The alternative — picking one convention and forcing everyone to use it — always trades one audience's comfort for another's confusion. Aliases avoid the trade entirely.
+The alternative — picking one convention and forcing everyone to use it — always trades one audience's comfort for another's confusion. Aliases avoid the trade entirely. And because `@JsonAlias` works identically on YAML config records, WebSocket protocol DTOs, and REST API payloads, the same one-line annotation covers every surface.
