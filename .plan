@@ -13,3 +13,11 @@ flyway-next-v: none
 
 ## Queue
 - [ ] casehubio/agency#424 — Issue #424 ← active
+  - [ ] Batch 1: Agency YAML Foundation
+    - [ ] Task 1: AvatarDefinition spec records + serialization tests
+    - [ ] Task 2: Deployment build step + recorder + REST endpoint
+  - [ ] Batch 2: Mosaic AvatarSession
+    - [ ] Task 3: Extract AvatarSession from AvatarWsController
+  - [ ] Batch 3: Mosaic Components
+    - [ ] Task 4: casehub-avatar-controls component
+    - [ ] Task 5: Session support + panel refactor
