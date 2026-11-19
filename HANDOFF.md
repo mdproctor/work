@@ -2,8 +2,10 @@
 
 ## Active — #519 Migrate speech-demo SpeechProducers to AvatarDefinition YAML
 
-**Branch:** not yet scaffolded
-**Status:** Queued, next to start.
+**Branch:** `issue-519-migrate-speechproducers-to-avatar-yaml`
+**Status:** Scaffolded — branch created, queue active, no implementation yet.
+
+Both project and workspace repos are checked out on the feature branch. `work continue` will route to `load_context` → brainstorming.
 
 ### What this session delivered
 
@@ -16,7 +18,7 @@ Landed on main as 2 commits: `f634c9f1`, `a0850456`. Post-ceremony fix: `0451a95
 - **Type discriminator aliases:** 5 multi-word type names (`playbackComplete`, `userActivity`, `speakerIdentify`, `speakerPrompt`, `turnComplete`) accept kebab-case via `@JsonSubTypes.Type(names={...})`
 - **Wire format fix:** `@JsonInclude(NON_NULL)` on `Start` and `Text` records to prevent null fields appearing in output (caught by code review)
 - **sampleRate default:** `@JsonCreator` factory on `Start` preserves the 16000 default when field is absent
-- **Tests:** 32 tests (17 migrated from Gson, 12 kebab-case, 3 null-field suppression)
+- **Tests:** 32 tests (17 migrated from Gson, 12 kebab-case, 3 null-field suppression). 205 total speech-ws tests pass.
 - **Blog revised:** "The Config Your Fingers Expect" updated with WebSocket protocol migration section and new SVG diagram
 - Dependency swapped: `com.google.code.gson:gson` → `com.fasterxml.jackson.core:jackson-databind`
 
@@ -30,18 +32,12 @@ Landed on main as 2 commits: `f634c9f1`, `a0850456`. Post-ceremony fix: `0451a95
 ### Queue
 
 ```
-- [x] #520 — kebab aliases for agentic-yaml (landed previous session)
-- [x] #521 — Gson→Jackson migration + kebab aliases for speech-ws (landed this session)
-- [ ] #519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML ← active
+- [x] #521 — Gson→Jackson migration + kebab aliases for speech-ws (landed)
+- [ ] #519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML ← active (scaffolded)
 - [ ] #424 — multi-swarm-review-findings
 - [ ] #523 — Remove Gson from speech-sherpa
 - [ ] #524 — NON_NULL audit remaining records
 ```
-
-### Known issues
-
-- **#519 queue state:** Was incorrectly marked done by a previous ceremony. GitHub issue is still OPEN. The queue now shows it correctly as the active item. Next session should scaffold it with `work start`.
-- **speech-sherpa still uses Gson:** Filed as #523. Separate module with different concerns (FFM/Panama, model config parsing). Migration complexity is higher than speech-ws.
 
 ### Published
 
