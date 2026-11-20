@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-547-edge-extraction-scaling
+branch: main
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1172
