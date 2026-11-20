@@ -4,7 +4,7 @@
 branch: 
 issue-repo: casehubio/neocortex
 status: active
-covers: casehubio/neocortex#1123
+covers: casehubio/neocortex#930
 active_ref: 
 
 ## Queue
@@ -30,8 +30,8 @@ active_ref:
 - [x] casehubio/neocortex#964 — AmpdFacets-YAML-round-trip-test
 - [ ] casehubio/neocortex#1153 — SituationalPersonalityParticipant-coverage ← done on issue-1164-snapshot-accessor-producer-test
 - [ ] casehubio/neocortex#1079 — EffectiveCognitiveDefaults-field-classification-test ← done on issue-1079-effective-defaults-field-test
-- [ ] casehubio/neocortex#1123 — personality-evolution-integration-tests ← active
-- [ ] casehubio/neocortex#930 — CognitionCore-300-tick-scenario-validation
+- [ ] casehubio/neocortex#1123 — personality-evolution-integration-tests ← done on issue-1079-effective-defaults-field-test
+- [ ] casehubio/neocortex#930 — CognitionCore-300-tick-scenario-validation ← active
 - [ ] casehubio/neocortex#1183 — Extend evictIdle to remaining cognition orchestrators
 - [ ] casehubio/neocortex#1184 — Wire registerTenant into tick-time participants
 - [ ] casehubio/neocortex#1189 — Python-call_llm-refactoring
