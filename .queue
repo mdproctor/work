@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: 
 issue-repo: casehubio/neocortex
 status: active
-covers: casehubio/neocortex#1172
+covers: casehubio/neocortex#964
 active_ref: 
 
 ## Queue
@@ -23,12 +23,12 @@ active_ref:
 - [x] casehubio/neocortex#1069 — AppraisalTickParticipant-map-cleanup
 - [x] casehubio/neocortex#1063 — ConsolidationScheduler-knownTenants-starvation
 - [x] casehubio/neocortex#547 — edge-extraction-scaling
-- [ ] casehubio/neocortex#1172 — CognitionTestHarness-CAPS-trajectory-accessor ← active
-- [ ] casehubio/neocortex#1171 — CAPS-settling-trajectory-assertions
-- [ ] casehubio/neocortex#1165 — DevelopmentalPhaseResolver-MindMapNode-tests
-- [ ] casehubio/neocortex#1164 — SituationalSnapshotAccessorProducer-tests
-- [ ] casehubio/neocortex#964 — AmpdFacets-YAML-round-trip-test
-- [ ] casehubio/neocortex#1153 — SituationalPersonalityParticipant-coverage
+- [x] casehubio/neocortex#1172 — CognitionTestHarness-CAPS-trajectory-accessor
+- [ ] casehubio/neocortex#1171 — CAPS-settling-trajectory-assertions ← done on issue-1171-caps-trajectory-assertions
+- [ ] casehubio/neocortex#1165 — DevelopmentalPhaseResolver-MindMapNode-tests ← done on issue-1165-developmental-phase-resolver-tests
+- [ ] casehubio/neocortex#1164 — SituationalSnapshotAccessorProducer-tests ← done on issue-1164-snapshot-accessor-producer-test
+- [x] casehubio/neocortex#964 — AmpdFacets-YAML-round-trip-test
+- [ ] casehubio/neocortex#1153 — SituationalPersonalityParticipant-coverage ← active
 - [ ] casehubio/neocortex#1079 — EffectiveCognitiveDefaults-field-classification-test
 - [ ] casehubio/neocortex#1123 — personality-evolution-integration-tests
 - [ ] casehubio/neocortex#930 — CognitionCore-300-tick-scenario-validation
@@ -43,3 +43,4 @@ active_ref:
 - [ ] personality-evolution-integration-tests (M / Med) []
 - [ ] CognitionCore-300-tick-scenario-validation (M / Med) []
 - [ ] edge-extraction-scaling (M / Med) []
+- [ ] AmpdFacets-YAML-round-trip-test (XS / Low) []
