@@ -48,9 +48,9 @@ flyway-next-v: none
 - [x] casehubio/agency#525 — Add /api/avatar/voices endpoint
 - [ ] casehubio/agency#527 — Update index.html config consumption ← done on issue-525-avatar-voices-endpoint
 - [ ] casehubio/agency#526 — Zero-Java avatar self-wiring extension ← active
-  - [ ] Batch 1: speech-deployment
-    - [ ] Task 1: Create module with pom and build items
-    - [ ] Task 2: Add SpeechAvatarProcessor with YAML discovery
+  - [x] Batch 1: speech-deployment
+    - [x] Task 1: Create module with pom and build items
+    - [x] Task 2: Add SpeechAvatarProcessor with YAML discovery
   - [ ] Batch 2: Infrastructure
     - [ ] Task 3: Move infra classes to speech-ws
   - [ ] Batch 3: LLM-wiring
