@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/agency
-status: active
-covers: casehubio/agency#529
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
-
-## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -46,8 +32,8 @@ flyway-next-v: none
 - [x] casehubio/agency#519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML
 - [x] casehubio/agency#521 — Add-kebab-case-JsonAlias-to-speech-ws-protocol-DTOs
 - [x] casehubio/agency#525 — Add /api/avatar/voices endpoint
-- [ ] casehubio/agency#527 — Update index.html config consumption ← done on issue-525-avatar-voices-endpoint
-- [ ] casehubio/agency#526 — Zero-Java avatar self-wiring extension ← done on issue-526-zero-java-avatar-self-wiring
+- [x] casehubio/agency#527 — Update index.html config consumption
+- [x] casehubio/agency#526 — Zero-Java avatar self-wiring extension
   - [x] Batch 1: speech-deployment
     - [x] Task 1: Create module with pom and build items
     - [x] Task 2: Add SpeechAvatarProcessor with YAML discovery
@@ -57,11 +43,22 @@ flyway-next-v: none
     - [x] Task 4: Wire LLM via eidos and agent-config
   - [x] Batch 4: Frontend
     - [x] Task 5: Extract avatar-component.mjs ES module
-- [ ] casehubio/agency#528 — Add-voice-metadata-to-voices-response ← done on issue-526-zero-java-avatar-self-wiring
-- [ ] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown ← active
+- [x] casehubio/agency#528 — Add-voice-metadata-to-voices-response
+- [ ] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown        ← active
 - [ ] casehubio/agency#530 — Restore playback rate in headless audio path
 - [ ] casehubio/agency#531 — Pass configSampleRate from avatar config
 - [ ] casehubio/agency#532 — Populate avatar and animation selectors
 - [ ] casehubio/agency#533 — Deduplicate avatar YAML discovery
 - [ ] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
 - [ ] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
+
+## State
+branch: 
+issue-repo: casehubio/agency
+status: active
+covers: casehubio/agency#529
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
