@@ -51,10 +51,10 @@ flyway-next-v: none
   - [x] Batch 1: speech-deployment
     - [x] Task 1: Create module with pom and build items
     - [x] Task 2: Add SpeechAvatarProcessor with YAML discovery
-  - [ ] Batch 2: Infrastructure
-    - [ ] Task 3: Move infra classes to speech-ws
-  - [ ] Batch 3: LLM-wiring
-    - [ ] Task 4: Wire LLM via eidos and agent-config
+  - [x] Batch 2: Infrastructure
+    - [x] Task 3: Move infra classes to speech-ws
+  - [x] Batch 3: LLM-wiring
+    - [x] Task 4: Wire LLM via eidos and agent-config
   - [ ] Batch 4: Frontend
     - [ ] Task 5: Extract avatar-component.mjs ES module
 - [ ] casehubio/agency#528 — Add-voice-metadata-to-voices-response
