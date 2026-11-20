@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-1063-consolidation-starvation
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#547
@@ -18,11 +18,18 @@ active_ref:
 - [x] casehubio/neocortex#1143 — CBR persistence for learned retention parameters
 - [x] casehubio/neocortex#1144 — Per-tenant RetentionConfig adaptation
 - [x] casehubio/neocortex#1147 — fix-livedDescriptor-drops-fields
-- [ ] casehubio/neocortex#1174 — fix-InnerLifeOrchestratorTest-NPE ← done on issue-1174-fix-innerlife-test-npe
-- [ ] casehubio/neocortex#1166 — ShadowArchetypePromptSection-empty-facets ← done on issue-1166-shadow-prompt-empty-facets
-- [ ] casehubio/neocortex#1069 — AppraisalTickParticipant-map-cleanup ← done on issue-1069-appraisal-map-cleanup
-- [ ] casehubio/neocortex#1063 — ConsolidationScheduler-knownTenants-starvation ← done on issue-1063-consolidation-starvation
+- [x] casehubio/neocortex#1174 — fix-InnerLifeOrchestratorTest-NPE
+- [x] casehubio/neocortex#1166 — ShadowArchetypePromptSection-empty-facets
+- [x] casehubio/neocortex#1069 — AppraisalTickParticipant-map-cleanup
+- [x] casehubio/neocortex#1063 — ConsolidationScheduler-knownTenants-starvation
 - [ ] casehubio/neocortex#547 — edge-extraction-scaling ← active
+  - [ ] Batch 1: Java EdgeInferencePhase
+    - [ ] Task 1: Config and skeleton with no-op test
+    - [ ] Task 2: Co-occurrence candidate identification and LLM edge inference
+    - [ ] Task 3: CDI wiring and pipeline defaults
+  - [ ] Batch 2: Python Cross-Passage
+    - [ ] Task 4: Add infer_cross_passage_edges to extract_structure.py
+    - [ ] Task 5: Update CLAUDE.md and docs
 - [ ] casehubio/neocortex#1172 — CognitionTestHarness-CAPS-trajectory-accessor
 - [ ] casehubio/neocortex#1171 — CAPS-settling-trajectory-assertions
 - [ ] casehubio/neocortex#1165 — DevelopmentalPhaseResolver-MindMapNode-tests
