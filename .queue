@@ -4,7 +4,7 @@
 branch: main
 issue-repo: casehubio/neocortex
 status: active
-covers: 
+covers: casehubio/neocortex#1172
 active_ref: 
 
 ## Queue
