@@ -23,13 +23,13 @@ active_ref:
 - [x] casehubio/neocortex#1069 — AppraisalTickParticipant-map-cleanup
 - [x] casehubio/neocortex#1063 — ConsolidationScheduler-knownTenants-starvation
 - [ ] casehubio/neocortex#547 — edge-extraction-scaling ← active
-  - [ ] Batch 1: Java EdgeInferencePhase
-    - [ ] Task 1: Config and skeleton with no-op test
-    - [ ] Task 2: Co-occurrence candidate identification and LLM edge inference
-    - [ ] Task 3: CDI wiring and pipeline defaults
-  - [ ] Batch 2: Python Cross-Passage
-    - [ ] Task 4: Add infer_cross_passage_edges to extract_structure.py
-    - [ ] Task 5: Update CLAUDE.md and docs
+  - [x] Batch 1: Java EdgeInferencePhase
+    - [x] Task 1: Config and skeleton with no-op test
+    - [x] Task 2: Co-occurrence candidate identification and LLM edge inference
+    - [x] Task 3: CDI wiring and pipeline defaults
+  - [x] Batch 2: Python Cross-Passage
+    - [x] Task 4: Add infer_cross_passage_edges to extract_structure.py
+    - [x] Task 5: Update CLAUDE.md and docs
 - [ ] casehubio/neocortex#1172 — CognitionTestHarness-CAPS-trajectory-accessor
 - [ ] casehubio/neocortex#1171 — CAPS-settling-trajectory-assertions
 - [ ] casehubio/neocortex#1165 — DevelopmentalPhaseResolver-MindMapNode-tests
@@ -41,6 +41,9 @@ active_ref:
 - [ ] casehubio/neocortex#930 — CognitionCore-300-tick-scenario-validation
 - [ ] casehubio/neocortex#1183 — Extend evictIdle to remaining cognition orchestrators
 - [ ] casehubio/neocortex#1184 — Wire registerTenant into tick-time participants
+- [ ] casehubio/neocortex#1189 — Python-call_llm-refactoring
+- [ ] casehubio/neocortex#1190 — parseRelationships-edge-case-tests
+- [ ] casehubio/neocortex#1191 — embedding-based-candidate-identification
 
 ## Deferred
 - [ ] per-agent-RetentionConfig-adaptation (S / Med) []
