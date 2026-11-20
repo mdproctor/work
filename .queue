@@ -55,7 +55,7 @@ flyway-next-v: none
     - [x] Task 3: Move infra classes to speech-ws
   - [x] Batch 3: LLM-wiring
     - [x] Task 4: Wire LLM via eidos and agent-config
-  - [ ] Batch 4: Frontend
-    - [ ] Task 5: Extract avatar-component.mjs ES module
+  - [x] Batch 4: Frontend
+    - [x] Task 5: Extract avatar-component.mjs ES module
 - [ ] casehubio/agency#528 — Add-voice-metadata-to-voices-response
 - [ ] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown
