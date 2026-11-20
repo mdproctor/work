@@ -60,12 +60,12 @@ After this batch: vocabulary is loadable on both server and client, all new prot
 ### Task 2: Performance Vocabulary JSON and SPI
 
 **Files:**
-- Create: `speech-demo/src/main/resources/META-INF/resources/animations/avatar-performance.json`
+- Create: `../../speech-demo/src/main/resources/META-INF/resources/animations/avatar-performance.json`
 - Create: `speech-api/src/main/java/io/casehub/agency/speech/PerformanceVocabulary.java`
 - Create: `speech-api/src/main/java/io/casehub/agency/speech/GestureEntry.java`
 - Create: `speech-api/src/main/java/io/casehub/agency/speech/MoodEntry.java`
-- Create: `speech-demo/src/main/java/io/casehub/agency/speech/demo/JsonPerformanceVocabulary.java`
-- Test: `speech-demo/src/test/java/io/casehub/agency/speech/demo/JsonPerformanceVocabularyTest.java`
+- Create: `../../speech-ws/src/main/java/io/casehub/agency/speech/ws/JsonPerformanceVocabulary.java`
+- Test: `../../speech-ws/src/test/java/io/casehub/agency/speech/ws/JsonPerformanceVocabularyTest.java`
 - Test: `speech-demo/src/test/java/io/casehub/agency/speech/demo/VocabularyGlbConsistencyTest.java`
 
 **Interfaces:**

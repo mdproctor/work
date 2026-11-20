@@ -433,7 +433,7 @@ Add to `speech-ws/pom.xml` dependencies:
 - [ ] **Step 2: Move VoicesEndpoint to speech-ws**
 
 Use `ide_move_file`:
-- Source: `speech-demo/src/main/java/io/casehub/agency/speech/demo/VoicesEndpoint.java`
+- Source: `../../speech-ws/src/main/java/io/casehub/agency/speech/ws/VoicesEndpoint.java`
 - Target: `speech-ws/src/main/java/io/casehub/agency/speech/ws/VoicesEndpoint.java`
 
 The IDE will update the package declaration to `io.casehub.agency.speech.ws`.
@@ -441,27 +441,27 @@ The IDE will update the package declaration to `io.casehub.agency.speech.ws`.
 - [ ] **Step 3: Move VoicesEndpointTest to speech-ws**
 
 Use `ide_move_file`:
-- Source: `speech-demo/src/test/java/io/casehub/agency/speech/demo/VoicesEndpointTest.java`
+- Source: `../../speech-ws/src/test/java/io/casehub/agency/speech/ws/VoicesEndpointTest.java`
 - Target: `speech-ws/src/test/java/io/casehub/agency/speech/ws/VoicesEndpointTest.java`
 
 - [ ] **Step 4: Move JsonPerformanceVocabulary to speech-ws**
 
 Use `ide_move_file`:
-- Source: `speech-demo/src/main/java/io/casehub/agency/speech/demo/JsonPerformanceVocabulary.java`
+- Source: `../../speech-ws/src/main/java/io/casehub/agency/speech/ws/JsonPerformanceVocabulary.java`
 - Target: `speech-ws/src/main/java/io/casehub/agency/speech/ws/JsonPerformanceVocabulary.java`
 
 - [ ] **Step 5: Move JsonPerformanceVocabularyTest to speech-ws**
 
 Use `ide_move_file`:
-- Source: `speech-demo/src/test/java/io/casehub/agency/speech/demo/JsonPerformanceVocabularyTest.java`
+- Source: `../../speech-ws/src/test/java/io/casehub/agency/speech/ws/JsonPerformanceVocabularyTest.java`
 - Target: `speech-ws/src/test/java/io/casehub/agency/speech/ws/JsonPerformanceVocabularyTest.java`
 
-Note: This test loads `META-INF/resources/animations/avatar-performance.json` from the classpath. The JSON file stays in speech-demo (demo-specific config). Add a minimal test fixture JSON to `speech-ws/src/test/resources/META-INF/resources/animations/avatar-performance.json` with a small subset of gestures/moods for the test.
+Note: This test loads `META-INF/resources/animations/avatar-performance.json` from the classpath. The JSON file stays in speech-demo (demo-specific config). Add a minimal test fixture JSON to `../../speech-demo/src/main/resources/META-INF/resources/animations/avatar-performance.json` with a small subset of gestures/moods for the test.
 
 - [ ] **Step 6: Move DiagnosticEndpoint to speech-ws**
 
 Use `ide_move_file`:
-- Source: `speech-demo/src/main/java/io/casehub/agency/speech/demo/DiagnosticEndpoint.java`
+- Source: `../../speech-ws/src/main/java/io/casehub/agency/speech/ws/DiagnosticEndpoint.java`
 - Target: `speech-ws/src/main/java/io/casehub/agency/speech/ws/DiagnosticEndpoint.java`
 
 - [ ] **Step 7: Run speech-ws tests**
