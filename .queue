@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/agency
-status: active
-covers: casehubio/agency#525
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
-
-## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -43,8 +29,19 @@ flyway-next-v: none
 - [x] casehubio/agency#517 — Replace-80L-with-MS_PER_CHAR
 - [x] casehubio/agency#518 — issue 518
 - [x] casehubio/agency#520 — Add kebab-case @JsonAlias to all agentic-yaml spec records
-- [ ] casehubio/agency#519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML ← done on issue-519-migrate-speechproducers-to-avatar-yaml
+- [x] casehubio/agency#519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML
 - [x] casehubio/agency#521 — Add-kebab-case-JsonAlias-to-speech-ws-protocol-DTOs
-- [ ] casehubio/agency#525 — Add /api/avatar/voices endpoint ← active
+- [ ] casehubio/agency#525 — Add /api/avatar/voices endpoint        ← active
 - [ ] casehubio/agency#527 — Update index.html config consumption
 - [ ] casehubio/agency#526 — Zero-Java avatar self-wiring extension
+
+## State
+branch: 
+issue-repo: casehubio/agency
+status: active
+covers: casehubio/agency#525
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
