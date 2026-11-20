@@ -36,15 +36,16 @@
 **Exploration:** quick
 **Status:** captured
 
-## D3: LLM provider integration
+## D3: LLM provider integration (eidos + agent-config)
 
-**Choice:** Consumer adds `casehub-platform-agent-claude` + `casehub-platform-agent-config` dependencies. Credentials and provider config declared via `agent-config.yaml` (platform's existing layered config: `/etc/casehub/`, `~/.casehub/`, project root). `ClaudeAgentProvider` produced automatically.
+**Choice:** Compose three platform layers: (1) eidos descriptor declares the avatar agent identity — briefing (system prompt), model tier, capabilities, provider — in `META-INF/eidos/descriptors.yaml`; (2) agent-config.yaml provides credentials and default backend via layered lookup; (3) `application.properties` sets `casehub.avatar.agent-id` to wire the descriptor. `EidosAgentResolver` resolves system prompt + model from the descriptor. `ClaudeAgentProvider` (from `agent-claude`) handles invocation. `SpeechWebSocket` already has `AvatarConfig.agentId()` and `AvatarConfig.tenantId()` — the wiring point exists.
 **Alternatives:**
-- AgentProvider as injected SPI — more flexible but requires consumer wiring
-- Built-in Vertex AI with config — locks to one provider
-**Rationale:** Zero Java. Platform's `AgentConfigLoader` already handles layered credential resolution (seed catalog → system → user → project), model registry, vendor requirements. `agent-config.yaml` with `providers:` and `defaults:` entries is the canonical way to configure LLM access.
-**Trade-offs:** Locks the "zero-code" path to Claude/Anthropic. Other providers need a Java bean.
-**Sources:** platform/agent-claude/ClaudeBeans.java, platform/agent-config-core/AgentConfigLoader.java, platform/agent-config-core/AgentManifestLoader.java (layered loading), platform/agent-config/agent-config.yaml (example)
+- Raw application.properties for model/credentials — bypasses eidos, doesn't use platform's existing resolution
+- AgentProvider as injected SPI — requires consumer Java code
+- Built-in Vertex AI with config — locks to one provider, ignores platform infrastructure
+**Rationale:** Zero Java. Uses the established platform stack: eidos for agent identity/model selection, agent-config for credentials, agent-claude for invocation. The avatar's system prompt, model tier, and capabilities are declarative YAML — no hardcoded model IDs.
+**Trade-offs:** Consumer must understand three YAML files (descriptors.yaml, agent-config.yaml, avatar.yaml). But each file serves one purpose and the platform already documents them.
+**Sources:** eidos/api/AssembledPrompt.java (already imported in SpeechWebSocket), eidos/runtime/resolver/EidosAgentResolver.java (AgentResolver impl), speech-ws/AvatarConfig.java lines 19-21 (agentId/tenantId already declared), platform/agent-claude/ClaudeBeans.java, platform/agent-config-core/AgentConfigLoader.java, eidos/examples/agent-scenarios/descriptors.yaml (descriptor format)
 **Exploration:** quick
 **Status:** captured
 
