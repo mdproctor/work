@@ -59,3 +59,9 @@ flyway-next-v: none
     - [x] Task 5: Extract avatar-component.mjs ES module
 - [ ] casehubio/agency#528 — Add-voice-metadata-to-voices-response
 - [ ] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown
+- [ ] casehubio/agency#530 — Restore playback rate in headless audio path
+- [ ] casehubio/agency#531 — Pass configSampleRate from avatar config
+- [ ] casehubio/agency#532 — Populate avatar and animation selectors
+- [ ] casehubio/agency#533 — Deduplicate avatar YAML discovery
+- [ ] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
+- [ ] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
