@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-526-zero-java-avatar-self-wiring
+branch: 
 issue-repo: casehubio/agency
 status: active
-covers: casehubio/agency#526
+covers: casehubio/agency#529
 project-sha: 
 date: 
 design-repo: 
@@ -47,7 +47,7 @@ flyway-next-v: none
 - [x] casehubio/agency#521 — Add-kebab-case-JsonAlias-to-speech-ws-protocol-DTOs
 - [x] casehubio/agency#525 — Add /api/avatar/voices endpoint
 - [ ] casehubio/agency#527 — Update index.html config consumption ← done on issue-525-avatar-voices-endpoint
-- [ ] casehubio/agency#526 — Zero-Java avatar self-wiring extension ← active
+- [ ] casehubio/agency#526 — Zero-Java avatar self-wiring extension ← done on issue-526-zero-java-avatar-self-wiring
   - [x] Batch 1: speech-deployment
     - [x] Task 1: Create module with pom and build items
     - [x] Task 2: Add SpeechAvatarProcessor with YAML discovery
@@ -57,8 +57,8 @@ flyway-next-v: none
     - [x] Task 4: Wire LLM via eidos and agent-config
   - [x] Batch 4: Frontend
     - [x] Task 5: Extract avatar-component.mjs ES module
-- [ ] casehubio/agency#528 — Add-voice-metadata-to-voices-response
-- [ ] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown
+- [ ] casehubio/agency#528 — Add-voice-metadata-to-voices-response ← done on issue-526-zero-java-avatar-self-wiring
+- [ ] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown ← active
 - [ ] casehubio/agency#530 — Restore playback rate in headless audio path
 - [ ] casehubio/agency#531 — Pass configSampleRate from avatar config
 - [ ] casehubio/agency#532 — Populate avatar and animation selectors
