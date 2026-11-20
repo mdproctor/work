@@ -23,15 +23,28 @@
 **Exploration:** quick
 **Status:** captured
 
+## D2b: Infrastructure class relocation
+
+**Choice:** Move `VoicesEndpoint`, `JsonPerformanceVocabulary`, `DiagnosticEndpoint` into `speech-ws`. `ModelProvisioningService` + `ModelStatusEndpoint` stay in a sherpa-aware module (alongside AvatarCompiler infrastructure).
+**Alternatives:**
+- All into speech-ws — adds connectors-voice-sherpa dependency to speech-ws
+- New speech-runtime module — clean separation but one more module
+**Rationale:** speech-ws already depends on speech-api and platform-agent-api, which is all the first three classes need. ModelProvisioningService requires sherpa native classes and belongs with the compilation infrastructure.
+**Trade-offs:** ModelProvisioningService placement still TBD — either agentic-yaml or the new module.
+**Depends on:** D1 (new speech-deployment module), D2 (types stay in agentic-yaml)
+**Sources:** speech-demo Java files, speech-ws/pom.xml dependency set
+**Exploration:** quick
+**Status:** captured
+
 ## D3: LLM provider integration
 
-**Choice:** Consumer adds `casehub-platform-agent-claude` dependency; `ClaudeAgentProvider` produced automatically from `application.properties`
+**Choice:** Consumer adds `casehub-platform-agent-claude` + `casehub-platform-agent-config` dependencies. Credentials and provider config declared via `agent-config.yaml` (platform's existing layered config: `/etc/casehub/`, `~/.casehub/`, project root). `ClaudeAgentProvider` produced automatically.
 **Alternatives:**
 - AgentProvider as injected SPI — more flexible but requires consumer wiring
 - Built-in Vertex AI with config — locks to one provider
-**Rationale:** Zero Java. Platform already handles credential resolution, model selection, concurrency gates. Consumer sets API key in application.properties.
+**Rationale:** Zero Java. Platform's `AgentConfigLoader` already handles layered credential resolution (seed catalog → system → user → project), model registry, vendor requirements. `agent-config.yaml` with `providers:` and `defaults:` entries is the canonical way to configure LLM access.
 **Trade-offs:** Locks the "zero-code" path to Claude/Anthropic. Other providers need a Java bean.
-**Sources:** platform/agent-claude/ClaudeBeans.java, platform/agent-config/AgentConfigBeans.java
+**Sources:** platform/agent-claude/ClaudeBeans.java, platform/agent-config-core/AgentConfigLoader.java, platform/agent-config-core/AgentManifestLoader.java (layered loading), platform/agent-config/agent-config.yaml (example)
 **Exploration:** quick
 **Status:** captured
 
