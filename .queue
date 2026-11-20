@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-547-edge-extraction-scaling
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1172
@@ -22,14 +22,7 @@ active_ref:
 - [x] casehubio/neocortex#1166 — ShadowArchetypePromptSection-empty-facets
 - [x] casehubio/neocortex#1069 — AppraisalTickParticipant-map-cleanup
 - [x] casehubio/neocortex#1063 — ConsolidationScheduler-knownTenants-starvation
-- [ ] casehubio/neocortex#547 — edge-extraction-scaling ← done on issue-547-edge-extraction-scaling
-  - [x] Batch 1: Java EdgeInferencePhase
-    - [x] Task 1: Config and skeleton with no-op test
-    - [x] Task 2: Co-occurrence candidate identification and LLM edge inference
-    - [x] Task 3: CDI wiring and pipeline defaults
-  - [x] Batch 2: Python Cross-Passage
-    - [x] Task 4: Add infer_cross_passage_edges to extract_structure.py
-    - [x] Task 5: Update CLAUDE.md and docs
+- [x] casehubio/neocortex#547 — edge-extraction-scaling
 - [ ] casehubio/neocortex#1172 — CognitionTestHarness-CAPS-trajectory-accessor ← active
 - [ ] casehubio/neocortex#1171 — CAPS-settling-trajectory-assertions
 - [ ] casehubio/neocortex#1165 — DevelopmentalPhaseResolver-MindMapNode-tests
