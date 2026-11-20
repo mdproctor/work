@@ -35,7 +35,7 @@ An eidos descriptor declares the avatar agent's identity — model tier, capabil
 The consumer's three YAML files:
 
 ```yaml
-# avatar.yaml — what the body does
+# o — what the body does
 agent: avatar-assistant
 tts:
   engines:
