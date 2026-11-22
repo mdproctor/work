@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: main
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1192
@@ -38,6 +38,10 @@ active_ref:
 - [x] casehubio/neocortex#1190 — parseRelationships-edge-case-tests
 - [x] casehubio/neocortex#1191 — embedding-based-candidate-identification
 - [ ] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence ← active
+  - [x] Batch 1: Feedback loops
+    - [x] Task 1: Add connections to topology
+    - [x] Task 2: Divergence test caps-engine
+    - [x] Task 3: Update ConsolidationDivergenceTest
 - [ ] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test
 - [ ] casehubio/neocortex#1194 — trust-accessor-numeric-effect-test
 - [ ] casehubio/neocortex#1196 — Standardise-orchestrator-key-format
