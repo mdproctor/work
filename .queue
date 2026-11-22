@@ -1,3 +1,13 @@
+# Work Plan —
+
+## State
+branch: 
+issue-repo: casehubio/neocortex
+status: active
+covers: casehubio/neocortex#1192
+active_ref: 
+
+## Queue
 - [x] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
 - [x] casehubio/neocortex#1132 — implement LivedDispositionSource
 - [x] casehubio/neocortex#1135 — extend bridge to compose AMPD facets
@@ -27,20 +37,13 @@
 - [x] casehubio/neocortex#1189 — Python-call_llm-refactoring
 - [x] casehubio/neocortex#1190 — parseRelationships-edge-case-tests
 - [x] casehubio/neocortex#1191 — embedding-based-candidate-identification
-- [ ] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence        ← active
+- [ ] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence ← active
 - [ ] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test
 - [ ] casehubio/neocortex#1194 — trust-accessor-numeric-effect-test
 - [ ] casehubio/neocortex#1196 — Standardise-orchestrator-key-format
 - [ ] casehubio/neocortex#1197 — evictIdle-unit-tests
 - [ ] casehubio/neocortex#1202 — integration-test-run-merge-candidates
 - [ ] casehubio/neocortex#1203 — replace-regex-with-json-parser
-
-## State
-branch: 
-issue-repo: casehubio/neocortex
-status: active
-covers: casehubio/neocortex#1192
-active_ref: 
 
 ## Deferred
 - [ ] per-agent-RetentionConfig-adaptation (S / Med) []
