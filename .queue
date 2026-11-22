@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-1184-wire-register-tenant
 issue-repo: casehubio/neocortex
 status: active
-covers: casehubio/neocortex#1190
+covers: casehubio/neocortex#1191
 active_ref: 
 
 ## Queue
@@ -24,19 +24,19 @@ active_ref:
 - [x] casehubio/neocortex#1063 — ConsolidationScheduler-knownTenants-starvation
 - [x] casehubio/neocortex#547 — edge-extraction-scaling
 - [x] casehubio/neocortex#1172 — CognitionTestHarness-CAPS-trajectory-accessor
-- [ ] casehubio/neocortex#1171 — CAPS-settling-trajectory-assertions ← done on issue-1171-caps-trajectory-assertions
-- [ ] casehubio/neocortex#1165 — DevelopmentalPhaseResolver-MindMapNode-tests ← done on issue-1165-developmental-phase-resolver-tests
-- [ ] casehubio/neocortex#1164 — SituationalSnapshotAccessorProducer-tests ← done on issue-1164-snapshot-accessor-producer-test
+- [x] casehubio/neocortex#1171 — CAPS-settling-trajectory-assertions
+- [x] casehubio/neocortex#1165 — DevelopmentalPhaseResolver-MindMapNode-tests
+- [x] casehubio/neocortex#1164 — SituationalSnapshotAccessorProducer-tests
 - [x] casehubio/neocortex#964 — AmpdFacets-YAML-round-trip-test
-- [ ] casehubio/neocortex#1153 — SituationalPersonalityParticipant-coverage ← done on issue-1164-snapshot-accessor-producer-test
-- [ ] casehubio/neocortex#1079 — EffectiveCognitiveDefaults-field-classification-test ← done on issue-1079-effective-defaults-field-test
-- [ ] casehubio/neocortex#1123 — personality-evolution-integration-tests ← done on issue-1079-effective-defaults-field-test
-- [ ] casehubio/neocortex#930 — CognitionCore-300-tick-scenario-validation ← done on issue-930-cognitioncore-300-tick-validation
-- [ ] casehubio/neocortex#1183 — Extend evictIdle to remaining cognition orchestrators ← done on issue-1183-evict-idle-orchestrators
-- [ ] casehubio/neocortex#1184 — Wire registerTenant into tick-time participants ← done on issue-1184-wire-register-tenant
-- [ ] casehubio/neocortex#1189 — Python-call_llm-refactoring ← done on issue-1184-wire-register-tenant
-- [ ] casehubio/neocortex#1190 — parseRelationships-edge-case-tests ← active
-- [ ] casehubio/neocortex#1191 — embedding-based-candidate-identification
+- [x] casehubio/neocortex#1153 — SituationalPersonalityParticipant-coverage
+- [x] casehubio/neocortex#1079 — EffectiveCognitiveDefaults-field-classification-test
+- [x] casehubio/neocortex#1123 — personality-evolution-integration-tests
+- [x] casehubio/neocortex#930 — CognitionCore-300-tick-scenario-validation
+- [x] casehubio/neocortex#1183 — Extend evictIdle to remaining cognition orchestrators
+- [x] casehubio/neocortex#1184 — Wire registerTenant into tick-time participants
+- [x] casehubio/neocortex#1189 — Python-call_llm-refactoring
+- [ ] casehubio/neocortex#1190 — parseRelationships-edge-case-tests ← done on issue-1184-wire-register-tenant
+- [ ] casehubio/neocortex#1191 — embedding-based-candidate-identification ← active
 - [ ] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence
 - [ ] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test
 - [ ] casehubio/neocortex#1194 — trust-accessor-numeric-effect-test
