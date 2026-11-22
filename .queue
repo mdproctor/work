@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: main
+branch: 
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1192
@@ -37,17 +37,15 @@ active_ref:
 - [x] casehubio/neocortex#1189 — Python-call_llm-refactoring
 - [x] casehubio/neocortex#1190 — parseRelationships-edge-case-tests
 - [x] casehubio/neocortex#1191 — embedding-based-candidate-identification
-- [ ] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence ← active
-  - [x] Batch 1: Feedback loops
-    - [x] Task 1: Add connections to topology
-    - [x] Task 2: Divergence test caps-engine
-    - [x] Task 3: Update ConsolidationDivergenceTest
-- [ ] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test
+- [x] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence
+- [ ] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test ← active
 - [ ] casehubio/neocortex#1194 — trust-accessor-numeric-effect-test
 - [ ] casehubio/neocortex#1196 — Standardise-orchestrator-key-format
 - [ ] casehubio/neocortex#1197 — evictIdle-unit-tests
 - [ ] casehubio/neocortex#1202 — integration-test-run-merge-candidates
 - [ ] casehubio/neocortex#1203 — replace-regex-with-json-parser
+- [ ] casehubio/neocortex#1204 — BehavioralSynthesisPhase-hardcoded-disposition
+- [ ] casehubio/neocortex#1205 — CapsEngineContractTest-coping-bias-assertion
 
 ## Deferred
 - [ ] per-agent-RetentionConfig-adaptation (S / Med) []
