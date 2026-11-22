@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: issue-526-zero-java-avatar-self-wiring
-issue-repo: casehubio/agency
-status: active
-covers: casehubio/agency#529
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
-
-## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -49,11 +35,22 @@ flyway-next-v: none
 - [x] casehubio/agency#527 — Update index.html config consumption
 - [x] casehubio/agency#526 — Zero-Java avatar self-wiring extension
 - [x] casehubio/agency#528 — Add-voice-metadata-to-voices-response
-- [ ] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown ← active
-- [ ] casehubio/agency#530 — Restore playback rate in headless audio path
+- [x] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown
+- [ ] casehubio/agency#530 — Restore playback rate in headless audio path        ← active
 - [ ] casehubio/agency#531 — Pass configSampleRate from avatar config
 - [ ] casehubio/agency#532 — Populate avatar and animation selectors
 - [ ] casehubio/agency#533 — Deduplicate avatar YAML discovery
 - [ ] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
 - [ ] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
 - [ ] casehubio/agency#536 — Avatar pipeline as composable playbook
+
+## State
+branch: issue-530-restore-playback-rate-headless
+issue-repo: casehubio/agency
+status: active
+covers: casehubio/agency#529
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
