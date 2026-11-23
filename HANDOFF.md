@@ -2,23 +2,30 @@
 
 ## Last Session
 
-Implementation + landing of cognitive dissonance (#593). Executed the full plan (3 tasks, 2 batches), landed on main, issue closed.
+Designed and implemented #1212 (direct CAPS settling pathway for dissonance). Evaluated whether a direct CAPS settling pathway produces richer behavioural effects than the indirect prompt→experience→graduation pathway — concluded yes based on constraint-satisfaction fidelity (Shultz & Lepper 1996), and implemented.
 
-1. **DissonanceDetectionPhase** — LLM-based contradiction detection with additive decay lifecycle, order-independent deduplication, in-memory cache for per-tick consumers. 8 tests.
-2. **DissonanceTickParticipant + DissonancePromptSection + BlockTag.DISSONANCE(212)** — PAD adjustment (arousal up, pleasure down per Cooper & Fazio 1984), felt tension rendering between DRIVES and CURIOSITY in Tier 2 State. 11 tests.
-3. **Pipeline wiring** — CognitionConfig.dissonanceEnabled (28th field), CognitionCore.configureDissonance(), CognitivePipelineBuilder.dissonance(), CognitionCoreFactory CDI wiring, DirectiveSection entries.
+1. **DissonanceActivationSource SPI** (`cognition-api`) — `@FunctionalInterface` with `TensionActivation` record carrying `capsActivationsA`, `capsActivationsB`, and tension `strength`.
+2. **DissonanceDetectionPhase** (`cognition`) — moved from `@Priority(25)` to `@Priority(17)`, implements `DissonanceActivationSource`, extended `TensionSnapshot` with CAPS activation maps, `parseCapsActivations()` for JSON→Map conversion.
+3. **BehavioralSynthesisPhase** (`mindmap-intelligence`) — `mergeDissonanceActivations()` reads SPI, scales by tension strength, merges via `Math::max`. Both direct and indirect paths coexist.
 
-Branch `issue-593-cognitive-dissonance` stamped and closed. 4 commits on main. Issue #593 closed.
+**Blog:** `blog/2026-11-23-mdp02-the-settler-that-finally-heard-the-argument.md`
 
-Pre-existing test compilation failures in `SituationalPersonalityIntegrationTest` and `SituationalPersonalityParticipantTest` (AgentDescriptor constructor mismatch from upstream eidos-api change) — not caused by this branch.
+**Filed:**
+- casehubio/neocortex#1216 (harden parseCapsActivations JSON parser — XS/Low)
+
+**Tests:** 44 pass (20 dissonance + 24 behavioral synthesis).
+
+## Queue State
+
+- **#1216** (harden parseCapsActivations parser — XS/Low) — open, queued
 
 ## Immediate Next Step
 
-Next queue items: #1210 (Dissonance-coping integration), #1211 (NLI fast-path), #1212 (direct CAPS evaluation). All need brainstorming and design before implementation.
+#1216 (XS/Low) — replace the hand-rolled JSON parser in `DissonanceDetectionPhase.parseCapsActivations()` with a more robust implementation, or add edge-case tests to document the parser's limitations.
 
 ## References
 
-- `specs/issue-593-cognitive-dissonance/2026-11-23-cognitive-dissonance-design.md` — design spec
-- `specs/issue-593-cognitive-dissonance/decisions.md` — 9 design decisions
-- `plans/2026-11-23-cognitive-dissonance.md` — implementation plan (3 tasks, 2 batches)
-- `blog/2026-11-23-mdp01-the-villain-who-cant-feel-the-contradiction.md` — diary entry
+- `specs/issue-1212-direct-caps-evaluation/2026-11-23-direct-caps-evaluation-design.md` — design spec
+- `specs/issue-1212-direct-caps-evaluation/decisions.md` — 6 design decisions
+- `plans/2026-11-23-direct-caps-evaluation.md` — implementation plan (3 tasks, 1 batch)
+- `blog/2026-11-23-mdp02-the-settler-that-finally-heard-the-argument.md` — diary entry
