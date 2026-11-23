@@ -1,7 +1,7 @@
-# Work Plan — issue-593-cognitive-dissonance
+# Work Plan —
 
 ## State
-branch: 
+branch: issue-593-cognitive-dissonance
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1212
@@ -12,12 +12,11 @@ design-section-hashes:
 flyway-next-v: 
 
 ## Queue
-- [ ] casehubio/neocortex#593 — Cognitive-dissonance-constraint-satisfaction ← done on issue-593-cognitive-dissonance
-  - [x] Batch 1: batch1
-    - [x] Task 1: DissonanceDetectionPhase
-    - [x] Task 2: DissonanceTickParticipant+PromptSection
-  - [x] Batch 2: batch2
-    - [x] Task 3: CognitionCore-wiring
-- [ ] casehubio/neocortex#1210 — Dissonance-coping integration ← done on issue-593-cognitive-dissonance
-- [ ] casehubio/neocortex#1211 — NLI fast-path pre-filter ← done on issue-593-cognitive-dissonance
+- [x] casehubio/neocortex#593 — Cognitive-dissonance-constraint-satisfaction
+- [x] casehubio/neocortex#1210 — Dissonance-coping integration
+- [x] casehubio/neocortex#1211 — NLI fast-path pre-filter
 - [ ] casehubio/neocortex#1212 — Direct CAPS settling evaluation ← active
+  - [x] Batch 1: SPI+Cache+Merge
+    - [x] Task 1: SPI and TensionActivation in cognition-api
+    - [x] Task 2: DissonanceDetectionPhase reorder and SPI
+    - [x] Task 3: BehavioralSynthesisPhase merge
