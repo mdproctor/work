@@ -1,59 +1,87 @@
 # HANDOFF — casehub-agency (slot 223)
 
-## Completed this session
+## Current state
 
-**#527 — Update index.html config consumption (DONE)**
+Branch `issue-530-restore-playback-rate-headless` on main. Many commits spanning #529, #530, #537.
 
-Frontend now consumes `/api/avatar/config` for LLM model default, speed slider min from minPlaybackRate, and default voice applied after loadVoices(). Removed redundant `populateVoiceDropdown()`. Fixed VoicesEndpoint import path after #519 package relocation.
+**Active issue: #530 (restore playback rate) — DONE**
+**#537 (speech-demo build fixes) — IN PROGRESS, lip sync not working**
 
-**#526 — Zero-Java avatar self-wiring extension (DONE)**
+## What this session delivered
 
-Five work items delivered:
-1. New `speech-deployment` module — standalone Quarkus deployment module with agency-core excluded. `SpeechAvatarProcessor` discovers `META-INF/avatar.yaml`, registers TTS/STT/cleanup beans via `AvatarRecorder`.
-2. Infrastructure relocation — `VoicesEndpoint`, `JsonPerformanceVocabulary`, `DiagnosticEndpoint` moved from speech-demo to speech-ws. Fixed with `Instance<>` guards for optional injection.
-3. LLM wired via eidos descriptors + agent-config — deleted hardcoded `SpeechProducers.java` and `AvatarSpeechProducer.java`. Consumer uses `descriptors.yaml` + `agent-config.yaml` + `casehub.avatar.agent-id` in application.properties.
-4. Frontend extraction — `avatar-component.mjs` ES module (520 lines) with `AvatarEngine` + `AvatarControls` classes. index.html reduced from 736 to 200 lines.
-5. Dependency convergence — excluded `casehub-platform-schema-generator` from speech-deployment to fix enforcer.
+### #529 — Default voice selection (DONE)
+- `avatar.yaml` gets `tts-voice: kokoro:af_heart`
+- Frontend checks localStorage first, then config default, then first option
+- Voice selection persisted to localStorage on change
 
-### What previous sessions delivered
+### #530 — Playback rate in headless audio path (DONE)
+- `AvatarEngine` gains `playbackRate` property, applied in `_playNextQueued()`
+- `AvatarControls` speed slider wires to `engine.playbackRate`
 
-**#519 — Migrate speech-demo SpeechProducers to AvatarDefinition YAML (LANDED)**
+### #537 — Speech-demo build + container fixes (IN PROGRESS)
 
-AvatarCompiler, LipSyncMode, AvatarRecorder + AvatarSpeechProcessor deployment pipeline.
+**Build fixes (all working):**
+- Exclude `casehub-agency` from speech-deployment's agentic-yaml dep (Jandex index miss)
+- Add `.setRuntimeInit()` to RUNTIME_INIT synthetic beans in SpeechAvatarProcessor
+- Add quarkus-jdbc-h2 + H2 datasource for eidos JPA stores
+- Add agent-session-core, quarkus-rest-jackson dependencies
+- Index agentic-yaml for AvatarConfigResource REST discovery
+- Exclude AgencySpecsResource from Arc
+- Correct Qwen3 variant to `0.6b-customvoice`
+- Vendor stubs for dynamicbones.mjs and retargeter.mjs
 
-**#525 — Add /api/avatar/voices endpoint (LANDED)**
+**WebSocket fixes (working):**
+- Connection-scoped sessions via ConcurrentHashMap (was singleton, closing one connection killed all)
+- Graceful degradation when LLM provider unavailable (try-catch around agentProvider)
+- Netty --add-opens flags for container JDK compatibility
 
-`GET /api/avatar/voices` returns sorted TtsModelRegistry keys.
+**Container/Podman setup (working):**
+- Containerfile with Corretto 22, Claude CLI via npm, non-root user
+- Multi-stage build: whisper.cpp v1.7.3 + FFI shim compiled from source (OpenMP disabled)
+- espeak-ng v1.52.0 compiled from source (copy .so.1.1.51 explicitly, create symlinks)
+- lipsync-en.mjs vendor module from TalkingHead repo
+- Agent-config with `defaults.backend: claude`
+- Podman VM set to 8GB RAM, container capped at 6GB
+- `-Dcasehub.speech.auto-download=true` for Whisper model provisioning
 
-### Queue
+**Platform fixes (landed on platform repo):**
+- casehubio/platform#934: ModelDescriptor apiModelId defaults, router fallback to default backend
+- ClaudeAgentClient: pass model from AgentSessionConfig to CLIOptions (both invoke and openSession paths)
 
-```
-- [x] #525 — Add /api/avatar/voices endpoint (landed)
-- [x] #527 — Update index.html config consumption (done)
-- [x] #526 — Zero-Java avatar self-wiring extension (done)
-- [ ] #528 — Add voice metadata to voices response
-- [ ] #529 — Default voice selection in dynamic dropdown
-- [ ] #530 — Restore playback rate in headless audio path
-- [ ] #531 — Pass configSampleRate from avatar config to startRecording
-- [ ] #532 — Populate avatar and animation selectors in AvatarControls
-- [ ] #533 — Deduplicate avatar YAML discovery between deployment modules
-- [ ] #534 — Add Quarkus deployment test for SpeechAvatarProcessor
-- [ ] #535 — Drive ModelProvisioningService from TtsModelRegistry
-```
+**UI changes (working):**
+- Vertical split layout: avatar left (50%), chat right (50%)
+- Auto-load avatar on WebSocket connect
+- Three camera view buttons: Full / Upper / Head
+- User-captured camera presets normalised to avatar height
+- Full body scales proportionally with panel aspect ratio
+- Capture button copies camera coordinates to clipboard for tuning
+- `AvatarEngine.setView(view)` public API
+
+**Lip sync — NOT WORKING (next session's focus):**
+1. Server pipeline works: espeak-ng → LipSyncEnricher → visemes in Segment messages (verified: 26-32 visemes per segment)
+2. Client receives visemes in `_handleSegment` (verified via interceptor)
+3. `speakAudio` now receives `r.words` + `r.visemes` (required by TalkingHead's `if (r.words)` gate)
+4. `lipsyncLang = 'en'` set explicitly after showAvatar
+5. Avatar has 72 morph targets including `viseme_sil`, `viseme_PP`, etc.
+6. First message lip sync works WITH DELAY, second message does NOT work
+7. Race condition fix: `firstChunk` flag deferred until seg data available — may not be sufficient
+8. Body animation morph layer (order 10, additive) might interfere — not investigated
+
+**Root cause hypothesis for next session:** The streaming TTS path check (`instanceof StreamingTextToSpeech`) — if Kokoro wrapped by LipSyncEnricher still somehow enters the streaming path on subsequent calls, visemes would be text-estimated (not phoneme-based) and r.words wouldn't be set. Verify which TTS path is taken per segment. Also check if TalkingHead's internal animation queue conflicts with the second message's viseme processing.
 
 ### Issues filed this session
+| # | Title |
+|---|-------|
+| #537 | Fix speech-demo Quarkus augmentation failures |
+| platform#934 | RoutingAgentProvider fallback + ModelDescriptor schema |
 
-| # | Title | Scale | Complexity |
-|---|-------|-------|------------|
-| #528 | Add voice metadata to /api/avatar/voices response | S | Med |
-| #529 | Default voice selection in dynamic dropdown | XS | Low |
-| #530 | Restore playback rate in headless audio path | XS | Low |
-| #531 | Pass configSampleRate from avatar config to startRecording | XS | Low |
-| #532 | Populate avatar and animation selectors in AvatarControls | S | Low |
-| #533 | Deduplicate avatar YAML discovery between deployment modules | S | Med |
-| #534 | Add Quarkus deployment test for SpeechAvatarProcessor | S | Med |
-| #535 | Drive ModelProvisioningService from TtsModelRegistry | S | Med |
+### ModelProvisioningService stripped to Kokoro-only
+The provisioner was stripped to just Kokoro + Whisper STT for safe container testing. Full voice list needs to be restored when merging.
 
-### Design direction
+### Commits on branch (many — squash needed before landing)
+~25 commits on `issue-530-restore-playback-rate-headless`. Mix of #529, #530, #537 work. Will need semantic squash.
 
-Zero-Java avatar deployment achieved: consumer adds dependencies, drops 3 YAML files (avatar.yaml, descriptors.yaml, agent-config.yaml), writes zero Java. speech-demo went from 7 Java files to 2 (ModelProvisioningService + ModelStatusEndpoint). Remaining queue items are UX polish (#528-#532) and infrastructure hardening (#533-#535).
+### Next session priorities
+1. **Fix lip sync** — debug why second message fails, check streaming vs non-streaming TTS path
+2. **Top-alignment refinement** — user wants less gap above head in upper/head views (captured presets help but may need tuning)
+3. **Squash commits** — branch has ~25 commits that need collapsing
