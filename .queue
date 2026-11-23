@@ -1,13 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/neocortex
-status: active
-active_ref: 
-covers: casehubio/neocortex#1215
-
-## Queue
 - [x] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
 - [x] casehubio/neocortex#1132 — implement LivedDispositionSource
 - [x] casehubio/neocortex#1135 — extend bridge to compose AMPD facets
@@ -47,6 +37,13 @@ covers: casehubio/neocortex#1215
 - [x] casehubio/neocortex#1208 — style-InnerLifeOrchestratorTest-fq-imports
 - [x] casehubio/neocortex#1209 — style-cognition-test-fq-imports
 - [x] casehubio/neocortex#1167 — per-agent-RetentionConfig-adaptation
-- [ ] casehubio/neocortex#1213 — fix-AgentDescriptor-constructor-mismatch ← done on issue-1167-per-agent-retention-adapt
-- [ ] casehubio/neocortex#1214 — style-FQ-cognition-production-code ← done on issue-1167-per-agent-retention-adapt
-- [ ] casehubio/neocortex#1215 — refactor-AgentDescriptor-builder-test-helpers ← active
+- [x] casehubio/neocortex#1213 — fix-AgentDescriptor-constructor-mismatch
+- [x] casehubio/neocortex#1214 — style-FQ-cognition-production-code
+- [ ] casehubio/neocortex#1215 — refactor-AgentDescriptor-builder-test-helpers        ← active
+
+## State
+branch: 
+issue-repo: casehubio/neocortex
+status: active
+covers: casehubio/neocortex#1215
+active_ref: 
