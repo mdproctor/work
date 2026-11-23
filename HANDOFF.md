@@ -2,29 +2,30 @@
 
 ## Last Session
 
-Completed #1213 (XS/Low bug fix). Another slot had already independently fixed the same issue — our branch was redundant and deleted.
+Designed and implemented #1212 (direct CAPS settling pathway for dissonance). Evaluated whether a direct CAPS settling pathway produces richer behavioural effects than the indirect prompt→experience→graduation pathway — concluded yes based on constraint-satisfaction fidelity (Shultz & Lepper 1996), and implemented.
 
-**#1213 — AgentDescriptor constructor mismatch in SituationalPersonality tests.** The `AgentDescriptor` record (eidos) gained a `RoleProfile roleProfile` field as its 31st parameter. Four test helper methods in `SituationalPersonalityIntegrationTest` (1) and `SituationalPersonalityParticipantTest` (3) used raw positional constructors with 30 arguments — each needed `null` appended. Fix already on main from another session (`4b23a6cd0`).
+1. **DissonanceActivationSource SPI** (`cognition-api`) — `@FunctionalInterface` with `TensionActivation` record carrying `capsActivationsA`, `capsActivationsB`, and tension `strength`.
+2. **DissonanceDetectionPhase** (`cognition`) — moved from `@Priority(25)` to `@Priority(17)`, implements `DissonanceActivationSource`, extended `TensionSnapshot` with CAPS activation maps, `parseCapsActivations()` for JSON→Map conversion.
+3. **BehavioralSynthesisPhase** (`mindmap-intelligence`) — `mergeDissonanceActivations()` reads SPI, scales by tension strength, merges via `Math::max`. Both direct and indirect paths coexist.
 
-**Blog:** `blog/2026-11-23-mdp05-thirty-one-nulls.md` — positional constructor fragility in 31-field records. Published.
+**Blog:** `blog/2026-11-23-mdp02-the-settler-that-finally-heard-the-argument.md`
 
 **Filed:**
-- casehubio/neocortex#1215 (refactor: use AgentDescriptor.builder() in SituationalPersonality test helpers — prevents this class of breakage)
-- Hortora/soredium#628 (work pipeline alignment bug — workspace left on old branch after work-end)
+- casehubio/neocortex#1216 (harden parseCapsActivations JSON parser — XS/Low)
 
-## Pipeline State Warning
-
-The work pipeline has an alignment bug (soredium#628): after a work-end lands branches to main, the workspace can be left on the old feature branch with uncommitted `.queue` changes. The `continue` pipeline completes without detecting the mismatch. Manual branch creation was required this session. The queue also incorrectly auto-marked #1214 as done (now corrected via `uncheck`).
+**Tests:** 44 pass (20 dissonance + 24 behavioral synthesis).
 
 ## Queue State
 
-Both project and workspace are now on branch `issue-1215-agentdescriptor-builder-test-helpers`. Queue state:
-
-- **#1214** (style: FQ imports in cognition production code — XS/Low) — open, not started
-- **#1215** (refactor: AgentDescriptor.builder() in test helpers — XS/Low) — **active**, scaffolded
+- **#1216** (harden parseCapsActivations parser — XS/Low) — open, queued
 
 ## Immediate Next Step
 
-#1215 (XS/Low) — refactor the 4 `descriptorWith*()` helper methods in `SituationalPersonalityParticipantTest` and `SituationalPersonalityIntegrationTest` to use `AgentDescriptor.builder()` instead of the raw 31-argument positional constructor. Files:
-- `cognition/src/test/java/io/casehub/neocortex/cognition/situational/SituationalPersonalityParticipantTest.java`
-- `cognition/src/test/java/io/casehub/neocortex/cognition/situational/SituationalPersonalityIntegrationTest.java`
+#1216 (XS/Low) — replace the hand-rolled JSON parser in `DissonanceDetectionPhase.parseCapsActivations()` with a more robust implementation, or add edge-case tests to document the parser's limitations.
+
+## References
+
+- `specs/issue-1212-direct-caps-evaluation/2026-11-23-direct-caps-evaluation-design.md` — design spec
+- `specs/issue-1212-direct-caps-evaluation/decisions.md` — 6 design decisions
+- `plans/2026-11-23-direct-caps-evaluation.md` — implementation plan (3 tasks, 1 batch)
+- `blog/2026-11-23-mdp02-the-settler-that-finally-heard-the-argument.md` — diary entry
