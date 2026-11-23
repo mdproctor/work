@@ -7,6 +7,10 @@
 
 ---
 
+> **Superseded by #1212:** DissonanceDetectionPhase moved from `@Priority(25)` to `@Priority(17)` and now implements `DissonanceActivationSource` SPI. BehavioralSynthesisPhase merges dissonance-derived CAPS activations directly into its settling pass (same-tick effects). The indirect pathway described in §7 still operates alongside the new direct pathway. See `specs/issue-1212-direct-caps-evaluation/2026-11-23-direct-caps-evaluation-design.md`.
+
+---
+
 ## 1. Overview
 
 A new consolidation phase (`DissonanceDetectionPhase`, `@Priority(25)`) in the `cognition` module detects contradictions between an agent's beliefs (Belieflike-trait nodes) and between beliefs and established behavioral patterns (CapsGenerated-trait nodes in the BEHAVIORAL subgraph). Detected contradictions produce a persistent `DissonanceTension` state in MindMap, adjust PAD (arousal up, pleasure down per Cooper & Fazio 1984), and render via a `DissonancePromptSection` so the character experiences and can articulate the internal conflict.
