@@ -119,3 +119,4 @@
 | [2026-11-23-mdp01-the-defaults-that-werent.md](2026-11-23-mdp01-the-defaults-that-werent.md) | 2026-11-23 | Three silent assumptions — a regex, a hardcoded personality, a test gradient — each encoding a default where a lookup belonged |
 | [2026-11-23-mdp02-the-test-that-tested-a-copy.md](2026-11-23-mdp02-the-test-that-tested-a-copy.md) | 2026-11-23 | When integration tests exercise the real code path, unit tests that duplicate production logic become drift risk |
 | [2026-11-23-mdp03-the-eleven-that-hid-behind-one.md](2026-11-23-mdp03-the-eleven-that-hid-behind-one.md) | 2026-11-23 | Partial style fixes create false consistency — fixing one import revealed eleven more fully qualified types hiding in the same file |
+| [2026-11-23-mdp04-seven-hundred-and-ninety-eight.md](2026-11-23-mdp04-seven-hundred-and-ninety-eight.md) | 2026-11-23 | Resolving 798 FQ imports across 67 test files after three failed approaches, plus per-agent retention config layering |
