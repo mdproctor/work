@@ -2,31 +2,35 @@
 
 ## Last Session
 
-Completed #1208 — the final item (50/50) in the queue. Filed #1209 for broader cleanup.
+Completed #1208 (final item in original 50-item queue). Started #1209 — discovered the approach needs rethinking.
 
-**#1208** — Standardised fully qualified imports in `InnerLifeOrchestratorTest`. Replaced 11 FQ class references (`Optional`, `Instant`, `Map`, `DriveAxis`, `DriveIntensity`, `SessionPipeline`, `Arrays`, `Uni`, `AtomicBoolean`, `CognitionPromptRenderer`, plus a stray `java.time.Duration` despite existing import) with proper imports. Purely mechanical, all 14 tests pass.
+**#1208** — Standardised fully qualified imports in `InnerLifeOrchestratorTest`. 11 FQ class references replaced with proper imports. Committed, landed, published.
 
-**Filed:** #1209 — same FQ pattern exists across 47 test files in the cognition module (~274 usages). Scheduled in queue as next item.
+**#1209 — attempted, reverted.** The `optimize_imports` approach fails because many simple class names (`Set`, `Map`, `Duration`, `Instant`, `Uni`) are ambiguous on this classpath — multiple classes share the same simple name. IntelliJ's `optimize_imports` can't auto-resolve them, leaving broken imports. 32 of 53 files failed to compile. All changes reverted. Issue updated with findings and recommended approach (manual import insertion per file, not auto-resolve).
+
+**Additional findings:**
+- Full scan: 740 FQ usages across 61 files (not 274/47 as initially estimated)
+- Scale updated from M/Low to L/Med on #1209
+- 6 parallel IntelliJ agents overwhelmed the MCP server — caused disconnects. Sequential processing works but optimize_imports still can't resolve ambiguities.
 
 **Blog:** `blog/2026-11-23-mdp03-the-eleven-that-hid-behind-one.md` — partial style fixes and false consistency.
 
-## Landing Status
-
-Slot main and canonical main are in sync up to `4677ac4ba`. The #1208 commit (`dce935e48`) and promotion commit (`fd229f2a8`) are on slot main only — these need to land via work-end.
-
-Note: the #1208 commit was made directly on `main` (not on the branch) because the pipeline completed `continue` with the project on main. The branch `issue-1205-coping-bias-assertion` has a close stamp at `4677ac4ba`. Work-end should handle this but be aware of the topology.
+**Filed:** #1209 — FQ import cleanup across cognition test files.
 
 ## Queue State
 
-All 50 original items done. #1209 added as next item (not started).
+#1209 active (not started — approach needs rethinking). #1167 queued after. 5 deferred items cleaned up (3 closed, 2 re-queued/done).
+
+## Pre-existing compilation issue
+
+`AgentDescriptor` constructor mismatch in `SituationalPersonalityIntegrationTest` and `SituationalPersonalityParticipantTest` — predates this session, not caused by FQ work.
 
 ## Immediate Next Step
 
-1. Complete `work end` ceremony (landing, squash review, push)
-2. #1209 is M/Low — systematic FQ import cleanup across cognition test files
+1. #1209 needs a Python script approach that reads each file, identifies FQ usages, computes correct imports, inserts them, then replaces FQ names — the hook blocking Python on Java files will need a workaround (temporary exemption or a dedicated tooling script)
+2. Alternatively: use IntelliJ's "Add import" intention interactively per file, or a custom IntelliJ plugin action
 
 ## References
 
 - Blog: `blog/2026-11-23-mdp03-the-eleven-that-hid-behind-one.md`
-- Blog (prior): `blog/2026-11-23-mdp02-the-test-that-tested-a-copy.md`
-- Blog (prior): `blog/2026-11-23-mdp01-the-defaults-that-werent.md`
+- Issue comment: https://github.com/casehubio/neocortex/issues/1209#issuecomment-7099035555
