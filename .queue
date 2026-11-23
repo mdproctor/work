@@ -5,11 +5,14 @@ branch: issue-593-cognitive-dissonance
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#593
-project-sha:
+project-sha: 
 date: 2026-11-23
-design-repo:
-design-section-hashes:
-flyway-next-v:
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
 
 ## Queue
-- [ ] casehubio/neocortex#593 — Cognitive-dissonance-constraint-satisfaction <- active
+- [ ] casehubio/neocortex#593 — Cognitive-dissonance-constraint-satisfaction ← active
+- [ ] casehubio/neocortex#1210 — Dissonance-coping integration
+- [ ] casehubio/neocortex#1211 — NLI fast-path pre-filter
+- [ ] casehubio/neocortex#1212 — Direct CAPS settling evaluation
