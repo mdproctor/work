@@ -73,24 +73,46 @@ BehavioralSynthesisPhase (@Priority 19)
   └─ Steps 6-10: Persist attractors, update weights, record CBR outcomes
 ```
 
-### `mergeDissonanceActivations()` Method
+### SPI: `DissonanceActivationSource` (cognition-api)
 
 ```java
+@FunctionalInterface
+public interface DissonanceActivationSource {
+    List<TensionActivation> activeTensions(String cacheKey);
+}
+```
+
+```java
+public record TensionActivation(
+    Map<String, Double> capsActivationsA,
+    Map<String, Double> capsActivationsB,
+    double strength
+) {}
+```
+
+`DissonanceDetectionPhase` in the `cognition` module implements `DissonanceActivationSource`, returning its cached `TensionSnapshot` data as `TensionActivation` records.
+
+### `mergeDissonanceActivations()` Method (BehavioralSynthesisPhase)
+
+```java
+@Inject
+Instance<DissonanceActivationSource> dissonanceActivationSource;
+
 private void mergeDissonanceActivations(Map<String, Double> combinedActivations,
                                         String agentId, String tenantId) {
-    if (dissonanceDetectionPhase == null || !dissonanceDetectionPhase.isResolvable()) {
-        return; // dissonance disabled or not on classpath
+    if (!dissonanceActivationSource.isResolvable()) {
+        return;
     }
 
     String cacheKey = tenantId + ":" + agentId;
-    List<TensionSnapshot> tensions = dissonanceDetectionPhase.get().activeTensions(cacheKey);
+    List<TensionActivation> tensions = dissonanceActivationSource.get()
+        .activeTensions(cacheKey);
     if (tensions == null || tensions.isEmpty()) {
         return;
     }
 
-    for (TensionSnapshot tension : tensions) {
+    for (TensionActivation tension : tensions) {
         double strength = tension.strength();
-        // Inject both sides, scaled by tension strength
         mergeActivationMap(combinedActivations, tension.capsActivationsA(), strength);
         mergeActivationMap(combinedActivations, tension.capsActivationsB(), strength);
     }
@@ -171,14 +193,20 @@ Because DissonanceDetectionPhase now runs *before* BehavioralSynthesisPhase (not
 
 ## 6. CDI Wiring
 
-BehavioralSynthesisPhase gains an `Instance<DissonanceDetectionPhase>` injection:
+### Module Dependency Constraint
+
+`mindmap-intelligence` depends on `cognition-api` (not `cognition` runtime). `cognition` depends on `mindmap-intelligence`. Direct injection of `DissonanceDetectionPhase` from BehavioralSynthesisPhase would create a circular dependency.
+
+### Solution: SPI in cognition-api
+
+`DissonanceActivationSource` interface and `TensionActivation` record live in `cognition-api`. BehavioralSynthesisPhase injects `Instance<DissonanceActivationSource>`:
 
 ```java
 @Inject
-Instance<DissonanceDetectionPhase> dissonanceDetectionPhase;
+Instance<DissonanceActivationSource> dissonanceActivationSource;
 ```
 
-Using `Instance<T>` provides graceful degradation:
+`DissonanceDetectionPhase` in `cognition` implements `DissonanceActivationSource`, making it available as a CDI bean. Using `Instance<T>` provides graceful degradation:
 - If dissonance is disabled or the phase is not on the classpath, `isResolvable()` returns false and `mergeDissonanceActivations()` is a no-op
 - No startup failure, no config flag needed beyond the existing `casehub.cognition.dissonance.enabled`
 
@@ -194,10 +222,12 @@ No new configuration properties. The existing `casehub.cognition.dissonance.enab
 
 | Component | Module | Change |
 |---|---|---|
-| `DissonanceDetectionPhase` | cognition | `@Priority(25)` → `@Priority(17)` |
-| `BehavioralSynthesisPhase` | mindmap-intelligence | Add `mergeDissonanceActivations()`, add `Instance<DissonanceDetectionPhase>` injection |
+| `DissonanceActivationSource` | cognition-api | **New** — `@FunctionalInterface` SPI |
+| `TensionActivation` | cognition-api | **New** — record carrying activation maps + strength |
+| `DissonanceDetectionPhase` | cognition | `@Priority(25)` → `@Priority(17)`, implements `DissonanceActivationSource` |
+| `BehavioralSynthesisPhase` | mindmap-intelligence | Add `mergeDissonanceActivations()`, add `Instance<DissonanceActivationSource>` injection |
 
-No changes to: cognition-api, caps-api, caps-engine, mindmap-api, DissonanceTickParticipant, DissonancePromptSection, DissonanceDetectionConfig.
+No changes to: caps-api, caps-engine, mindmap-api, DissonanceTickParticipant, DissonancePromptSection, DissonanceDetectionConfig.
 
 ---
 

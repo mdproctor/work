@@ -36,16 +36,18 @@
 
 ## D4: Activation coupling mechanism
 
-**Choice:** In-memory cache — BehavioralSynthesisPhase reads `DissonanceDetectionPhase.activeTensions()` to extract CAPS activation maps
+**Choice:** SPI in cognition-api — `DissonanceActivationSource` interface with `activeTensions(String cacheKey) → List<TensionActivation>`. Implemented by DissonanceDetectionPhase in cognition. BehavioralSynthesisPhase (mindmap-intelligence) injects `Instance<DissonanceActivationSource>`.
 **Alternatives:**
+- Direct cache read via `Instance<DissonanceDetectionPhase>` — creates circular dependency: mindmap-intelligence → cognition → mindmap-intelligence
 - MindMap node convention (cognitiveKind=dissonance-activation nodes) — durable and observable but unnecessary MindMap round-trip; activation maps are already on the tension nodes
 - CDI event — decoupled but fragile ordering within same consolidation tick
-**Rationale:** DissonanceDetectionPhase already maintains a `ConcurrentHashMap<String, List<TensionSnapshot>>` cache, populated during each run. BehavioralSynthesisPhase already uses the same cache pattern for its own `lastSettlingResults()` and `lastInputActivations()` accessors. Reading the cache is a direct method call with no I/O. The tension nodes already persist the activation maps in MindMap for observability — no need to duplicate.
-**Trade-offs:** Runtime coupling: BehavioralSynthesisPhase holds a reference to DissonanceDetectionPhase (via CDI injection). If dissonance is disabled, the cache returns empty and merge is a no-op.
-**Depends on:** D1 (reorder ensures DissonanceDetectionPhase runs first), D3 (priority ordering guarantees cache is populated)
-**Sources:** DissonanceDetectionPhase.activeTensions(), BehavioralSynthesisPhase.lastSettlingResults() pattern
-**Exploration:** quick
-**Status:** captured
+- Move DissonanceDetectionPhase to mindmap-intelligence — avoids the SPI but puts semantic LLM-based detection in a graph-structural module, breaking module conventions
+**Rationale:** Module dependency direction is `cognition → mindmap-intelligence → cognition-api`. Direct injection of `DissonanceDetectionPhase` from BehavioralSynthesisPhase would create a circular dependency. A small SPI in cognition-api respects the existing dependency graph. `TensionActivation` record carries `capsActivationsA`, `capsActivationsB`, and `strength` — the minimum needed for the merge.
+**Trade-offs:** Adds one interface and one record to cognition-api. Minimal surface; the SPI is a single method.
+**Depends on:** D1 (reorder ensures implementation runs first), D3 (priority ordering guarantees cache is populated)
+**Sources:** mindmap-intelligence/pom.xml (depends on cognition-api, not cognition), cognition/pom.xml (depends on mindmap-intelligence), DissonanceDetectionPhase.activeTensions()
+**Exploration:** quick → revised after self-review caught circular dependency
+**Status:** revised
 
 ## D5: Activation scaling
 
