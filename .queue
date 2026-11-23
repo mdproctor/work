@@ -5,7 +5,7 @@ branch: issue-1215-agentdescriptor-builder-test-helpers
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1215
-active_ref: 
+active_ref: casehubio/neocortex#1215
 
 ## Queue
 - [x] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
