@@ -15,13 +15,17 @@ Designed and implemented #1212 (direct CAPS settling pathway for dissonance). Ev
 
 **Tests:** 44 pass (20 dissonance + 24 behavioral synthesis).
 
+**Landed:** #1212 on main (3 commits). Branch stamped and closed.
+
 ## Queue State
 
-- **#1216** (harden parseCapsActivations parser — XS/Low) — open, queued
+Branch `issue-1216-harden-caps-parser` active. Project and workspace on the branch.
+
+- **#1216** (harden parseCapsActivations parser — XS/Low) — **active**, scaffolded
 
 ## Immediate Next Step
 
-#1216 (XS/Low) — replace the hand-rolled JSON parser in `DissonanceDetectionPhase.parseCapsActivations()` with a more robust implementation, or add edge-case tests to document the parser's limitations.
+#1216 (XS/Low) — replace the hand-rolled JSON parser in `DissonanceDetectionPhase.parseCapsActivations()` with Jackson ObjectMapper, or add edge-case tests documenting parser limitations. File: `cognition/src/main/java/io/casehub/neocortex/cognition/dissonance/DissonanceDetectionPhase.java:300`.
 
 ## References
 
