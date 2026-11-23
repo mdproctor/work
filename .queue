@@ -49,4 +49,4 @@ active_ref:
 - [x] casehubio/neocortex#1167 — per-agent-RetentionConfig-adaptation
 - [x] casehubio/neocortex#1213 — fix-AgentDescriptor-constructor-mismatch
 - [ ] casehubio/neocortex#1214 — style-FQ-cognition-production-code
-- [ ] casehubio/neocortex#1215 — refactor-AgentDescriptor-builder-test-helpers ← active
+- [x] casehubio/neocortex#1215 — refactor-AgentDescriptor-builder-test-helpers
