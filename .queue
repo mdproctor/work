@@ -2,14 +2,10 @@
 - [x] casehubio/neocortex#1210 — Dissonance-coping integration
 - [x] casehubio/neocortex#1211 — NLI fast-path pre-filter
 - [x] casehubio/neocortex#1212 — Direct CAPS settling evaluation
-  - [x] Batch 1: SPI+Cache+Merge
-    - [x] Task 1: SPI and TensionActivation in cognition-api
-    - [x] Task 2: DissonanceDetectionPhase reorder and SPI
-    - [x] Task 3: BehavioralSynthesisPhase merge
 - [ ] casehubio/neocortex#1216 — Harden parseCapsActivations parser        ← active
 
 ## State
-branch: 
+branch: main
 issue-repo: casehubio/neocortex
 status: active
 project-sha: 
