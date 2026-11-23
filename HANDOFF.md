@@ -2,45 +2,38 @@
 
 ## Last Session
 
-Completed 8 issues (#1193–#1205) across cognition, mindmap-intelligence, and caps-testing modules. All test-focused or small refactors.
+Completed #1206 and #1207, the final two items in the queue. Filed #1208 for a remaining code review finding.
 
-**#1193** — Integration test for `SituationalSnapshotAccessorProducer`. Tests the real producer via mocked `Instance<PersonalityStateService>` instead of duplicating its mapping logic.
+**#1206** — Deleted `SituationalSnapshotAccessorProducerTest`. The integration test from #1193 covers all 6 scenarios through the real producer via mocked `Instance<PersonalityStateService>`, making the `buildAccessor()` helper (a line-for-line copy of producer logic) redundant.
 
-**#1194** — Trust accessor numeric effect test. Runs same stress scenario with/without `TrustAccessor`, verifying trust (R=0.8, betaR=0.25) amplifies detection intensity and facet displacement.
+**#1207** — Standardised `Duration` imports in 4 evictIdle test files: `GutFeelingParticipantTest`, `NarrativeOrchestratorTest`, `SearchBudgetTickParticipantTest`, `InnerLifeOrchestratorTest`. Added `import java.time.Duration;` and replaced fully qualified usages.
 
-**#1196** — Standardised all 8 orchestrator ConcurrentHashMap keys to `agentId:tenantId`. Fixed GoalProposalOrchestrator (`|` separator) and InnerLifeOrchestrator (reversed order).
+**Filed:** #1208 (remaining fully qualified `Optional` and `Instant` in InnerLifeOrchestratorTest). Scheduled in queue.
 
-**#1197** — Added evictIdle unit tests for 8 orchestrators: DriveOrchestrator (new test class), MoodOrchestrator, GutFeelingParticipant, NarrativeOrchestrator, SearchBudgetTickParticipant, GoalProposalOrchestrator, InnerLifeOrchestrator, StrategyLearningOrchestrator.
-
-**#1202** — EdgeInferencePhase integration test for run() merge flow. Updated TestableEdgeInferencePhase to use the same co-occurrence + embedding candidate merge path as production. Two tests: both-sources produce edges, maxCandidates cap applies.
-
-**#1203** — Replaced regex-based JSON parsing in EdgeInferencePhase with Jackson ObjectMapper. Handles any key ordering, escaped characters, explicit error reporting. Updated tests from #1190 that documented regex limitations.
-
-**#1204** — Fixed BehavioralSynthesisPhase auto-init: was hardcoding `DispositionAxes("cooperative","moderate","calculated","moderate","cooperative")` for every agent. Now looks up registered disposition from `effectiveDefaults`.
-
-**#1205** — Investigated coping bias assertion. Feedback loops from #1192 genuinely equalized the moderate/strong threat gradient — resting activation effect is constant (~2.5e-5) regardless of input intensity. Renamed test, updated assertions to reflect actual behaviour.
-
-**Code review** — 2 nits found: tightened EdgeInference maxCandidates assertion (fixed), Duration qualification inconsistency (filed #1207).
-
-**Filed:** #1206 (dedup SituationalSnapshotAccessorProducerTest helper), #1207 (Duration.ZERO qualification). Both scheduled in queue.
+**Blog:** `blog/2026-11-23-mdp02-the-test-that-tested-a-copy.md` — test duplication as drift risk.
 
 ## Landing Status — BLOCKED
 
-Work end landing failed. The slot's main branch is behind canonical main (a previous session partially landed #1193, #1194, #1196 to canonical without syncing the slot). The close ceremony crashes when trying to rebase stacked branches onto a canonical main that already contains some of their content.
+Same as prior session. Slot main is behind canonical main (a previous session partially landed some items without syncing the slot). The close ceremony fails when rebasing stacked branches onto a canonical main that already contains some of their content.
 
-**Fix needed:** sync slot main to canonical main, rebase remaining branches, re-run `work end`. All squash reviews are recorded for all 8 branches.
+**Fix needed:** sync slot main to canonical main, rebase remaining branches, re-run `work end`. Squash reviews are recorded for all branches.
 
-## Immediate Next Step
+## Branch Alignment Note
 
-1. Fix the slot-to-canonical sync issue
-2. Run `work end` to land all 8 items
-3. Queue has 2 more items: #1206, #1207 (both XS/Low)
+This session fixed a project/workspace branch mismatch — the project repo was on `main` while workspace was on `issue-1205-coping-bias-assertion`. The #1206 commit initially landed on `main` by mistake; it was cherry-picked to the stacked branch and `main` was reset to its prior position. The close stamp on the branch was removed since work continued.
 
 ## Queue State
 
-8 items done on branches (not yet landed). 2 items queued: #1206, #1207.
+#1206 and #1207 done on branch. #1208 queued (active, not started). Queue position: 40/41.
+
+## Immediate Next Step
+
+1. Fix the slot-to-canonical sync issue (landing blocker)
+2. Run `work end` to land all done items
+3. #1208 is XS/Low — standardise remaining fully qualified imports in InnerLifeOrchestratorTest
 
 ## References
 
-- Blog: `blog/2026-11-23-mdp01-the-defaults-that-werent.md`
-- Blog (prior session): `blog/2026-11-22-mdp04-the-network-that-always-arrived-together.md`
+- Blog: `blog/2026-11-23-mdp02-the-test-that-tested-a-copy.md`
+- Blog (prior): `blog/2026-11-23-mdp01-the-defaults-that-werent.md`
+- Blog (prior): `blog/2026-11-22-mdp04-the-network-that-always-arrived-together.md`
