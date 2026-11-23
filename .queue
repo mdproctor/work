@@ -29,14 +29,14 @@
 - [x] casehubio/neocortex#1191 — embedding-based-candidate-identification
 - [x] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence
 - [x] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test
-- [ ] casehubio/neocortex#1194 — trust-accessor-numeric-effect-test ← done on issue-1194-trust-accessor-numeric
-- [ ] casehubio/neocortex#1196 — Standardise-orchestrator-key-format ← done on issue-1196-orchestrator-key-format
-- [ ] casehubio/neocortex#1197 — evictIdle-unit-tests ← done on issue-1197-evictidle-unit-tests
-- [ ] casehubio/neocortex#1202 — integration-test-run-merge-candidates ← done on issue-1202-edge-inference-merge-test
-- [ ] casehubio/neocortex#1203 — replace-regex-with-json-parser ← done on issue-1203-json-parser-edge-inference
-- [ ] casehubio/neocortex#1204 — BehavioralSynthesisPhase-hardcoded-disposition ← done on issue-1204-behavioral-disposition-lookup
-- [ ] casehubio/neocortex#1205 — CapsEngineContractTest-coping-bias-assertion ← done on issue-1205-coping-bias-assertion
-- [ ] casehubio/neocortex#1206 — snapshot-accessor-test-dedup
+- [x] casehubio/neocortex#1194 — trust-accessor-numeric-effect-test
+- [x] casehubio/neocortex#1196 — Standardise-orchestrator-key-format
+- [x] casehubio/neocortex#1197 — evictIdle-unit-tests
+- [x] casehubio/neocortex#1202 — integration-test-run-merge-candidates
+- [x] casehubio/neocortex#1203 — replace-regex-with-json-parser
+- [x] casehubio/neocortex#1204 — BehavioralSynthesisPhase-hardcoded-disposition
+- [x] casehubio/neocortex#1205 — CapsEngineContractTest-coping-bias-assertion
+- [ ] casehubio/neocortex#1206 — snapshot-accessor-test-dedup        ← active
 - [ ] casehubio/neocortex#1207 — evictIdle-Duration-qualification
 
 ## State
