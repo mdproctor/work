@@ -1,13 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/neocortex
-status: active
-covers: 
-active_ref: 
-
-## Queue
 - [x] casehubio/neocortex#1119 — Memory hygiene parameter adaptation via consolidation phase
 - [x] casehubio/neocortex#1132 — implement LivedDispositionSource
 - [x] casehubio/neocortex#1135 — extend bridge to compose AMPD facets
@@ -38,7 +28,7 @@ active_ref:
 - [x] casehubio/neocortex#1190 — parseRelationships-edge-case-tests
 - [x] casehubio/neocortex#1191 — embedding-based-candidate-identification
 - [x] casehubio/neocortex#1192 — CAPS-topology-trajectory-divergence
-- [ ] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test ← done on issue-1193-snapshot-accessor-integ
+- [x] casehubio/neocortex#1193 — snapshot-accessor-producer-integration-test
 - [ ] casehubio/neocortex#1194 — trust-accessor-numeric-effect-test ← done on issue-1194-trust-accessor-numeric
 - [ ] casehubio/neocortex#1196 — Standardise-orchestrator-key-format ← done on issue-1196-orchestrator-key-format
 - [ ] casehubio/neocortex#1197 — evictIdle-unit-tests ← done on issue-1197-evictidle-unit-tests
@@ -48,6 +38,12 @@ active_ref:
 - [ ] casehubio/neocortex#1205 — CapsEngineContractTest-coping-bias-assertion ← done on issue-1205-coping-bias-assertion
 - [ ] casehubio/neocortex#1206 — snapshot-accessor-test-dedup
 - [ ] casehubio/neocortex#1207 — evictIdle-Duration-qualification
+
+## State
+branch: 
+issue-repo: casehubio/neocortex
+status: active
+active_ref: 
 
 ## Deferred
 - [ ] per-agent-RetentionConfig-adaptation (S / Med) []
