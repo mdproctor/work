@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: issue-1167-per-agent-retention-adapt
+branch: issue-1215-agentdescriptor-builder-test-helpers
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1215
