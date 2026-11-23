@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-1167-per-agent-retention-adapt
 issue-repo: casehubio/neocortex
 status: active
 covers: casehubio/neocortex#1215
