@@ -31,6 +31,8 @@ Both pathways coexist: the direct path provides same-tick CAPS behavioural effec
 ```
 ExperienceConsolidationPhase      @Priority(15)
 SubThoughtConsolidationPhase      @Priority(16)
+DriveAdaptationPhase              @Priority(17)
+RelationshipStagePhase            @Priority(18)
 BehavioralSynthesisPhase          @Priority(19)
 ...
 DissonanceDetectionPhase          @Priority(25)
@@ -41,11 +43,15 @@ DissonanceDetectionPhase          @Priority(25)
 ```
 ExperienceConsolidationPhase      @Priority(15)
 SubThoughtConsolidationPhase      @Priority(16)
-DissonanceDetectionPhase          @Priority(17)  ← moved
+DriveAdaptationPhase              @Priority(17)  (shared)
+DissonanceDetectionPhase          @Priority(17)  ← moved, shares with DriveAdaptation
+RelationshipStagePhase            @Priority(18)
 BehavioralSynthesisPhase          @Priority(19)
 ```
 
-DissonanceDetectionPhase reads Belieflike nodes and behavioral attractors from MindMap. These are persisted in previous consolidation ticks and are stable across ticks — no dependency on same-tick outputs from BehavioralSynthesisPhase.
+DissonanceDetectionPhase shares @Priority(17) with DriveAdaptationPhase. The two phases have no data dependency — DissonanceDetectionPhase reads Belieflike nodes and behavioral attractors from MindMap (previous-tick state), while DriveAdaptationPhase reads drive state. Arbitrary execution order between them is safe. Sharing priorities is established practice (#593 originally shared @Priority(24) with MergeDetectionPhase).
+
+Behavioral attractors in the BEHAVIORAL subgraph are stable across ticks — they change only when BehavioralSynthesisPhase processes new graduated experiences. For contradiction detection, stale-by-one-tick attractors produce equivalent detection results except in the rare edge case of a single-tick attractor shift from emotionally-charged experiences.
 
 ---
 

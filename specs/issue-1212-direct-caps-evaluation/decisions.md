@@ -24,15 +24,16 @@
 
 ## D3: Pipeline priority slot
 
-**Choice:** @Priority(17) for DissonanceDetectionPhase (moved from 25)
+**Choice:** @Priority(17) for DissonanceDetectionPhase (moved from 25), shared with DriveAdaptationPhase
 **Alternatives:**
-- @Priority(18) — right before BehavioralSynthesisPhase (19), no buffer slot
-**Rationale:** After SubThoughtConsolidation (16), before BehavioralSynthesisPhase (19). Gives one slot of buffer. DissonanceDetectionPhase reads Belieflike nodes and behavioral attractors from MindMap (previous-tick state is acceptable), so no data dependency on phases 16-18.
-**Trade-offs:** Dissonance detection now runs before BehavioralSynthesisPhase, so it no longer sees same-tick attractor changes. Accepted: previous-tick attractors are stable enough for contradiction detection.
+- @Priority(18) — occupied by RelationshipStagePhase; sharing is equivalent
+- Renumber existing phases to create a gap — more disruptive for no benefit when the phases have no data dependency
+**Rationale:** Slots 17 (DriveAdaptationPhase) and 18 (RelationshipStagePhase) are both occupied. DissonanceDetectionPhase has no data dependency on DriveAdaptationPhase — they read independent inputs (beliefs/attractors vs drive state) and write independent outputs (tension nodes vs drive adaptation state). Arbitrary execution order between them is safe. Sharing priorities is established practice: #593 D3 originally shared @Priority(24) with MergeDetectionPhase.
+**Trade-offs:** Dissonance detection now runs before BehavioralSynthesisPhase, so it no longer sees same-tick attractor changes. Behavioral attractors in the BEHAVIORAL subgraph are stable across ticks — they change only when BehavioralSynthesisPhase processes new graduated experiences. For contradiction detection, stale-by-one-tick attractors produce the same detection results as fresh ones, except in the rare case where a batch of emotionally-charged experiences shifts the attractor landscape within a single tick. In that edge case, the contradiction is detected one tick late — still much faster than the indirect pathway's 2+ tick delay.
 **Depends on:** D1 (reorder approach requires priority change)
-**Sources:** ConsolidationPhase priority assignments: ExperienceConsolidation(15), SubThought(16), BehavioralSynthesis(19)
-**Exploration:** quick
-**Status:** captured
+**Sources:** ConsolidationPhase priority assignments: ExperienceConsolidation(15), SubThought(16), DriveAdaptation(17), RelationshipStage(18), BehavioralSynthesis(19). MergeDetectionPhase shared @Priority(24) in #593
+**Exploration:** quick → revised after decision review found priority collision (R1-01)
+**Status:** revised
 
 ## D4: Activation coupling mechanism
 
@@ -59,4 +60,15 @@
 **Depends on:** D2 (both sides injected; scaling applies to both)
 **Sources:** DissonanceDetectionPhase tension strength lifecycle, additive decay model from #593
 **Exploration:** quick
+**Status:** captured
+
+## D6: Prerequisite bypass — implement without production observation
+
+**Choice:** Proceed with implementation based on theoretical analysis rather than waiting for production observation of #593's indirect pathway
+**Alternatives:**
+- Wait for production observation — deploy #593, observe indirect pathway behaviour, then decide whether direct pathway adds value. Preserves the issue's stated prerequisite.
+**Rationale:** The issue stated "#593 must be implemented and observable in production first" as a prerequisite. #593 is now implemented and landed on main, but has not been observed in production. The user chose to proceed with implementation because: (1) the theoretical case is clear — Shultz & Lepper (1996) constraint satisfaction is literally what the CAPS settler implements, and the indirect path approximates it poorly by flattening competing activations into derivative experience classifications; (2) the implementation is small (1 SPI, 1 record, 1 method, 1 priority change) and low-risk; (3) both paths coexist, so the direct path can be observed alongside the indirect path in production.
+**Trade-offs:** No production data confirms the indirect path is insufficient. The direct path may prove unnecessary if the indirect path produces rich enough behaviour in practice.
+**Sources:** Issue #1212 body (prerequisite statement), user decision during brainstorming
+**Exploration:** surfaced by decision review (R1-06)
 **Status:** captured
