@@ -4,7 +4,7 @@
 branch: 
 issue-repo: casehubio/neocortex
 status: active
-covers: casehubio/neocortex#1211
+covers: casehubio/neocortex#1212
 project-sha: 
 date: 2026-11-23
 design-repo: 
@@ -19,5 +19,5 @@ flyway-next-v:
   - [x] Batch 2: batch2
     - [x] Task 3: CognitionCore-wiring
 - [ ] casehubio/neocortex#1210 — Dissonance-coping integration ← done on issue-593-cognitive-dissonance
-- [ ] casehubio/neocortex#1211 — NLI fast-path pre-filter ← active
-- [ ] casehubio/neocortex#1212 — Direct CAPS settling evaluation
+- [ ] casehubio/neocortex#1211 — NLI fast-path pre-filter ← done on issue-593-cognitive-dissonance
+- [ ] casehubio/neocortex#1212 — Direct CAPS settling evaluation ← active
