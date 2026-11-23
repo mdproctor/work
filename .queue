@@ -1,9 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-1205-coping-bias-assertion
+branch: 
 issue-repo: casehubio/neocortex
 status: active
+covers: 
 active_ref: 
 
 ## Queue
@@ -44,7 +45,7 @@ active_ref:
 - [x] casehubio/neocortex#1206 — snapshot-accessor-test-dedup
 - [x] casehubio/neocortex#1207 — evictIdle-Duration-qualification
 - [x] casehubio/neocortex#1208 — style-InnerLifeOrchestratorTest-fq-imports
-- [ ] casehubio/neocortex#1209 — style-cognition-test-fq-imports ← active
-- [ ] casehubio/neocortex#1167 — per-agent-RetentionConfig-adaptation
-
-## Deferred
+- [ ] casehubio/neocortex#1209 — style-cognition-test-fq-imports ← done on issue-1205-coping-bias-assertion
+- [ ] casehubio/neocortex#1167 — per-agent-RetentionConfig-adaptation ← done on issue-1167-per-agent-retention-adapt
+- [ ] casehubio/neocortex#1213 — fix-AgentDescriptor-constructor-mismatch
+- [ ] casehubio/neocortex#1214 — style-FQ-cognition-production-code
