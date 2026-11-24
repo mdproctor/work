@@ -44,6 +44,50 @@ Two sessions of work on #537. First session fixed lip sync, voice selector, sess
 
 **Stale jar trap:** The Quarkus uber-jar caches dependency jars. When speech-ws resources change, you MUST `clean` both speech-ws and speech-demo before packaging. Use: `mvn -o clean install -pl speech-ws && mvn -o clean package -pl speech-demo -Dquarkus.package.jar.type=uber-jar`. Always verify the jar contents before deploying: `python3 -c "import zipfile; ..."` to read the method body from the jar.
 
+## Running Container (Podman)
+
+A speech-demo container is **already running** on port 8099. No need to rebuild from scratch.
+
+```bash
+# Check status
+podman ps | grep speech
+
+# View logs
+podman logs --tail 20 speech-demo
+
+# Test in browser
+open http://localhost:8099
+```
+
+**To rebuild and redeploy after code changes:**
+```bash
+podman stop speech-demo && podman rm speech-demo
+mvn -o clean install -pl speech-ws -DskipTests
+mvn -o clean package -pl speech-demo -DskipTests -Dquarkus.package.jar.type=uber-jar
+podman build --no-cache --layers=false -t speech-demo -f speech-demo/Containerfile speech-demo
+podman run -d --name speech-demo -p 8099:8080 \
+  -e CLAUDE_CODE_USE_VERTEX=1 -e CLOUD_ML_REGION=us-east5 \
+  -e ANTHROPIC_VERTEX_PROJECT_ID=itpc-gcp-cp-pe-eng-claude \
+  -v ~/.config/gcloud:/home/avatar/.config/gcloud:ro speech-demo
+```
+
+**Use `-o` (offline) for Maven** — the jboss nexus repo was removed from parent but cached pom may still try it. Offline avoids 404 hangs.
+
+**Verify jar before deploying** — Quarkus uber-jar caches dependency jars. After changing speech-ws, you MUST `clean` both modules:
+```python
+python3 -c "
+import zipfile
+with zipfile.ZipFile('speech-demo/target/casehub-agency-speech-demo-0.4-SNAPSHOT-runner.jar') as z:
+    data = z.read('META-INF/resources/avatar-component.mjs').decode('utf-8')
+    idx = data.find('_onAnimFrame(dt) {')
+    print(data[idx:idx+200] if idx >= 0 else 'NOT FOUND')
+"
+```
+
+**Startup takes ~40s** (Kokoro + STT model provisioning). Container uses Vertex via mounted gcloud credentials.
+
+**Playwright is available** for UI testing — use `mcp__playwright__browser_navigate` to `http://localhost:8099`, send messages, take screenshots to verify gaze direction.
+
 ## Immediate Next Step
 
 1. **Verify the eye morph filter fix** — the last commit filters `eye*` from body animation expressions. Test in Playwright: send a message, take screenshots during speech, check if eyes face camera. If still wrong, the problem is deeper in TalkingHead's morph pipeline.
