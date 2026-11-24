@@ -5,14 +5,7 @@
 - [x] casehubio/neocortex#1216 — Harden parseCapsActivations parser
 - [x] casehubio/neocortex#1219 — issue 1219
 - [x] casehubio/neocortex#1221 — issue 1221
-  - [x] Batch 1: Config EnumSet
-    - [x] Task 1: CognitionConfig EnumSet refactor
-  - [x] Batch 2: Per-Agent State
-    - [x] Task 2: Per-agent state extraction
-    - [x] Task 3: Stale appraisal and double tick fix
-  - [x] Batch 3: Builder+Fixes
-    - [x] Task 4: Wire configure methods and fix ordering
-    - [x] Task 5: JSON parsing and recency decay fix
+- [x] casehubio/neocortex#1223 — issue 1223
 
 ## State
 branch: 
