@@ -27,3 +27,7 @@ flyway-next-v:
   - [x] Batch 3: Builder+Fixes
     - [x] Task 4: Wire configure methods and fix ordering
     - [x] Task 5: JSON parsing and recency decay fix
+
+## Deferred
+- [ ] Wire configureSearchBudget/configureCuriosity into builder (S / Med) [casehubio/neocortex] — Requires new builder fields and CognitionCoreFactory CDI changes — better as follow-up to SE1
+- [ ] Fix deriveQualitySignal timing in recordInteraction (XS / Med) [casehubio/neocortex] — E2 finding needs deeper investigation of mood-then-quality ordering in recordInteraction — deferred to SE6 (Affect & Emotion)
