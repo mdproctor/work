@@ -19,8 +19,8 @@ flyway-next-v:
 - [x] casehubio/neocortex#1216 — Harden parseCapsActivations parser
 - [x] casehubio/neocortex#1219 — issue 1219
 - [ ] casehubio/neocortex#1221 — issue 1221 ← active
-  - [ ] Batch 1: Config EnumSet
-    - [ ] Task 1: CognitionConfig EnumSet refactor
+  - [x] Batch 1: Config EnumSet
+    - [x] Task 1: CognitionConfig EnumSet refactor
   - [ ] Batch 2: Per-Agent State
     - [ ] Task 2: Per-agent state extraction
     - [ ] Task 3: Stale appraisal and double tick fix
