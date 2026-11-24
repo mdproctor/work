@@ -24,6 +24,6 @@ flyway-next-v:
   - [x] Batch 2: Per-Agent State
     - [x] Task 2: Per-agent state extraction
     - [x] Task 3: Stale appraisal and double tick fix
-  - [ ] Batch 3: Builder+Fixes
-    - [ ] Task 4: Wire configure methods and fix ordering
-    - [ ] Task 5: JSON parsing and recency decay fix
+  - [x] Batch 3: Builder+Fixes
+    - [x] Task 4: Wire configure methods and fix ordering
+    - [x] Task 5: JSON parsing and recency decay fix
