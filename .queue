@@ -6,6 +6,13 @@
 - [x] casehubio/neocortex#1219 — issue 1219
 - [x] casehubio/neocortex#1221 — issue 1221
 - [x] casehubio/neocortex#1223 — issue 1223
+- [x] casehubio/neocortex#1225 — issue 1225
+  - [x] Batch 1: D14 isLow default
+    - [x] Task 1: Fix isLow default and test
+  - [x] Batch 2: D19 per-agent tickContext
+    - [x] Task 2: Replace shared tickContext with per-agent map
+  - [x] Batch 3: D11 agent-scoped affect
+    - [x] Task 3: Store agent ownership on affect memories
 
 ## State
 branch: 
