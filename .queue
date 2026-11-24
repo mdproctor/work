@@ -1,20 +1,16 @@
-# Work Plan —
+- [x] casehubio/neocortex#593 — Cognitive-dissonance-constraint-satisfaction
+- [x] casehubio/neocortex#1210 — Dissonance-coping integration
+- [x] casehubio/neocortex#1211 — NLI fast-path pre-filter
+- [x] casehubio/neocortex#1212 — Direct CAPS settling evaluation
+- [x] casehubio/neocortex#1216 — Harden parseCapsActivations parser
+- [x] casehubio/neocortex#1219 — issue 1219
 
 ## State
 branch: 
 issue-repo: casehubio/neocortex
-status: active
+status: drained
 project-sha: 
 date: 2026-11-23
 design-repo: 
 design-section-hashes: 
 flyway-next-v: 
-covers: 
-
-## Queue
-- [x] casehubio/neocortex#593 — Cognitive-dissonance-constraint-satisfaction
-- [x] casehubio/neocortex#1210 — Dissonance-coping integration
-- [x] casehubio/neocortex#1211 — NLI fast-path pre-filter
-- [x] casehubio/neocortex#1212 — Direct CAPS settling evaluation
-- [ ] casehubio/neocortex#1216 — Harden parseCapsActivations parser ← done on issue-1216-harden-caps-parser
-- [ ] casehubio/neocortex#1219 — issue 1219 ← done on issue-1216-harden-caps-parser
