@@ -21,9 +21,9 @@ flyway-next-v:
 - [ ] casehubio/neocortex#1221 — issue 1221 ← active
   - [x] Batch 1: Config EnumSet
     - [x] Task 1: CognitionConfig EnumSet refactor
-  - [ ] Batch 2: Per-Agent State
-    - [ ] Task 2: Per-agent state extraction
-    - [ ] Task 3: Stale appraisal and double tick fix
+  - [x] Batch 2: Per-Agent State
+    - [x] Task 2: Per-agent state extraction
+    - [x] Task 3: Stale appraisal and double tick fix
   - [ ] Batch 3: Builder+Fixes
     - [ ] Task 4: Wire configure methods and fix ordering
     - [ ] Task 5: JSON parsing and recency decay fix
