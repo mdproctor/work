@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/neocortex
-status: active
-covers: 
-project-sha: 
-date: 2026-11-23
-design-repo: 
-design-section-hashes: 
-flyway-next-v: 
-
-## Queue
 - [x] casehubio/neocortex#593 — Cognitive-dissonance-constraint-satisfaction
 - [x] casehubio/neocortex#1210 — Dissonance-coping integration
 - [x] casehubio/neocortex#1211 — NLI fast-path pre-filter
@@ -21,7 +7,17 @@ flyway-next-v:
 - [x] casehubio/neocortex#1221 — issue 1221
 - [x] casehubio/neocortex#1223 — issue 1223
 - [x] casehubio/neocortex#1225 — issue 1225
-- [ ] casehubio/neocortex#1224 — issue 1224 ← done on issue-1224-consolidation-phase-fixes
+- [x] casehubio/neocortex#1224 — issue 1224
+
+## State
+branch: 
+issue-repo: casehubio/neocortex
+status: drained
+project-sha: 
+date: 2026-11-23
+design-repo: 
+design-section-hashes: 
+flyway-next-v: 
 
 ## Deferred
 - [ ] Wire configureSearchBudget/configureCuriosity into builder (S / Med) [casehubio/neocortex] — Requires new builder fields and CognitionCoreFactory CDI changes — better as follow-up to SE1
