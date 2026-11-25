@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-1237-additional-capabilities
+branch: 
 issue-repo: casehubio/neocortex
 status: active
-covers: casehubio/neocortex#1237
+covers: 
 project-sha: 
 date: 2026-11-23
 design-repo: 
@@ -22,15 +22,17 @@ flyway-next-v:
 - [x] casehubio/neocortex#1223 — issue 1223
 - [x] casehubio/neocortex#1225 — issue 1225
 - [ ] casehubio/neocortex#1238 — Capability-composition-tests ← done on issue-1238-capability-composition-tests
-- [ ] casehubio/neocortex#1237 — Additional-capabilities ← active
-  - [ ] Batch 1: StoreCapabilities
-    - [ ] Task 1: InnerThoughtsCapability
-    - [ ] Task 2: AppraisalCapability
-  - [ ] Batch 2: MindMapCapabilities
-    - [ ] Task 3: NeedsCapability
-    - [ ] Task 4: ConsolidationCapability
-  - [ ] Batch 3: ProducerWiring
-    - [ ] Task 5: WireProducer+CompositionTests
+- [ ] casehubio/neocortex#1237 — Additional-capabilities ← done on issue-1237-additional-capabilities
+  - [x] Batch 1: StoreCapabilities
+    - [x] Task 1: InnerThoughtsCapability
+    - [x] Task 2: AppraisalCapability
+  - [x] Batch 2: MindMapCapabilities
+    - [x] Task 3: NeedsCapability
+    - [x] Task 4: ConsolidationCapability
+  - [x] Batch 3: ProducerWiring
+    - [x] Task 5: WireProducer+CompositionTests
+- [ ] casehubio/neocortex#1240 — cognitionActive-marker-detection
+- [ ] casehubio/neocortex#1241 — consolidation-trait-constants
 
 ## Deferred
 - [ ] Wire configureSearchBudget/configureCuriosity into builder (S / Med) [casehubio/neocortex] — Requires new builder fields and CognitionCoreFactory CDI changes — better as follow-up to SE1
