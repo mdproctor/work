@@ -1,7 +1,7 @@
 # Work Plan —
 
 ## State
-branch: 
+branch: issue-530-restore-playback-rate-headless
 issue-repo: casehubio/agency
 status: active
 covers: casehubio/agency#529
@@ -57,6 +57,15 @@ flyway-next-v: none
 - [x] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
 - [x] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
 - [ ] casehubio/agency#536 — Avatar pipeline as composable playbook ← active
+  - [ ] Batch 1: Foundation
+    - [ ] Task 1: FilterChain ordered composition
+    - [ ] Task 2: TextFilterRegistry + spec records
+    - [ ] Task 3: SpeechPipelineCompiler + CompiledSpeechPipeline
+  - [ ] Batch 2: Runtime
+    - [ ] Task 4: Deployment CDI bean registration
+    - [ ] Task 5: Wire pipeline into SpeechSession + TurnExecutor
+  - [ ] Batch 3: Verification
+    - [ ] Task 6: Podman integration test + docs
 - [ ] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free
 - [ ] casehubio/agency#551 — Colour-coded status bar with icons
 - [ ] casehubio/agency#552 — Visual reconnection indicator
