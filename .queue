@@ -1,3 +1,17 @@
+# Work Plan —
+
+## State
+branch: issue-530-restore-playback-rate-headless
+issue-repo: casehubio/agency
+status: active
+covers: casehubio/agency#551
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
+
+## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -43,27 +57,7 @@
 - [x] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
 - [x] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
 - [x] casehubio/agency#536 — Avatar pipeline as composable playbook
-  - [x] Batch 1: Foundation
-    - [x] Task 1: FilterChain ordered composition
-    - [x] Task 2: TextFilterRegistry + spec records
-    - [x] Task 3: SpeechPipelineCompiler + CompiledSpeechPipeline
-  - [x] Batch 2: Runtime
-    - [x] Task 4: Deployment CDI bean registration
-    - [x] Task 5: Wire pipeline into SpeechSession + TurnExecutor
-  - [x] Batch 3: Verification
-    - [x] Task 6: Podman integration test + docs
 - [x] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free
-- [ ] casehubio/agency#551 — Colour-coded status bar with icons        ← active
+- [ ] casehubio/agency#551 — Colour-coded status bar with icons ← active
 - [ ] casehubio/agency#552 — Visual reconnection indicator
 - [ ] casehubio/agency#553 — Integrate-CorrectionHooks-as-pipeline-step
-
-## State
-branch: 
-issue-repo: casehubio/agency
-status: active
-covers: casehubio/agency#551
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
