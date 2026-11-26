@@ -2,79 +2,40 @@
 
 ## Last Session
 
-Completed queue items #531-#535. All verified in Podman container on port 8099. Only #536 (M-scale playbook design) remains open.
+Designed and implemented #536 (composable avatar speech pipeline) end-to-end: brainstorming (8 decisions, Standard decision review), planning (6 tasks, 3 batches), implementation, Podman verification, code review, and landing on main.
 
 **What was done this session:**
-- **#531** — `AvatarControls.sampleRate` getter reading from loaded config; `index.html` uses it instead of hardcoded 16000
-- **#532** — Restored 7 avatar models and 25 animation clips (5 optgroups) in `AvatarControls._render()`
-- **#533** — `speech-deployment` now depends on `agentic-yaml-deployment` for avatar config discovery. Deleted `SpeechAvatarConfigBuildItem` and `AvatarSpeechProcessor` (duplicates). Single discovery path.
-- **#534** — Enriched test avatar.yaml with TTS/STT/cleanup specs, test verifies full roundtrip
-- **#535** — `ModelProvisioningService` now derives engine keys from injected `TtsModelRegistry` instead of hardcoded map. Models marked READY at init (compiler provisions them at bean creation).
+- **#536** — Composable `pipeline:` section in `avatar.yaml`. Three insertion points (post-STT, post-LLM, post-segmenter) with explicit YAML ordering. `FilterChain` preserves insertion order (unlike `CleanupConfig` which sorts by destructiveness). `TextFilterRegistry` for custom filter discovery. 9 commits landed on main, 33 files, +1254/-91. All 215 speech-ws tests + 36 avatar-yaml tests pass. Podman-verified.
 
-## What Was Fixed (working)
+**Key types added:**
+- `FilterChain` — ordered text filter composition (avatar-yaml)
+- `TextFilterRegistry` / `TextFilterFactory` — name-to-factory registry (avatar-yaml)
+- `SpeechPipelineSpec` / `StepSpec` — YAML spec records (avatar-yaml)
+- `SpeechPipelineCompiler` — compiles spec to runtime (avatar-yaml)
+- `CompiledSpeechPipeline` — runtime: three `FilterChain` instances (avatar-yaml)
 
-- **Lip sync on second message** — order-of-operations in `_handleSegment`: moved `_resetTurnState()` before segment store
-- **Gesture/mood cue drop** — `firstChunk` flag captured before `_turnCuesAttached.add(key)`, was always false
-- **Voice selector greyed out** — `_pollModelStatus` engine-prefix key mismatch (`kokoro:af_heart` vs `kokoro`)
-- **Session pooling** — switched to `casehub-platform-agent-session` CDI module, added pool config to `agent-config.yaml`
-- **TTS parallelism** — `ttsExecutor` in TurnExecutor so LLM streaming continues while TTS runs
-- **Disruptive poses removed** — idle/speaking pools stripped to relaxed + conversational stances only
-- **Parent pom** — removed dead jboss nexus snapshots repo (was causing 404 hangs on Maven builds)
-- **Eye contact gaze tracking** — three-part system in `avatar-component.mjs`, active during speech only
-
-## Eye Contact — RESOLVED
-
-Three-part gaze system in `avatar-component.mjs`:
-
-1. **Head rotation** (`_onAnimFrame`, opt.update callback): Direct angle from avatar origin to camera position → `system` on `bodyRotateX`/`bodyRotateY` with boosted smoothing (`maxv=0.008`, 8x default). No bone-chain feedback loop.
-
-2. **Eye fine-tuning** (`_registerGazeLayer`, morph layer order 100, replace blend): Computes residual camera direction in head-local space via full bone chain quaternion. Sets eye look morphs to compensate for whatever offset the head hasn't fully resolved. Runs after `updateMorphTargets` — bypasses smoothing pipeline.
-
-3. **Vertical offset** (`GAZE_V_OFFSET = -0.06`): Slight upward head tilt bias for natural eye-level contact.
-
-**Key architectural findings:**
-
-- TalkingHead's built-in eye contact system (lines 2830-2836) only compensates for head rotation — doesn't track camera position. Insufficient for orbited cameras.
-- `lookAtCamera()` / `lookAt()` create one-shot animations that compete with the state machine queue. Not suitable for continuous tracking.
-- `system` morph values go through acceleration-based exponential smoothing (`acc`, `maxv`, `v`). Default `maxv` for `bodyRotateX/Y` is 0.001 — far too slow (1.6%/frame). Boosted to 0.008.
-- Morph layer with `replace` blend (order 100) directly sets `morphTargetInfluences` AFTER `updateMorphTargets` — bypasses the entire smoothing pipeline for eyes.
-- `EXPRESSION_ALLOW` in `body-animations.mjs` already excludes `eye*` curves at clip load time — the `eye*` filter in `gestureExpressions` morph layer is redundant (but harmless).
-
-## Gaze Test Utility
-
-A standalone test page exists at `speech-demo/src/main/resources/META-INF/resources/gaze-test.html`. No LLM, no Quarkus — just TalkingHead + avatar + gaze code, served with:
-
-```bash
-# Requires symlinks (already created):
-# speech-demo/.../resources/vendor → speech-ws/.../resources/vendor
-# speech-demo/.../resources/avatar-component.mjs → speech-ws/.../resources/avatar-component.mjs
-
-python3 -m http.server 8077 --directory speech-demo/src/main/resources/META-INF/resources
-open http://localhost:8077/gaze-test.html
-```
-
-Features: Gaze ON/OFF toggle, Scale slider, Vertical offset slider, Camera view buttons, real-time debug panel. Useful for tuning gaze parameters without rebuilding.
+**Key design decisions:**
+- `FilterChain` not `CleanupConfig` for user-specified chains (destructiveness sorting breaks explicit ordering)
+- `pipeline:` coexists with `cleanup:` — each insertion point independently defaulted
+- Post-LLM granularity is per-sentence-callback (streaming constraint)
+- Registry pattern follows `SummariserRegistry` precedent
+- Custom steps implement `TextFilter` from `connectors-voice-spi` — no new SPI
 
 ## Running Container (Podman)
 
-A speech-demo container is **already running** on port 8099 with the latest gaze code.
+A speech-demo container is **already running** on port 8099 with the pipeline feature.
 
 ```bash
-# Check status
 podman ps | grep speech
-
-# View logs
 podman logs --tail 20 speech-demo
-
-# Test in browser
 open http://localhost:8099
 ```
 
 **To rebuild and redeploy after code changes:**
 ```bash
 podman stop speech-demo && podman rm speech-demo
-mvn clean install -DskipTests          # full project — speech-demo needs deployment modules
-mvn clean package -pl speech-demo -DskipTests -Dquarkus.package.jar.type=uber-jar
+mvn clean install -pl avatar-yaml,agentic-yaml,agentic-yaml-deployment,speech-deployment,speech-api,speech-ws -DskipTests
+mvn clean package -pl speech-demo -DskipTests -Dquarkus.package.jar.type=uber-jar -Denforcer.skip=true
 podman build --no-cache --layers=false -t speech-demo -f speech-demo/Containerfile speech-demo
 podman run -d --name speech-demo -p 8099:8080 \
   -e CLAUDE_CODE_USE_VERTEX=1 -e CLOUD_ML_REGION=us-east5 \
@@ -82,62 +43,24 @@ podman run -d --name speech-demo -p 8099:8080 \
   -v ~/.config/gcloud:/home/avatar/.config/gcloud:ro speech-demo
 ```
 
-**Note:** `-o` (offline) for Maven may fail on dependency resolution — use online build. If only speech-ws changed, `mvn clean install -pl speech-ws -DskipTests` then the speech-demo package step is enough.
-
-**Verify jar before deploying:**
-```python
-python3 -c "
-import zipfile
-with zipfile.ZipFile('speech-demo/target/casehub-agency-speech-demo-0.4-SNAPSHOT-runner.jar') as z:
-    data = z.read('META-INF/resources/avatar-component.mjs').decode('utf-8')
-    print('gazeOverride' in data and 'GAZE_V_OFFSET' in data)
-"
-```
-
-**Startup takes ~40s** (Kokoro + STT model provisioning). Container uses Vertex via mounted gcloud credentials.
-
-**Playwright is available** for UI testing — use `mcp__playwright__browser_navigate` to `http://localhost:8099`.
-
-**IMPORTANT: Do not `kill $(lsof -ti :8080)` or similar broad kills** — other sessions may have processes on nearby ports. Only kill specific PIDs you started.
+**Startup takes ~40s** (Kokoro + STT model provisioning).
 
 ## Immediate Next Steps
 
-1. ~~**#530** — Restore playback rate in headless audio path~~ — **DONE** (commit c985a528, pre-existing)
-2. ~~**#531** — Pass configSampleRate from avatar config~~ — **DONE** (commit 1a6820f3)
-3. ~~**#532** — Populate avatar and animation selectors~~ — **DONE** (commit 18107592)
-4. ~~**#533** — Deduplicate avatar YAML discovery~~ — **DONE** (commit 11e58b04)
-5. ~~**#534** — Add deployment test for avatar YAML parsing~~ — **DONE** (commit 21ec1271)
-6. ~~**#535** — Drive ModelProvisioningService from TtsModelRegistry~~ — **DONE** (commit 2a368d98)
-7. **#536** — Avatar pipeline as composable playbook — **OPEN** (M-scale, needs brainstorming)
+1. **#551** — Colour-coded status bar with icons — **ACTIVE** (UI work, speech-demo `index.html`)
+2. **#552** — Visual reconnection indicator
+3. **#553** — Integrate CorrectionHooks as pipeline step (follow-up from #536, S-scale)
 
 ## Cross-Module
 
-- **Qwen3 TTS blocked** — requires Python + PyTorch inference server, cannot run in the Corretto 22 container.
-- **Epic #540** (voice endpoint detection) — 6 child issues filed (#541-#546). Separate session.
-- **Parent pom** — jboss nexus removed and pushed to origin (commit cbe71252 on parent main).
-
-## Garden Entries
-
-4 entries captured across sessions:
-- GE-20261124-b96bb4 — `_handleSegment` order-of-operations (web)
-- GE-20261124-530701 — `firstChunk` always false (web)
-- GE-20261124-96889a — TalkingHead eye contact is probability not lock (web)
-- GE-20261124-acbc2d — agent-session-core vs agent-session pool disabled (jvm)
+- **Pre-existing build issue:** `agency` module has a compilation error (`AgencyBeans.java:377` — `AgentProvider` cannot be converted to `SessionPipeline`). Pre-existing, not from #536. Use `-pl` to skip it when building speech modules.
+- **Enforcer skip:** `speech-demo` uber-jar build requires `-Denforcer.skip=true` due to a `jsonschema-module-jackson` convergence issue from the Anthropic Java SDK.
 
 ## References
 
-- Client component: `speech-ws/src/main/resources/META-INF/resources/avatar-component.mjs`
-- Gaze test utility: `speech-demo/src/main/resources/META-INF/resources/gaze-test.html`
-- TalkingHead source: `speech-ws/src/main/resources/META-INF/resources/vendor/talkinghead.mjs`
-  - Eye contact system: lines 2820-2860
-  - `lookAtCamera()`: lines 4132-4241
-  - `lookAt()`: lines 4249-4330
-  - `makeEyeContact()`: lines 4083-4087
-  - Animation template eyes: lines 390-420
-  - `opt.update(dt)` call: line 2927
-  - Morph layer registry: lines 1685-1738
-  - Morph target smoothing: lines 1904-1931 (acc/maxv/v)
-- Animation config: `speech-demo/src/main/resources/META-INF/resources/animations/avatar-performance.json`
+- Design spec: `docs/specs/issue-536-avatar-pipeline-playbook/2026-11-26-avatar-pipeline-design.md`
+- Decisions: `docs/specs/issue-536-avatar-pipeline-playbook/decisions.md`
+- Consumer guide: `docs/guides/consumer-guide.md` (Pipeline Composition section)
+- Blog: `docs/blog/2026-11-26-mdp02-from-flat-config-to-step-chains.md`
 - Container: `speech-demo/Containerfile`
 - Avatar config: `speech-demo/src/main/resources/META-INF/avatar.yaml`
-- Agent config: `speech-demo/src/main/resources/META-INF/eidos/agent-config.yaml`
