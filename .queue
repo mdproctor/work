@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-530-restore-playback-rate-headless
+branch: 
 issue-repo: casehubio/agency
 status: active
-covers: casehubio/agency#551
+covers: 
 project-sha: 
 date: 
 design-repo: 
@@ -58,6 +58,6 @@ flyway-next-v: none
 - [x] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
 - [x] casehubio/agency#536 — Avatar pipeline as composable playbook
 - [x] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free
-- [ ] casehubio/agency#551 — Colour-coded status bar with icons ← active
-- [ ] casehubio/agency#552 — Visual reconnection indicator
-- [ ] casehubio/agency#553 — Integrate-CorrectionHooks-as-pipeline-step
+- [ ] casehubio/agency#551 — Colour-coded status bar with icons ← done on issue-530-restore-playback-rate-headless
+- [ ] casehubio/agency#552 — Visual reconnection indicator ← done on issue-551-visual-reconnection-indicator
+- [ ] casehubio/agency#553 — Integrate-CorrectionHooks-as-pipeline-step ← done on issue-553-correction-hooks-pipeline
