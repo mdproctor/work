@@ -2,7 +2,14 @@
 
 ## Last Session
 
-Three sessions on #537 (avatar eye contact). Eye contact gaze tracking is now **working** — three-part system: head rotation + eye fine-tuning + vertical offset. Remaining queue items (#530-#536) need to continue.
+Completed queue items #531-#535. All verified in Podman container on port 8099. Only #536 (M-scale playbook design) remains open.
+
+**What was done this session:**
+- **#531** — `AvatarControls.sampleRate` getter reading from loaded config; `index.html` uses it instead of hardcoded 16000
+- **#532** — Restored 7 avatar models and 25 animation clips (5 optgroups) in `AvatarControls._render()`
+- **#533** — `speech-deployment` now depends on `agentic-yaml-deployment` for avatar config discovery. Deleted `SpeechAvatarConfigBuildItem` and `AvatarSpeechProcessor` (duplicates). Single discovery path.
+- **#534** — Enriched test avatar.yaml with TTS/STT/cleanup specs, test verifies full roundtrip
+- **#535** — `ModelProvisioningService` now derives engine keys from injected `TtsModelRegistry` instead of hardcoded map. Models marked READY at init (compiler provisions them at bean creation).
 
 ## What Was Fixed (working)
 
@@ -95,15 +102,13 @@ with zipfile.ZipFile('speech-demo/target/casehub-agency-speech-demo-0.4-SNAPSHOT
 
 ## Immediate Next Steps
 
-Continue queue items. Test each in Podman after implementation:
-
-1. **#530** — Restore playback rate in headless audio path (active branch)
-2. **#531** — Pass configSampleRate from avatar config
-3. **#532** — Populate avatar and animation selectors
-4. **#533** — Deduplicate avatar YAML discovery
-5. **#534** — Add Quarkus deployment test for SpeechAvatarProcessor
-6. **#535** — Drive ModelProvisioningService from TtsModelRegistry
-7. **#536** — Avatar pipeline as composable playbook
+1. ~~**#530** — Restore playback rate in headless audio path~~ — **DONE** (commit c985a528, pre-existing)
+2. ~~**#531** — Pass configSampleRate from avatar config~~ — **DONE** (commit 1a6820f3)
+3. ~~**#532** — Populate avatar and animation selectors~~ — **DONE** (commit 18107592)
+4. ~~**#533** — Deduplicate avatar YAML discovery~~ — **DONE** (commit 11e58b04)
+5. ~~**#534** — Add deployment test for avatar YAML parsing~~ — **DONE** (commit 21ec1271)
+6. ~~**#535** — Drive ModelProvisioningService from TtsModelRegistry~~ — **DONE** (commit 2a368d98)
+7. **#536** — Avatar pipeline as composable playbook — **OPEN** (M-scale, needs brainstorming)
 
 ## Cross-Module
 
