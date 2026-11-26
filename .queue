@@ -1,3 +1,17 @@
+# Work Plan —
+
+## State
+branch: 
+issue-repo: casehubio/agency
+status: active
+covers: casehubio/agency#529
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
+
+## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -37,20 +51,12 @@
 - [x] casehubio/agency#528 — Add-voice-metadata-to-voices-response
 - [x] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown
 - [x] casehubio/agency#530 — Restore playback rate in headless audio path
-- [ ] casehubio/agency#531 — Pass configSampleRate from avatar config        ← active
-- [ ] casehubio/agency#532 — Populate avatar and animation selectors
-- [ ] casehubio/agency#533 — Deduplicate avatar YAML discovery
-- [ ] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
-- [ ] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
-- [ ] casehubio/agency#536 — Avatar pipeline as composable playbook
-
-## State
-branch: issue-530-restore-playback-rate-headless
-issue-repo: casehubio/agency
-status: active
-covers: casehubio/agency#529
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
+- [x] casehubio/agency#531 — Pass configSampleRate from avatar config
+- [x] casehubio/agency#532 — Populate avatar and animation selectors
+- [x] casehubio/agency#533 — Deduplicate avatar YAML discovery
+- [x] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
+- [x] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
+- [ ] casehubio/agency#536 — Avatar pipeline as composable playbook ← active
+- [ ] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free
+- [ ] casehubio/agency#551 — Colour-coded status bar with icons
+- [ ] casehubio/agency#552 — Visual reconnection indicator
