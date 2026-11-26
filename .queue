@@ -1,17 +1,3 @@
-# Work Plan —
-
-## State
-branch: 
-issue-repo: casehubio/agency
-status: active
-covers: 
-project-sha: 
-date: 
-design-repo: 
-design-section-hashes: 
-flyway-next-v: none
-
-## Queue
 - [x] casehubio/agency#376 — Issue #376
 - [x] casehubio/agency#361 — distributed-per-agent-LLM-coordination
 - [x] casehubio/agency#363 — multi-swarm-coordination
@@ -58,6 +44,16 @@ flyway-next-v: none
 - [x] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
 - [x] casehubio/agency#536 — Avatar pipeline as composable playbook
 - [x] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free
-- [ ] casehubio/agency#551 — Colour-coded status bar with icons ← done on issue-530-restore-playback-rate-headless
-- [ ] casehubio/agency#552 — Visual reconnection indicator ← done on issue-551-visual-reconnection-indicator
-- [ ] casehubio/agency#553 — Integrate-CorrectionHooks-as-pipeline-step ← done on issue-553-correction-hooks-pipeline
+- [x] casehubio/agency#551 — Colour-coded status bar with icons
+- [x] casehubio/agency#552 — Visual reconnection indicator
+- [x] casehubio/agency#553 — Integrate-CorrectionHooks-as-pipeline-step
+
+## State
+branch: 
+issue-repo: casehubio/agency
+status: drained
+project-sha: 
+date: 
+design-repo: 
+design-section-hashes: 
+flyway-next-v: none
