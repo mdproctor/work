@@ -4,7 +4,7 @@
 branch: 
 issue-repo: casehubio/agency
 status: active
-covers: casehubio/agency#550
+covers: casehubio/agency#551
 project-sha: 
 date: 
 design-repo: 
@@ -66,7 +66,7 @@ flyway-next-v: none
     - [x] Task 5: Wire pipeline into SpeechSession + TurnExecutor
   - [x] Batch 3: Verification
     - [x] Task 6: Podman integration test + docs
-- [ ] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free ← active
-- [ ] casehubio/agency#551 — Colour-coded status bar with icons
+- [ ] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free ← done on issue-530-restore-playback-rate-headless
+- [ ] casehubio/agency#551 — Colour-coded status bar with icons ← active
 - [ ] casehubio/agency#552 — Visual reconnection indicator
 - [ ] casehubio/agency#553 — Integrate-CorrectionHooks-as-pipeline-step
