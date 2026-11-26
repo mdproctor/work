@@ -36,8 +36,8 @@
 - [x] casehubio/agency#526 — Zero-Java avatar self-wiring extension
 - [x] casehubio/agency#528 — Add-voice-metadata-to-voices-response
 - [x] casehubio/agency#529 — Default-voice-selection-in-dynamic-dropdown
-- [ ] casehubio/agency#530 — Restore playback rate in headless audio path        ← active
-- [ ] casehubio/agency#531 — Pass configSampleRate from avatar config
+- [x] casehubio/agency#530 — Restore playback rate in headless audio path
+- [ ] casehubio/agency#531 — Pass configSampleRate from avatar config        ← active
 - [ ] casehubio/agency#532 — Populate avatar and animation selectors
 - [ ] casehubio/agency#533 — Deduplicate avatar YAML discovery
 - [ ] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
