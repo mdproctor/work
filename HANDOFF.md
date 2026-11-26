@@ -2,7 +2,7 @@
 
 ## Last Session
 
-Two sessions of work on #537. First session fixed lip sync, voice selector, session pooling, TTS parallelism, and filed epic #540. Second session focused on avatar eye contact — **not resolved, needs next session**.
+Three sessions on #537 (avatar eye contact). Eye contact gaze tracking is now **working** — three-part system: head rotation + eye fine-tuning + vertical offset. Remaining queue items (#530-#536) need to continue.
 
 ## What Was Fixed (working)
 
@@ -13,40 +13,44 @@ Two sessions of work on #537. First session fixed lip sync, voice selector, sess
 - **TTS parallelism** — `ttsExecutor` in TurnExecutor so LLM streaming continues while TTS runs
 - **Disruptive poses removed** — idle/speaking pools stripped to relaxed + conversational stances only
 - **Parent pom** — removed dead jboss nexus snapshots repo (was causing 404 hangs on Maven builds)
+- **Eye contact gaze tracking** — three-part system in `avatar-component.mjs`, active during speech only
 
-## Eye Contact Problem — NOT SOLVED
+## Eye Contact — RESOLVED
 
-**The goal:** Avatar should look directly at the viewer while speaking. During idle, mostly at camera with occasional natural glances.
+Three-part gaze system in `avatar-component.mjs`:
 
-**What was tried (all failed or partially failed):**
+1. **Head rotation** (`_onAnimFrame`, opt.update callback): Direct angle from avatar origin to camera position → `system` on `bodyRotateX`/`bodyRotateY` with boosted smoothing (`maxv=0.008`, 8x default). No bone-chain feedback loop.
 
-1. `avatarSpeakingEyeContact: 1.0` — this is a **probability weight** in TalkingHead's animation state machine, not a lock. Even at 1.0, the `dt` timing `[0, [3000,10000], [2000,5000]]` with `eyeContact: [1, null]` allows gaze drift after 3-10s.
+2. **Eye fine-tuning** (`_registerGazeLayer`, morph layer order 100, replace blend): Computes residual camera direction in head-local space via full bone chain quaternion. Sets eye look morphs to compensate for whatever offset the head hasn't fully resolved. Runs after `updateMorphTargets` — bypasses smoothing pipeline.
 
-2. `lookAtCamera(t)` once at speech start — expires after `t` ms, gaze drifts back to default.
+3. **Vertical offset** (`GAZE_V_OFFSET = -0.06`): Slight upward head tilt bias for natural eye-level contact.
 
-3. `makeEyeContact(30000)` once at speech start — sets `eyeContact: [1]` animation flag, but doesn't prevent body animation morphs from overriding eye direction.
+**Key architectural findings:**
 
-4. `speakTo = {x, y, z}` target at eye height — `lookAtCamera()` reads `speakTo` once at call time, computes rotation, queues a **static** animation. Clearing `speakTo` after the call means the queued animation still uses the default path. Keeping `speakTo` set doesn't help because the animation values are baked at queue time.
+- TalkingHead's built-in eye contact system (lines 2830-2836) only compensates for head rotation — doesn't track camera position. Insufficient for orbited cameras.
+- `lookAtCamera()` / `lookAt()` create one-shot animations that compete with the state machine queue. Not suitable for continuous tracking.
+- `system` morph values go through acceleration-based exponential smoothing (`acc`, `maxv`, `v`). Default `maxv` for `bodyRotateX/Y` is 0.001 — far too slow (1.6%/frame). Boosted to 0.008.
+- Morph layer with `replace` blend (order 100) directly sets `morphTargetInfluences` AFTER `updateMorphTargets` — bypasses the entire smoothing pipeline for eyes.
+- `EXPRESSION_ALLOW` in `body-animations.mjs` already excludes `eye*` curves at clip load time — the `eye*` filter in `gestureExpressions` morph layer is redundant (but harmless).
 
-5. `lookAtCamera(800)` every 500ms via `opt.update(dt)` callback — per-frame cooldown. Each call should read live camera position. **Did not visually verify this worked.** The deployed jar was stale for some iterations (Quarkus uber-jar caching issue — need `clean` on both speech-ws AND speech-demo).
+## Gaze Test Utility
 
-6. Raised camera presets to eye level (upper y: 0.801→0.92, head y: 0.911→0.95) — so "look at camera" means looking at eye height. **Did not verify framing impact.**
+A standalone test page exists at `speech-demo/src/main/resources/META-INF/resources/gaze-test.html`. No LLM, no Quarkus — just TalkingHead + avatar + gaze code, served with:
 
-7. Filtered `eye*` morph targets from body animation `gestureExpressions` layer — Mixamo/CC0 clips bake in eye positions as facial expressions. The additive morph layer was applying them on top of TalkingHead's eye contact, pulling gaze off-center. **Latest fix, committed but not verified.**
+```bash
+# Requires symlinks (already created):
+# speech-demo/.../resources/vendor → speech-ws/.../resources/vendor
+# speech-demo/.../resources/avatar-component.mjs → speech-ws/.../resources/avatar-component.mjs
 
-**Key architectural findings for next session:**
+python3 -m http.server 8077 --directory speech-demo/src/main/resources/META-INF/resources
+open http://localhost:8077/gaze-test.html
+```
 
-- TalkingHead's eye contact system (lines 2830-2836 of `vendor/talkinghead.mjs`) sets eye morph targets based on head quaternion to compensate for head rotation. It uses `system` property on morph targets.
-- The `gestureExpressions` morph layer (order 10, additive) runs AFTER TalkingHead's internal morph processing via `_runMorphLayers()`. It was adding eye values on top of the system values.
-- The `opt.update(dt)` callback (line 2927 of talkinghead.mjs) fires every frame — confirmed as the right integration point.
-- `lookAtCamera()` without `speakTo` calls `lookAt(null, null, t)` which projects avatar eyes to screen space and computes rotation accounting for `camera.rotation`. This should track camera orbiting.
-- `lookAtCamera()` with `speakTo` computes 3D direction to the target — but bakes the rotation values into the queued animation, not live-tracking.
-
-**Stale jar trap:** The Quarkus uber-jar caches dependency jars. When speech-ws resources change, you MUST `clean` both speech-ws and speech-demo before packaging. Use: `mvn -o clean install -pl speech-ws && mvn -o clean package -pl speech-demo -Dquarkus.package.jar.type=uber-jar`. Always verify the jar contents before deploying: `python3 -c "import zipfile; ..."` to read the method body from the jar.
+Features: Gaze ON/OFF toggle, Scale slider, Vertical offset slider, Camera view buttons, real-time debug panel. Useful for tuning gaze parameters without rebuilding.
 
 ## Running Container (Podman)
 
-A speech-demo container is **already running** on port 8099. No need to rebuild from scratch.
+A speech-demo container is **already running** on port 8099 with the latest gaze code.
 
 ```bash
 # Check status
@@ -62,8 +66,8 @@ open http://localhost:8099
 **To rebuild and redeploy after code changes:**
 ```bash
 podman stop speech-demo && podman rm speech-demo
-mvn -o clean install -pl speech-ws -DskipTests
-mvn -o clean package -pl speech-demo -DskipTests -Dquarkus.package.jar.type=uber-jar
+mvn clean install -DskipTests          # full project — speech-demo needs deployment modules
+mvn clean package -pl speech-demo -DskipTests -Dquarkus.package.jar.type=uber-jar
 podman build --no-cache --layers=false -t speech-demo -f speech-demo/Containerfile speech-demo
 podman run -d --name speech-demo -p 8099:8080 \
   -e CLAUDE_CODE_USE_VERTEX=1 -e CLOUD_ML_REGION=us-east5 \
@@ -71,28 +75,35 @@ podman run -d --name speech-demo -p 8099:8080 \
   -v ~/.config/gcloud:/home/avatar/.config/gcloud:ro speech-demo
 ```
 
-**Use `-o` (offline) for Maven** — the jboss nexus repo was removed from parent but cached pom may still try it. Offline avoids 404 hangs.
+**Note:** `-o` (offline) for Maven may fail on dependency resolution — use online build. If only speech-ws changed, `mvn clean install -pl speech-ws -DskipTests` then the speech-demo package step is enough.
 
-**Verify jar before deploying** — Quarkus uber-jar caches dependency jars. After changing speech-ws, you MUST `clean` both modules:
+**Verify jar before deploying:**
 ```python
 python3 -c "
 import zipfile
 with zipfile.ZipFile('speech-demo/target/casehub-agency-speech-demo-0.4-SNAPSHOT-runner.jar') as z:
     data = z.read('META-INF/resources/avatar-component.mjs').decode('utf-8')
-    idx = data.find('_onAnimFrame(dt) {')
-    print(data[idx:idx+200] if idx >= 0 else 'NOT FOUND')
+    print('gazeOverride' in data and 'GAZE_V_OFFSET' in data)
 "
 ```
 
 **Startup takes ~40s** (Kokoro + STT model provisioning). Container uses Vertex via mounted gcloud credentials.
 
-**Playwright is available** for UI testing — use `mcp__playwright__browser_navigate` to `http://localhost:8099`, send messages, take screenshots to verify gaze direction.
+**Playwright is available** for UI testing — use `mcp__playwright__browser_navigate` to `http://localhost:8099`.
 
-## Immediate Next Step
+**IMPORTANT: Do not `kill $(lsof -ti :8080)` or similar broad kills** — other sessions may have processes on nearby ports. Only kill specific PIDs you started.
 
-1. **Verify the eye morph filter fix** — the last commit filters `eye*` from body animation expressions. Test in Playwright: send a message, take screenshots during speech, check if eyes face camera. If still wrong, the problem is deeper in TalkingHead's morph pipeline.
-2. If filtering works, **verify camera preset framing** — raised y values may crop the head differently.
-3. If filtering doesn't work, consider **replacing TalkingHead's eye template entirely** with a custom morph layer that directly sets eye morph targets based on camera position each frame.
+## Immediate Next Steps
+
+Continue queue items. Test each in Podman after implementation:
+
+1. **#530** — Restore playback rate in headless audio path (active branch)
+2. **#531** — Pass configSampleRate from avatar config
+3. **#532** — Populate avatar and animation selectors
+4. **#533** — Deduplicate avatar YAML discovery
+5. **#534** — Add Quarkus deployment test for SpeechAvatarProcessor
+6. **#535** — Drive ModelProvisioningService from TtsModelRegistry
+7. **#536** — Avatar pipeline as composable playbook
 
 ## Cross-Module
 
@@ -102,7 +113,7 @@ with zipfile.ZipFile('speech-demo/target/casehub-agency-speech-demo-0.4-SNAPSHOT
 
 ## Garden Entries
 
-4 entries captured this session:
+4 entries captured across sessions:
 - GE-20261124-b96bb4 — `_handleSegment` order-of-operations (web)
 - GE-20261124-530701 — `firstChunk` always false (web)
 - GE-20261124-96889a — TalkingHead eye contact is probability not lock (web)
@@ -111,6 +122,7 @@ with zipfile.ZipFile('speech-demo/target/casehub-agency-speech-demo-0.4-SNAPSHOT
 ## References
 
 - Client component: `speech-ws/src/main/resources/META-INF/resources/avatar-component.mjs`
+- Gaze test utility: `speech-demo/src/main/resources/META-INF/resources/gaze-test.html`
 - TalkingHead source: `speech-ws/src/main/resources/META-INF/resources/vendor/talkinghead.mjs`
   - Eye contact system: lines 2820-2860
   - `lookAtCamera()`: lines 4132-4241
@@ -119,6 +131,7 @@ with zipfile.ZipFile('speech-demo/target/casehub-agency-speech-demo-0.4-SNAPSHOT
   - Animation template eyes: lines 390-420
   - `opt.update(dt)` call: line 2927
   - Morph layer registry: lines 1685-1738
+  - Morph target smoothing: lines 1904-1931 (acc/maxv/v)
 - Animation config: `speech-demo/src/main/resources/META-INF/resources/animations/avatar-performance.json`
 - Container: `speech-demo/Containerfile`
 - Avatar config: `speech-demo/src/main/resources/META-INF/avatar.yaml`
