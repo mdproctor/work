@@ -1,10 +1,10 @@
 # Work Plan —
 
 ## State
-branch: issue-530-restore-playback-rate-headless
+branch: 
 issue-repo: casehubio/agency
 status: active
-covers: casehubio/agency#529
+covers: casehubio/agency#550
 project-sha: 
 date: 
 design-repo: 
@@ -56,7 +56,7 @@ flyway-next-v: none
 - [x] casehubio/agency#533 — Deduplicate avatar YAML discovery
 - [x] casehubio/agency#534 — Add Quarkus deployment test for SpeechAvatarProcessor
 - [x] casehubio/agency#535 — Drive ModelProvisioningService from TtsModelRegistry
-- [ ] casehubio/agency#536 — Avatar pipeline as composable playbook ← active
+- [ ] casehubio/agency#536 — Avatar pipeline as composable playbook ← done on issue-530-restore-playback-rate-headless
   - [x] Batch 1: Foundation
     - [x] Task 1: FilterChain ordered composition
     - [x] Task 2: TextFilterRegistry + spec records
@@ -66,6 +66,7 @@ flyway-next-v: none
     - [x] Task 5: Wire pipeline into SpeechSession + TurnExecutor
   - [x] Batch 3: Verification
     - [x] Task 6: Podman integration test + docs
-- [ ] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free
+- [ ] casehubio/agency#550 — Two-mode mic push-to-talk plus hands-free ← active
 - [ ] casehubio/agency#551 — Colour-coded status bar with icons
 - [ ] casehubio/agency#552 — Visual reconnection indicator
+- [ ] casehubio/agency#553 — Integrate-CorrectionHooks-as-pipeline-step
