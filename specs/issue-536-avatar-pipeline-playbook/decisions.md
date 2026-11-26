@@ -46,3 +46,16 @@
 **Sources:** `speech-ws/TurnExecutor.java` (sentence-level segmentation), `speech-ws/UtteranceSegmenter.java`
 **Exploration:** quick
 **Status:** captured
+
+## D5: Custom step SPI shape
+
+**Choice:** Single typed interface `SpeechPipelineStep` with a `Phase phase()` method. Phase enum (CAPTURE, TEXT, SYNTHESIS, POST_SYNTHESIS) determines which typed process method the framework calls. CDI discovers implementations by `@Named` qualifier matching the YAML step name.
+**Alternatives:**
+- Sealed interface per data type pair (`TextTransformStep`, `AudioTransformStep`, etc.) — type-safe at interface level but proliferates interfaces
+- Generic `Function<I,O>` with type tokens — maximum generality but loses compile-time safety, Java type erasure makes it fragile
+**Rationale:** Most custom steps will be text→text filters (vocabulary correction, topic detection, profanity filter). A single interface with phase-typed methods keeps the common case simple (implement `processText(String) → String`) while supporting rarer cases (audio transforms). CDI `@Named` discovery is the established pattern in the platform.
+**Trade-offs:** Phase enum couples the SPI to the speech pipeline's specific stages. A new phase requires an interface change. Acceptable — the phase set is stable and small.
+**Depends on:** D1 (typed step chain), D2 (SPI interface in speech-api)
+**Sources:** `speech-api/SpeechPromptAssembler.java` (existing SPI pattern), CDI `@Named` qualifier pattern
+**Exploration:** quick
+**Status:** captured
