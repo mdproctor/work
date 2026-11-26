@@ -39,16 +39,19 @@
 
 ## D4: Streaming model
 
-**Choice:** Per-segment processing — post-LLM custom steps run per sentence segment via UtteranceSegmenter, preserving current streaming behaviour. Pipeline covers three insertion points: post-STT/pre-LLM, post-LLM/pre-segmenter, and post-segmenter/pre-TTS.
+**Choice:** Streaming-aware per-callback processing — the pipeline covers three insertion points with semantics dictated by the streaming architecture, not an idealized pipeline diagram.
 **Alternatives:**
 - Whole-turn — steps process full turn text; breaks streaming, user waits for full LLM response
 - Configurable per step — each step declares segment vs whole-turn; more complex
-**Rationale:** Preserves the current low-latency streaming architecture. The pipeline addresses all three insertion points in the existing flow (Mic → STT → **[post-STT]** → corrector → LLM → **[post-LLM]** → UtteranceSegmenter → **[post-segmenter]** → TTS → lip-sync). Post-STT steps integrate with the existing `CleanupConfig` chain. Post-LLM steps operate on the full LLM response before segmentation. Post-segmenter steps run per-segment, maintaining streaming.
-**Trade-offs:** Steps that need full-turn context (e.g. a summary-based topic detector) cannot see the whole LLM response before segmentation. This is a known limitation, explicitly out of scope for the initial design — not a deferred escape hatch.
+**Rationale:** Preserves the current low-latency streaming architecture. The three insertion points have different granularities determined by where they sit relative to the streaming boundary:
+1. **Post-STT / pre-LLM** — operates on the full transcription (per-turn). `SpeechSession.handleStop()` applies `cleanupConfig.apply(raw)` to the complete STT output before the LLM is invoked. Custom post-STT steps integrate with the existing `CleanupConfig` chain.
+2. **Post-LLM / pre-segmenter** — in the streaming path (production), operates **per-sentence-callback**, not per-turn. `streamingGenerator.generate()` fires a callback for each sentence as the LLM produces it; `segmenter.segment(sentence)` runs inside that callback. There is no point in the streaming path where the full LLM response exists before segmentation. Post-LLM filters therefore see one sentence at a time. In the non-streaming fallback path, the full response is available before segmentation. Per-sentence processing is sufficient for the target use cases (profanity filtering, vocabulary normalization).
+3. **Post-segmenter / pre-TTS** — operates per-segment. Each `ParsedSegment` from the segmenter is processed individually before TTS synthesis.
+**Trade-offs:** Post-LLM steps in the streaming path cannot see the full turn — they see one sentence callback at a time. Steps requiring cross-sentence context (e.g. a summary-based topic detector) are not supported. This is a known limitation, explicitly out of scope for the initial design.
 **Depends on:** D1 (pipeline abstraction provides the per-segment execution model)
-**Sources:** `speech-ws/TurnExecutor.java` (sentence-level segmentation), `speech-ws/UtteranceSegmenter.java`, `speech-ws/SpeechSession.java` (cleanup chain in handleStop/handleText)
+**Sources:** `speech-ws/TurnExecutor.processUserTurn()` lines 121-131 (streaming sentence callback + immediate segmentation), `speech-ws/SpeechSession.handleStop()` (post-STT cleanup), `speech-ws/UtteranceSegmenter.java`
 **Exploration:** quick
-**Status:** revised (R1 — addressed all three insertion points, removed hand-waved "async opt-in path", explicit scoping)
+**Status:** revised (R2 — corrected post-LLM semantics to accurately describe per-sentence-callback granularity in streaming path)
 
 ## D5: Custom step SPI shape
 
@@ -90,12 +93,13 @@
 
 ## D8: Step discovery mechanism
 
-**Choice:** Compiler-based resolution — the pipeline compiler directly constructs step implementations from YAML configuration, consistent with `AvatarCompiler.compileCleanup()`.
+**Choice:** Registry-based compiler resolution — a `TextFilterRegistry` (same shape as `SummariserRegistry`) maps YAML step names to `TextFilter` factories. The pipeline compiler takes the registry as a parameter and resolves step names against it. No CDI, no hardcoded switch.
 **Alternatives:**
+- Hardcoded compiler switch (`AvatarCompiler.compileCleanup()` pattern) — compiler directly instantiates known implementations; not extensible without modifying the compiler
 - CDI `@Named` qualifier — runtime discovery; contradicts the compilation pattern and means the YAML surface doesn't fully describe the pipeline without CDI context
-- ServiceLoader — standard Java SPI discovery; adds classpath scanning overhead for a problem the compiler can solve at build time
-**Rationale:** `AvatarCompiler.compileCleanup()` directly instantiates `FillerRemovalFilter`, `CasingFilter`, `PunctuationFilter`, `GectorFilter` from YAML configuration. The pipeline compiler follows the same pattern: YAML step name → implementation class → direct construction. The full pipeline is known and validatable at compile time, and steps can be unit-tested without a CDI container.
-**Trade-offs:** Adding a new step type requires updating the compiler's resolution logic (a switch expression), not just deploying a jar with a `@Named` qualifier. Acceptable — adding a new step type is a deliberate design change that should go through the compilation layer.
-**Sources:** `avatar-yaml/compiler/AvatarCompiler.compileCleanup()`, `speech-ws/SpeechWebSocket.java` (CDI is for runtime wiring, not compilation)
-**Exploration:** quick (implicit decision surfaced by reviewer in R1)
-**Status:** captured
+- ServiceLoader — standard Java SPI discovery; adds classpath scanning overhead for a problem the compiler can solve at initialization time
+**Rationale:** `SummariserRegistry`/`PipelineCompiler` from `summarisation-yaml` already implements this pattern in the same repo: `SummariserRegistry.register(typeId, factory)` for open name-based registration, `PipelineCompiler.compile(definition, registry, ...)` for registry-based resolution. `SummarisationRecorder.createRegistry()` populates built-in types (`threshold-classify`, `phase-detect`, `count`, `field-extract`, `verbatim`); consumers call `registry.register()` to add custom types. This is compiler-based (no CDI), extensible (no hardcoded switch), and already proven. `AvatarCompiler.compileCleanup()` uses hardcoded instantiation because cleanup filters are a fixed, known set — the pipeline design is about user extensibility, which is `SummariserRegistry`'s exact problem domain.
+**Trade-offs:** Registry population code must know about all built-in types at initialization. The registry is populated eagerly (all factories registered upfront), not lazily discovered. Acceptable — this is the same trade-off `SummarisationRecorder.createRegistry()` makes.
+**Sources:** `summarisation-yaml/SummariserRegistry.java` (open name-based registry), `summarisation-yaml/PipelineCompiler.java` (registry-based resolution), `summarisation-yaml/runtime/SummarisationRecorder.createRegistry()` (built-in type population)
+**Exploration:** quick (implicit decision surfaced by reviewer in R1, precedent corrected in R2)
+**Status:** revised (R2 — replaced `compileCleanup()` precedent with `SummariserRegistry`/`PipelineCompiler` registry pattern)
