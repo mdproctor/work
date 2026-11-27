@@ -1,29 +1,22 @@
 # HANDOFF — casehub-neocortex (slot 230)
 
-## Completed: SE2 CAPS Rework (#1222)
+## Completed: #1251 C8 EMA double-smoothing fix
 
-Branch `issue-1222-caps-rework` landed on main as 5 commits (squashed from 12).
+Branch `issue-1251-ema-double-smoothing-fix` — 1 commit, ready to land.
 
 ### What was done
 
-Fixed 14 bugs that made CAPS produce near-identical output regardless of personality or situation:
+Fixed EMA smoothing applying twice per cognitive tick in `CognitionCore.tick()`. The core called `drives.tick()` twice — once pre-DERIVED phase and again post-appraisal — both applying EMA smoothing. The second tick smoothed against the already-smoothed first-tick result instead of the previous core-tick's profile, over-dampening drive deactivation (0.524 vs correct 0.650).
 
-1. **Settler foundation** — replaced logistic activation (rest=0.5) with rectified tanh (rest=0.0); output nodes default to BIPOLAR tanh; fixed autonomy YAML keys; added resting activation clamping; fixed ADDITIVE distortion sign; tightened convergence threshold
-2. **Weight learning** — rewrote Rescorla-Wagner as multi-cue (per-target-node prediction error); removed dead inhibitory weight channel; simplified ConnectionWeight from 4→2 fields; added weight clamping [-2.0, 2.0]; Flyway V2 migration
-3. **Regulation persistence** — both regulation and coping paths now save updated weights after learning
-4. **Classification & CBR** — remapped all 14 drive-to-CAPS mappings to INPUT-only nodes; raised OSCILLATION convergence factor from 0.3→0.7; fixed CBR cache case ID; added PID-5/appraisal/valence filters
-5. **Verification** — added epic criterion tests (ranking differentiation + personality divergence)
+**Fix:** Extracted shared logic into `DriveOrchestrator.evaluateAndCompose()` with explicit smoothing baseline. `tick()` saves the pre-tick profile; new `recomposeWithModulations()` reuses that baseline so smoothing applies exactly once. `CognitionCore` now calls `recomposeWithModulations()` for the post-appraisal pass.
 
-### Epic Status (#1220)
+**Files changed:** `DriveOrchestrator.java` (refactored + new method), `CognitionCore.java` (1-line caller change), `DriveOrchestratorTest.java` (2 new tests).
 
-| Sub-epic | Issue | Status |
-|----------|-------|--------|
-| SE1: Pipeline Spine | #1221 | Done |
-| SE2: CAPS Rework | #1222 | **Done** (landed) |
-| SE3: Storage & Data Integrity | #1223 | Done |
-| SE4: Consolidation Phases | #1224 | Done |
-| SE5: cognitive-index | #1225 | Done |
-| SE6: Affect & Emotion | #1226 | **Next** |
-| SE7: Orchestrators | #1227 | Queued |
+### Queue status
 
-**5 of 7 sub-epics done. SE6 next.**
+#1251 done on branch. Next active: #1252 (F12 per-type confidence decay).
+
+### Notes for next session
+
+- Pre-existing test failure: `EmotionMappingIntegrationTest.shameWithUrgencyHasElevatedArousalAboveBaseline` — not related to this change, from commit `2aa181532`.
+- The workspace and project repos have diverged on main (workspace has workspace-only commits, project has design/plan commits from prior branches). This caused `workspace_not_level` during `work start` — was resolved with `start_anyway_from_the_stale_base`.
