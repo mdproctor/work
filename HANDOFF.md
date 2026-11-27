@@ -1,29 +1,22 @@
 # HANDOFF — casehub-neocortex (slot 230)
 
-## Completed: SE2 CAPS Rework (#1222)
+## Session: Closing epic #1220 review residuals
 
-Branch `issue-1222-caps-rework` landed on main as 5 commits (squashed from 12).
+Resolved the remaining open issues from the cognitive pipeline review (#1220).
 
-### What was done
+### Completed this session
 
-Fixed 14 bugs that made CAPS produce near-identical output regardless of personality or situation:
+| Issue | Finding | What was done |
+|-------|---------|---------------|
+| #1249 | A11: Orchestrators without CDI scope | Added @DefaultBean no-op producers for TemporalFocusOrchestrator and ReflectionRetrievalOrchestrator. Never-ticked classes confirmed agency-owned by design. |
+| #1245 | D14/D15/D16: Personality derivation | D14: Added neutral fallback styles to all 7 expression cascades. D15: Invalid at HEAD (already bidirectional). D16: Wired per-agent mood baseline from EffectiveCognitiveDefaults into MoodOrchestrator. |
+| #1248 | F19: Extraction issues | F19a: Already fixed (INFERRED 0.7). F19b: Added min-length guard (4 chars) for fuzzy name resolution. F19c: Hand-rolled JSON parser is by design. |
+| #1243 | SE8: Review Residuals (parent) | All children resolved — tracking issue closed. |
 
-1. **Settler foundation** — replaced logistic activation (rest=0.5) with rectified tanh (rest=0.0); output nodes default to BIPOLAR tanh; fixed autonomy YAML keys; added resting activation clamping; fixed ADDITIVE distortion sign; tightened convergence threshold
-2. **Weight learning** — rewrote Rescorla-Wagner as multi-cue (per-target-node prediction error); removed dead inhibitory weight channel; simplified ConnectionWeight from 4→2 fields; added weight clamping [-2.0, 2.0]; Flyway V2 migration
-3. **Regulation persistence** — both regulation and coping paths now save updated weights after learning
-4. **Classification & CBR** — remapped all 14 drive-to-CAPS mappings to INPUT-only nodes; raised OSCILLATION convergence factor from 0.3→0.7; fixed CBR cache case ID; added PID-5/appraisal/valence filters
-5. **Verification** — added epic criterion tests (ranking differentiation + personality divergence)
+### Epic #1220 status
 
-### Epic Status (#1220)
+All sub-epics (SE1-SE8) and all review residual findings are now resolved. Epic #1220 should be closeable.
 
-| Sub-epic | Issue | Status |
-|----------|-------|--------|
-| SE1: Pipeline Spine | #1221 | Done |
-| SE2: CAPS Rework | #1222 | **Done** (landed) |
-| SE3: Storage & Data Integrity | #1223 | Done |
-| SE4: Consolidation Phases | #1224 | Done |
-| SE5: cognitive-index | #1225 | Done |
-| SE6: Affect & Emotion | #1226 | **Next** |
-| SE7: Orchestrators | #1227 | Queued |
+### Queue state
 
-**5 of 7 sub-epics done. SE6 next.**
+Empty. No remaining items.
