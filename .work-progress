@@ -1,6 +1,6 @@
 _run=end
 review_attempt=1
-last_yielded=branch_name
+last_yielded=resolve_issue
 review=done
 review_produced=0
 diary_attempt=0
@@ -35,3 +35,5 @@ _exec_ok:design_routing=yes
 design_routing=done
 _exec_ok:scaffold=yes
 scaffold=done
+resolve_issue_attempt=1
+resolve_issue=done
