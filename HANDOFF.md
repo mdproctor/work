@@ -1,29 +1,26 @@
 # HANDOFF — casehub-neocortex (slot 230)
 
-## Completed: SE2 CAPS Rework (#1222)
+## Completed: #1209 Standardise fully qualified imports
 
-Branch `issue-1222-caps-rework` landed on main as 5 commits (squashed from 12).
+Branch `issue-1209-standardise-imports` — 1 commit, ready to land.
 
 ### What was done
 
-Fixed 14 bugs that made CAPS produce near-identical output regardless of personality or situation:
+Replaced 307 fully-qualified class references with proper imports across 62 test files in the cognition module. Common patterns: `java.util.Set.of()`, `java.util.Map.of()`, `java.time.Instant.now()`, `java.time.Duration.*`, `java.util.Optional.*`, plus project types from `io.casehub.neocortex.cognition.*`, `io.casehub.neocortex.cognitive.*`, `io.casehub.neocortex.mindmap.*`.
 
-1. **Settler foundation** — replaced logistic activation (rest=0.5) with rectified tanh (rest=0.0); output nodes default to BIPOLAR tanh; fixed autonomy YAML keys; added resting activation clamping; fixed ADDITIVE distortion sign; tightened convergence threshold
-2. **Weight learning** — rewrote Rescorla-Wagner as multi-cue (per-target-node prediction error); removed dead inhibitory weight channel; simplified ConnectionWeight from 4→2 fields; added weight clamping [-2.0, 2.0]; Flyway V2 migration
-3. **Regulation persistence** — both regulation and coping paths now save updated weights after learning
-4. **Classification & CBR** — remapped all 14 drive-to-CAPS mappings to INPUT-only nodes; raised OSCILLATION convergence factor from 0.3→0.7; fixed CBR cache case ID; added PID-5/appraisal/valence filters
-5. **Verification** — added epic criterion tests (ranking differentiation + personality divergence)
+Automated via Python script, verified with full compile + 1422-test run (1 pre-existing failure only).
 
-### Epic Status (#1220)
+### Also completed this session
 
-| Sub-epic | Issue | Status |
-|----------|-------|--------|
-| SE1: Pipeline Spine | #1221 | Done |
-| SE2: CAPS Rework | #1222 | **Done** (landed) |
-| SE3: Storage & Data Integrity | #1223 | Done |
-| SE4: Consolidation Phases | #1224 | Done |
-| SE5: cognitive-index | #1225 | Done |
-| SE6: Affect & Emotion | #1226 | **Next** |
-| SE7: Orchestrators | #1227 | Queued |
+- **#1252** (F12 per-type confidence decay) — landed to main, branch `issue-1252-per-type-confidence-decay`
+- **#1243** (SE8 Review Residuals) — closed on GitHub, all 7 children done
 
-**5 of 7 sub-epics done. SE6 next.**
+### Queue status
+
+Queue is empty after #1209.
+
+### Notes for next session
+
+- Pre-existing test failure: `EmotionMappingIntegrationTest.shameWithUrgencyHasElevatedArousalAboveBaseline` — from commit `2aa181532`, not related to any recent work.
+- Workspace and project repos have diverged on main (workspace has workspace-only commits, project has design/plan commits from prior branches). Prior sessions resolved with `start_anyway_from_the_stale_base`.
+- Two stale deferred items in the queue file (both resolved: #1250 closed, E2 verified correct). No `remove-deferred` command exists in plan_manager.
