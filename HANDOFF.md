@@ -2,31 +2,25 @@
 
 ## Last Session
 
-Completed and landed 6 issues across avatar speech pipeline work. All on main.
+Completed #554 — TurnExecutor cancellation tests. Single commit on branch `issue-554-turn-executor-cancellation-tests`.
 
-**Landed:**
+**What was done:**
 
-- **#551** — Colour-coded status bar with icons for speech pipeline states. 9 states mapped to colours/icons with CSS transitions. Fixed missing Speaking/Ready status emissions in AvatarEngine for 3D head path.
+- Added 3 cancellation tests to `TurnExecutorTest.java`:
+  - Cancel mid-streaming (blocks in generator, cancels, verifies no TTS audio + `cancelled=true`)
+  - Cancel during prompt assembly (blocks in assembler, cancels before LLM runs)
+  - Concurrent cancel from another thread during active streaming
+- Added `latchingTextSink()` helper + `turnCompleteLatch` field for thread-safe async test synchronisation
+- Key insight: `executeUserTurn()` resets `turnCancelled = false` on entry, so "cancel before turn" is not possible — test correctly targets prompt assembly phase instead
+- Key insight: `Future.get()` after `cancel(true)` returns `CancellationException` immediately without waiting for task completion — tests use latch-based waiting instead
 
-- **#553** — Integrated `CorrectionHooks.corrector()` as a named pipeline step in `TextFilterRegistry`. Removed dead `corrector` parameter from SpeechSession. CDI singleton sharing for vocabulary learning.
+**Build note:** `voice-spi` SNAPSHOT must be installed from slot's connectors (`mvn clean install -DskipTests` on `connectors/voice-spi`) before compiling `speech-ws`. IntelliJ reimport and Maven SNAPSHOT resolution can silently revert it.
 
-- **#537** — Excluded `casehub-agency` from `speech-deployment`'s `agentic-yaml-deployment` dependency. Fixes Jandex index miss for `CoordinationSignalProvider`.
+## Queue
 
-- **#460** — Wired gesture vocabulary into LLM system prompt and UtteranceSegmenter. `GesturePromptSection` now attached to `DefaultPromptAssembler`. 51 promptable gestures + 6 moods now visible to the LLM with continuous natural embedding.
-
-**Closed (already resolved):**
-
-- **#524** — `@JsonInclude(NON_NULL)` audit — resolved by #521.
-- **#448** — Platform agent-config — `SpeechProducers.java` already removed, `agent-config.yaml` already in place.
-
-**Deferred:**
-
-- **#546** — Client visual indicators for voice state transitions — blocked by #544 (interrupt handler).
-
-## Remaining Avatar UI Issues
-
-- **#461** — Contribute body animation system to TalkingHead (M/Med, upstream contribution)
-- **#454** — Epic: Avatar speech pipeline — production-ready (XL/High)
+- **#554** — done, branch `issue-554-turn-executor-cancellation-tests`, awaiting landing
+- **#523** — next: Remove Gson from speech-sherpa (S/Med)
+- **#236** — Quarkus dev-mode speech-sherpa Java 21 (S/Med)
 
 ## Cross-Module
 
@@ -37,4 +31,3 @@ Completed and landed 6 issues across avatar speech pipeline work. All on main.
 
 - Blog: `docs/blog/2026-11-26-mdp03-dead-code-and-missing-signals.md`
 - Consumer guide: `docs/guides/consumer-guide.md` (Pipeline Composition section)
-- Avatar config: `speech-demo/src/main/resources/META-INF/avatar.yaml`
