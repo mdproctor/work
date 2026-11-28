@@ -1,26 +1,25 @@
 # HANDOFF — casehub-neocortex (slot 230)
 
-## Completed: #1209 Standardise fully qualified imports
+## Session summary
 
-Branch `issue-1209-standardise-imports` — 1 commit, ready to land.
+Completed #1252 (per-type confidence decay) and #1209 (import standardisation). Closed #1243 (SE8 review residuals — all children done). Closed stale GitHub issues #1210, #1211. Queue was empty; repopulated with 4 new items.
 
-### What was done
+## Queue (4 open items)
 
-Replaced 307 fully-qualified class references with proper imports across 62 test files in the cognition module. Common patterns: `java.util.Set.of()`, `java.util.Map.of()`, `java.time.Instant.now()`, `java.time.Duration.*`, `java.util.Optional.*`, plus project types from `io.casehub.neocortex.cognition.*`, `io.casehub.neocortex.cognitive.*`, `io.casehub.neocortex.mindmap.*`.
+| # | Title | Scale | Complexity |
+|---|-------|-------|------------|
+| #1076 | PID-5 facet extension for situational attractor profiles | S | Med |
+| #1065 | RelationalSchema roles carry no hierarchy | S | Med |
+| #1091 | MindMapQuery property-based filtering | M | Med |
+| #1102 | Valenced relationship and goal-outcome signals | M | Med |
 
-Automated via Python script, verified with full compile + 1422-test run (1 pre-existing failure only).
+Recommended order: start with #1076 (assessment, informs later work) or #1065 (self-contained, well-defined).
 
-### Also completed this session
+## Notes for next session
 
-- **#1252** (F12 per-type confidence decay) — landed to main, branch `issue-1252-per-type-confidence-decay`
-- **#1243** (SE8 Review Residuals) — closed on GitHub, all 7 children done
-
-### Queue status
-
-Queue is empty after #1209.
-
-### Notes for next session
-
-- Pre-existing test failure: `EmotionMappingIntegrationTest.shameWithUrgencyHasElevatedArousalAboveBaseline` — from commit `2aa181532`, not related to any recent work.
-- Workspace and project repos have diverged on main (workspace has workspace-only commits, project has design/plan commits from prior branches). Prior sessions resolved with `start_anyway_from_the_stale_base`.
-- Two stale deferred items in the queue file (both resolved: #1250 closed, E2 verified correct). No `remove-deferred` command exists in plan_manager.
+- **Java target is 21**, not 25 — do not use ScopedValue/JEP 506. #1162 is blocked on Java target upgrade.
+- Pre-existing test failure: `EmotionMappingIntegrationTest.shameWithUrgencyHasElevatedArousalAboveBaseline` — from commit `2aa181532`.
+- Workspace and project repos have diverged on main. Prior sessions resolved with `start_anyway_from_the_stale_base`.
+- Two stale deferred items in queue (both resolved). No `remove-deferred` command exists.
+- `casehubio/examples` push fails due to Vault Radar pre-push hook — not related to neocortex work.
+- Both slots (229, 230) verified: all work landed to canonical repos. Old branches are all stamped closed.
